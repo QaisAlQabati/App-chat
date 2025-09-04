@@ -5,6 +5,8 @@ let token = localStorage.getItem('chatToken');
 let currentRoomId = 1;
 let selectedUserId = null;
 let currentPrivateChatUser = null;
+let mediaRecorder = null;
+let audioChunks = [];
 
 // الرتب المتاحة
 const RANKS = {
@@ -12,10 +14,10 @@ const RANKS = {
     bronze: { name: 'Bronze Member', emoji: '🥉', level: 1 },
     silver: { name: 'Silver Member', emoji: '🥈', level: 2 },
     gold: { name: 'Gold Member', emoji: '🥇', level: 3 },
-    diamond: { name: 'Diamond Member', emoji: '💎', level: 4 },   // للأعضاء المتميزين
-    star: { name: 'Super Moderator', emoji: '⭐', level: 5 },     // للمشرفين السوبر
-    prince: { name: 'Admin', emoji: '👑', level: 6 },            // للإدارة (أنور)
-    trophy: { name: 'Owner', emoji: '🏆', level: 7 }             // لمالك الموقع
+    diamond: { name: 'Diamond Member', emoji: '💎', level: 4 },
+    star: { name: 'Super Moderator', emoji: '⭐', level: 5 },
+    prince: { name: 'Admin', emoji: '👑', level: 6 },
+    trophy: { name: 'Owner', emoji: '🏆', level: 7 }
 };
 
 // التحقق من التوكن عند تحميل الصفحة
@@ -31,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function setupEventListeners() {
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
     document.getElementById('registerForm').addEventListener('submit', handleRegister);
-    
+
     // إرسال الرسائل بالضغط على Enter
     document.getElementById('messageInput').addEventListener('keypress', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -47,12 +49,22 @@ function setupEventListeners() {
             sendPrivateMessage();
         }
     });
+
+    // إضافة مستمعات لإرسال الصور (معطلة الآن)
+    // document.getElementById('uploadImagePublic').addEventListener('change', sendPublicImage);
+    // document.getElementById('uploadImagePrivate').addEventListener('change', sendPrivateImage);
+
+    // إضافة مستمعات لتسجيل الصوت (معطلة الآن)
+    // document.getElementById('startVoicePublic').addEventListener('click', startVoiceRecordingPublic);
+    // document.getElementById('stopVoicePublic').addEventListener('click', stopVoiceRecordingPublic);
+    // document.getElementById('startVoicePrivate').addEventListener('click', startVoiceRecordingPrivate);
+    // document.getElementById('stopVoicePrivate').addEventListener('click', stopVoiceRecordingPrivate);
 }
 
 function showTab(tabName) {
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.form').forEach(form => form.classList.remove('active'));
-    
+
     event.target.classList.add('active');
     document.getElementById(tabName + 'Form').classList.add('active');
     document.getElementById('loginError').textContent = '';
@@ -70,19 +82,19 @@ function showChatScreen() {
 
 async function handleLogin(e) {
     e.preventDefault();
-    
+
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
-    
+
     try {
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             token = data.token;
             currentUser = data.user;
@@ -99,20 +111,20 @@ async function handleLogin(e) {
 
 async function handleRegister(e) {
     e.preventDefault();
-    
+
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
     const displayName = document.getElementById('registerDisplayName').value;
-    
+
     try {
         const response = await fetch('/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password, display_name: displayName })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             token = data.token;
             currentUser = data.user;
@@ -132,7 +144,7 @@ async function validateToken() {
         const response = await fetch('/api/user/profile', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (response.ok) {
             const userData = await response.json();
             currentUser = userData;
@@ -155,7 +167,7 @@ function setupChat() {
     connectSocket();
     loadRooms();
     loadMessages(currentRoomId);
-    
+
     if (currentUser.role === 'admin') {
         document.getElementById('adminBtn').style.display = 'block';
         document.getElementById('createRoomBtn').style.display = 'block';
@@ -164,10 +176,10 @@ function setupChat() {
 
 function updateUserInfo() {
     document.getElementById('userDisplayName').textContent = currentUser.display_name;
-    
+
     const rankInfo = RANKS[currentUser.rank] || RANKS.visitor;
     document.getElementById('userRank').textContent = `${rankInfo.emoji} ${rankInfo.name}`;
-    
+
     if (currentUser.profile_image1) {
         document.getElementById('userAvatar').src = currentUser.profile_image1;
     }
@@ -175,7 +187,7 @@ function updateUserInfo() {
 
 function connectSocket() {
     socket = io();
-    
+
     socket.emit('join', {
         userId: currentUser.id,
         displayName: currentUser.display_name,
@@ -183,16 +195,14 @@ function connectSocket() {
         email: currentUser.email,
         roomId: currentRoomId
     });
-    
+
     socket.on('newMessage', (message) => {
         if (message.room_id === currentRoomId) {
             displayMessage(message);
-            
-            // تشغيل صوت الرسائل العامة
+
             if (message.user_id !== currentUser.id) {
                 playMessageSound();
-                
-                // فحص الإشارات
+
                 if (message.message.includes(`@${currentUser.display_name}`)) {
                     playMentionSound();
                     showMentionNotification(message);
@@ -200,22 +210,23 @@ function connectSocket() {
             }
         }
     });
-    
+
     socket.on('roomUsersList', (users) => {
         updateUsersList(users);
     });
-    
+
     socket.on('newPrivateMessage', (message) => {
         if (currentPrivateChatUser && 
-            (message.user_id === currentPrivateChatUser.userId || message.receiver_id === currentPrivateChatUser.userId)) {
+            (message.user_id === currentPrivateChatUser.userId || 
+             message.receiver_id === currentPrivateChatUser.userId || 
+             message.user_id === currentUser.id || 
+             message.receiver_id === currentUser.id)) {
             displayPrivateMessage(message);
         }
-        
-        // تشغيل صوت الرسائل الخاصة
+
         if (message.user_id !== currentUser.id) {
             playPrivateMessageSound();
-            
-            // عرض إشعار للرسائل الخاصة
+
             if (Notification.permission === 'granted') {
                 const notification = new Notification(`رسالة خاصة من ${message.display_name}`, {
                     body: message.message,
@@ -226,9 +237,23 @@ function connectSocket() {
         }
     });
 
+    // تعطيل للصور والصوت
+    // socket.on('newImage', (data) => { ... });
+    // socket.on('newPrivateImage', (data) => { ... });
+    // socket.on('newVoice', (data) => { ... });
+    // socket.on('newPrivateVoice', (data) => { ... });
+
     socket.on('roomChanged', (newRoomId) => {
         currentRoomId = newRoomId;
         loadMessages(newRoomId);
+    });
+
+    socket.on('roomDeleted', (roomId) => {
+        if (roomId === currentRoomId) {
+            // الانتقال إلى غرفة افتراضية
+            changeRoom(1, 'الغرفة الرئيسية');
+        }
+        loadRooms();
     });
 }
 
@@ -237,7 +262,7 @@ async function loadRooms() {
         const response = await fetch('/api/rooms', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (response.ok) {
             const rooms = await response.json();
             updateRoomsList(rooms);
@@ -250,14 +275,14 @@ async function loadRooms() {
 function updateRoomsList(rooms) {
     const roomsList = document.getElementById('roomsList');
     roomsList.innerHTML = '';
-    
+
     rooms.forEach(room => {
         const roomItem = document.createElement('div');
         roomItem.className = `room-item ${room.id === currentRoomId ? 'active' : ''}`;
         roomItem.onclick = () => changeRoom(room.id, room.name);
-        
+
         const roomIcon = room.name.charAt(0).toUpperCase();
-        
+
         roomItem.innerHTML = `
             <div class="room-item-icon">${roomIcon}</div>
             <div class="room-item-info">
@@ -265,25 +290,34 @@ function updateRoomsList(rooms) {
                 <div class="room-item-desc">${room.description || 'غرفة دردشة'}</div>
             </div>
         `;
-        
+
+        // إضافة زر حذف للإداريين
+        if (currentUser.role === 'admin') {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-room-btn';
+            deleteBtn.textContent = '🗑️';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteRoom(room.id);
+            };
+            roomItem.appendChild(deleteBtn);
+        }
+
         roomsList.appendChild(roomItem);
     });
 }
 
 function changeRoom(roomId, roomName) {
     if (roomId === currentRoomId) return;
-    
+
     currentRoomId = roomId;
     document.getElementById('currentRoomName').textContent = roomName;
-    
-    // تحديث الغرف النشطة
+
     document.querySelectorAll('.room-item').forEach(item => item.classList.remove('active'));
     event.currentTarget.classList.add('active');
-    
-    // إخبار السيرفر بتغيير الغرفة
+
     socket.emit('changeRoom', roomId);
-    
-    // مسح الرسائل وتحميل رسائل الغرفة الجديدة
+
     document.getElementById('messagesContainer').innerHTML = '';
     loadMessages(roomId);
 }
@@ -293,10 +327,18 @@ async function loadMessages(roomId) {
         const response = await fetch(`/api/messages/${roomId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (response.ok) {
             const messages = await response.json();
-            messages.forEach(message => displayMessage(message));
+            messages.forEach(message => {
+                if (message.type === 'text') {
+                    displayMessage(message);
+                } else if (message.type === 'image') {
+                    displayImageMessage(message);
+                } else if (message.type === 'voice') {
+                    displayVoiceMessage(message);
+                }
+            });
         }
     } catch (error) {
         console.error('خطأ في تحميل الرسائل:', error);
@@ -306,16 +348,16 @@ async function loadMessages(roomId) {
 function updateUsersList(users) {
     const usersList = document.getElementById('usersList');
     usersList.innerHTML = '';
-    
+
     users.forEach(user => {
         if (user.userId === currentUser.id) return;
-        
+
         const userItem = document.createElement('div');
         userItem.className = 'user-item';
         userItem.onclick = () => openPrivateChat(user);
-        
+
         const rankInfo = RANKS[user.rank] || RANKS.visitor;
-        
+
         userItem.innerHTML = `
             <img src="${user.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية">
             <div class="user-item-info">
@@ -323,7 +365,7 @@ function updateUsersList(users) {
                 <div class="user-item-rank">${rankInfo.emoji} ${rankInfo.name}</div>
             </div>
         `;
-        
+
         usersList.appendChild(userItem);
     });
 }
@@ -334,23 +376,23 @@ let quotedMessage = null;
 function displayMessage(message) {
     const messagesContainer = document.getElementById('messagesContainer');
     const messageElement = document.createElement('div');
-    
+
     const isOwn = message.user_id === currentUser.id;
     messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
     messageElement.setAttribute('data-message-id', message.id);
-    
+
     // إضافة خلفية الرسالة إذا كانت موجودة
     if (message.message_background) {
         messageElement.style.backgroundImage = `url(${message.message_background})`;
         messageElement.classList.add('has-background');
     }
-    
+
     const rankInfo = RANKS[message.rank] || RANKS.visitor;
     const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', { 
         hour: '2-digit', 
         minute: '2-digit' 
     });
-    
+
     messageElement.innerHTML = `
         <div class="message-header">
             <img src="${message.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar clickable-avatar" onclick="viewUserProfile('${message.user_id}', '${message.display_name}')">
@@ -371,7 +413,53 @@ function displayMessage(message) {
         ` : ''}
         <div class="message-content">${escapeHtml(message.message)}</div>
     `;
-    
+
+    messagesContainer.appendChild(messageElement);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function displayImageMessage(data) {
+    const messagesContainer = document.getElementById('messagesContainer');
+    const messageElement = document.createElement('div');
+    const isOwn = data.user_id === currentUser.id;
+    messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
+
+    const rankInfo = RANKS[data.rank] || RANKS.visitor;
+    const time = new Date(data.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+
+    messageElement.innerHTML = `
+        <div class="message-header">
+            <img src="${data.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar">
+            <span class="message-author">${data.display_name}</span>
+            <span class="message-rank">${rankInfo.emoji} ${rankInfo.name}</span>
+            <span class="message-time">${time}</span>
+        </div>
+        <img src="${data.image_url}" alt="صورة مرسلة" class="chat-image">
+    `;
+
+    messagesContainer.appendChild(messageElement);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function displayVoiceMessage(data) {
+    const messagesContainer = document.getElementById('messagesContainer');
+    const messageElement = document.createElement('div');
+    const isOwn = data.user_id === currentUser.id;
+    messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
+
+    const rankInfo = RANKS[data.rank] || RANKS.visitor;
+    const time = new Date(data.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+
+    messageElement.innerHTML = `
+        <div class="message-header">
+            <img src="${data.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar">
+            <span class="message-author">${data.display_name}</span>
+            <span class="message-rank">${rankInfo.emoji} ${rankInfo.name}</span>
+            <span class="message-time">${time}</span>
+        </div>
+        <audio controls src="${data.voice_url}"></audio>
+    `;
+
     messagesContainer.appendChild(messageElement);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
@@ -379,23 +467,24 @@ function displayMessage(message) {
 function sendMessage() {
     const messageInput = document.getElementById('messageInput');
     const message = messageInput.value.trim();
-    
+
     if (!message) return;
-    
+
     const messageData = {
         message: message,
-        roomId: currentRoomId
+        roomId: currentRoomId,
+        type: 'text'
     };
-    
+
     // إضافة بيانات الاقتباس إذا وجدت
     if (quotedMessage) {
         messageData.quoted_message_id = quotedMessage.id;
         messageData.quoted_message = quotedMessage.content;
         messageData.quoted_author = quotedMessage.author;
     }
-    
+
     socket.emit('sendMessage', messageData);
-    
+
     messageInput.value = '';
     clearQuote(); // مسح الاقتباس بعد الإرسال
 }
@@ -407,7 +496,7 @@ function showMentionNotification(message) {
             body: message.message,
             icon: message.profile_image1 || '/default-avatar.png'
         });
-        
+
         setTimeout(() => notification.close(), 5000);
     }
 }
@@ -421,19 +510,19 @@ function requestNotificationPermission() {
 
 // عرض إعدادات الأصوات
 function openSoundSettings() {
-    const settingsModal = document.createElement('div');
+    const settingsModal = new Document.createElement('div');
     settingsModal.className = 'modal active';
     settingsModal.id = 'soundSettingsModal';
-    
+
     const messageSoundsEnabled = localStorage.getItem('messageSoundsEnabled') !== 'false';
     const privateSoundsEnabled = localStorage.getItem('privateSoundsEnabled') !== 'false';
     const mentionSoundsEnabled = localStorage.getItem('mentionSoundsEnabled') !== 'false';
-    
+
     settingsModal.innerHTML = `
         <div class="modal-content">
             <span class="close" onclick="closeSoundSettings()">&times;</span>
             <h2>🔊 إعدادات الأصوات</h2>
-            
+
             <div class="sound-settings">
                 <div class="sound-setting">
                     <label>
@@ -442,7 +531,7 @@ function openSoundSettings() {
                     </label>
                     <button onclick="testMessageSound()" class="test-sound-btn">تجربة</button>
                 </div>
-                
+
                 <div class="sound-setting">
                     <label>
                         <input type="checkbox" id="privateSounds" ${privateSoundsEnabled ? 'checked' : ''}>
@@ -450,7 +539,7 @@ function openSoundSettings() {
                     </label>
                     <button onclick="testPrivateSound()" class="test-sound-btn">تجربة</button>
                 </div>
-                
+
                 <div class="sound-setting">
                     <label>
                         <input type="checkbox" id="mentionSounds" ${mentionSoundsEnabled ? 'checked' : ''}>
@@ -458,21 +547,21 @@ function openSoundSettings() {
                     </label>
                     <button onclick="testMentionSound()" class="test-sound-btn">تجربة</button>
                 </div>
-                
+
                 <div class="sound-setting">
                     <button onclick="requestNotificationPermission()" class="btn">
                         🔔 تفعيل الإشعارات
                     </button>
                 </div>
             </div>
-            
+
             <div class="sound-actions">
                 <button onclick="saveSoundSettings()" class="btn save-btn">حفظ الإعدادات</button>
                 <button onclick="closeSoundSettings()" class="btn cancel-btn">إلغاء</button>
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(settingsModal);
 }
 
@@ -487,11 +576,11 @@ function saveSoundSettings() {
     const messageSounds = document.getElementById('messageSounds').checked;
     const privateSounds = document.getElementById('privateSounds').checked;
     const mentionSounds = document.getElementById('mentionSounds').checked;
-    
+
     localStorage.setItem('messageSoundsEnabled', messageSounds);
     localStorage.setItem('privateSoundsEnabled', privateSounds);
     localStorage.setItem('mentionSoundsEnabled', mentionSounds);
-    
+
     alert('تم حفظ إعدادات الأصوات!');
     closeSoundSettings();
 }
@@ -508,10 +597,10 @@ function testMentionSound() {
     playMentionSound();
 }
 
-// وظائف الإيموجي المتحركة
+// توسيع قائمة الإيموجيات المتحركة والعادية
 const animatedEmojis = {
     '😂': 'laugh',
-    '😍': 'heart-eyes', 
+    '😍': 'heart-eyes',
     '😘': 'kiss',
     '😎': 'cool',
     '😭': 'sob',
@@ -529,29 +618,267 @@ const animatedEmojis = {
     '💫': 'dizzy',
     '🌈': 'rainbow',
     '🎆': 'fireworks',
-    '💎': 'gem'
+    '💎': 'gem',
+    '😀': 'grin',
+    '😃': 'smiley',
+    '😄': 'smile',
+    '😅': 'sweat-smile',
+    '😆': 'laughing',
+    '😉': 'wink',
+    '😋': 'yum',
+    '😌': 'relieved',
+    '😔': 'pensive',
+    '😕': 'confused',
+    '😖': 'confounded',
+    '😗': 'kissing',
+    '😙': 'kissing-smiling-eyes',
+    '😚': 'kissing-closed-eyes',
+    '😛': 'stuck-out-tongue',
+    '😜': 'stuck-out-tongue-winking-eye',
+    '😝': 'stuck-out-tongue-closed-eyes',
+    '😞': 'disappointed',
+    '😟': 'worried',
+    '😠': 'angry',
+    '😢': 'cry',
+    '😣': 'persevere',
+    '😤': 'triumph',
+    '😥': 'disappointed-relieved',
+    '😦': 'frowning',
+    '😧': 'anguished',
+    '😨': 'fearful',
+    '😩': 'weary',
+    '😪': 'sleepy',
+    '😫': 'tired-face',
+    '😬': 'grimacing',
+    '😮': 'open-mouth',
+    '😯': 'hushed',
+    '😰': 'cold-sweat',
+    '😱': 'scream',
+    '😲': 'astonished',
+    '😳': 'flushed',
+    '😴': 'sleeping',
+    '😵': 'dizzy-face',
+    '😷': 'mask',
+    '😸': 'smile-cat',
+    '😹': 'joy-cat',
+    '😺': 'smiley-cat',
+    '😻': 'heart-eyes-cat',
+    '😼': 'kissing-cat',
+    '😽': 'smirk-cat',
+    '😾': 'weary-cat',
+    '😿': 'crying-cat-face',
+    '🙀': 'scream-cat',
+    '🙁': 'slightly-frowning-face',
+    '🙂': 'slightly-smiling-face',
+    '🙃': 'upside-down-face',
+    '🙄': 'face-with-rolling-eyes',
+    '🤐': 'zipper-mouth-face',
+    '🤑': 'money-mouth-face',
+    '🤒': 'face-with-thermometer',
+    '🤓': 'nerd-face',
+    '🤔': 'thinking-face',
+    '🤕': 'face-with-head-bandage',
+    '🤖': 'robot-face',
+    '🤗': 'hugging-face',
+    '🤘': 'sign-of-the-horns',
+    '🤙': 'call-me-hand',
+    '🤚': 'raised-back-of-hand',
+    '🤛': 'left-facing-fist',
+    '🤜': 'right-facing-fist',
+    '🤝': 'handshake',
+    '🤞': 'crossed-fingers',
+    '🤟': 'love-you-gesture',
+    '🤠': 'face-with-cowboy-hat',
+    '🤡': 'clown-face',
+    '🤢': 'nauseated-face',
+    '🤣': 'rolling-on-the-floor-laughing',
+    '🤤': 'drooling-face',
+    '🤥': 'lying-face',
+    '🤦': 'face-palm',
+    '🤧': 'sneezing-face',
+    '🤨': 'face-with-raised-eyebrow',
+    '🤩': 'star-struck',
+    '🤪': 'zany-face',
+    '🤫': 'shushing-face',
+    '🤬': 'face-with-symbols-on-mouth',
+    '🤭': 'face-with-hand-over-mouth',
+    '🤮': 'face-vomiting',
+    '🤯': 'exploding-head',
+    '🥰': 'smiling-face-with-hearts',
+    '🥱': 'yawning-face',
+    '🥲': 'smiling-face-with-tear',
+    '🥳': 'partying-face',
+    '🥴': 'woozy-face',
+    '🥵': 'hot-face',
+    '🥶': 'cold-face',
+    '🥷': 'ninja',
+    '🥸': 'disguised-face',
+    '🥺': 'pleading-face',
+    '🥼': 'lab-coat',
+    '🥽': 'goggles',
+    '🥾': 'hiking-boot',
+    '🥿': 'flat-shoe',
+    '🦀': 'crab',
+    '🦁': 'lion-face',
+    '🦂': 'scorpion',
+    '🦃': 'turkey',
+    '🦄': 'unicorn-face',
+    '🦅': 'eagle',
+    '🦆': 'duck',
+    '🦇': 'bat',
+    '🦈': 'shark',
+    '🦉': 'owl',
+    '🦊': 'fox-face',
+    '🦋': 'butterfly',
+    '🦌': 'deer',
+    '🦍': 'gorilla',
+    '🦎': 'lizard',
+    '🦏': 'rhinoceros',
+    '🦐': 'shrimp',
+    '🦑': 'squid',
+    '🦒': 'giraffe-face',
+    '🦓': 'zebra-face',
+    '🦔': 'hedgehog',
+    '🦕': 'sauropod',
+    '🦖': 't-rex',
+    '🦗': 'cricket',
+    '🦘': 'kangaroo',
+    '🦙': 'llama',
+    '🦚': 'peacock',
+    '🦛': 'hippopotamus',
+    '🦜': 'parrot',
+    '🦝': 'raccoon',
+    '🦞': 'lobster',
+    '🦟': 'mosquito',
+    '🦠': 'microbe',
+    '🦡': 'badger',
+    '🦢': 'swan',
+    '🦥': 'sloth',
+    '🦦': 'otter',
+    '🦧': 'orangutan',
+    '🦨': 'skunk',
+    '🦩': 'flamingo',
+    '🦪': 'oyster',
+    '🦫': 'beaver',
+    '🦬': 'bison',
+    '🦭': 'seal',
+    '🦮': 'guide-dog',
+    '🦯': 'probing-cane',
+    '🦰': 'red-haired',
+    '🦱': 'curly-haired',
+    '🦲': 'bald',
+    '🦳': 'white-haired',
+    '🦴': 'bone',
+    '🦵': 'leg',
+    '🦶': 'foot',
+    '🦷': 'tooth',
+    '🦸': 'superhero',
+    '🦹': 'supervillain',
+    '🦺': 'safety-vest',
+    '🦻': 'ear-with-hearing-aid',
+    '🦼': 'motorized-wheelchair',
+    '🦽': 'manual-wheelchair',
+    '🦾': 'mechanical-arm',
+    '🦿': 'mechanical-leg',
+    '🧀': 'cheese-wedge',
+    '🧁': 'cupcake',
+    '🧂': 'salt',
+    '🧃': 'beverage-box',
+    '🧄': 'garlic',
+    '🧅': 'onion',
+    '🧆': 'falafel',
+    '🧇': 'waffle',
+    '🧈': 'butter',
+    '🧉': 'mate-drink',
+    '🧊': 'ice-cube',
+    '🧋': 'bubble-tea',
+    '🧌': 'troll',
+    '🧍': 'person-standing',
+    '🧎': 'person-kneeling',
+    '🧏': 'deaf-person',
+    '🧐': 'face-with-monocle',
+    '🧑': 'adult',
+    '🧒': 'child',
+    '🧓': 'older-adult',
+    '🧔': 'bearded-person',
+    '🧕': 'person-with-headscarf',
+    '🧖': 'person-in-steamy-room',
+    '🧗': 'person-climbing',
+    '🧘': 'person-in-lotus-position',
+    '🧙': 'mage',
+    '🧚': 'fairy',
+    '🧛': 'vampire',
+    '🧜': 'merperson',
+    '🧝': 'elf',
+    '🧞': 'genie',
+    '🧟': 'zombie',
+    '🧠': 'brain',
+    '🧡': 'orange-heart',
+    '🧢': 'billed-cap',
+    '🧣': 'scarf',
+    '🧤': 'gloves',
+    '🧥': 'coat',
+    '🧦': 'socks',
+    '🧧': 'red-envelope',
+    '🧨': 'firecracker',
+    '🧩': 'jigsaw',
+    '🧪': 'test-tube',
+    '🧫': 'petri-dish',
+    '🧬': 'dna',
+    '🧭': 'compass',
+    '🧮': 'abacus',
+    '🧯': 'fire-extinguisher',
+    '🧰': 'toolbox',
+    '🧱': 'brick',
+    '🧲': 'magnet',
+    '🧳': 'luggage',
+    '🧴': 'lotion-bottle',
+    '🧵': 'thread',
+    '🧶': 'yarn',
+    '🧷': 'safety-pin',
+    '🧸': 'teddy-bear',
+    '🧹': 'broom',
+    '🧺': 'basket',
+    '🧻': 'roll-of-paper',
+    '🧼': 'soap',
+    '🧽': 'sponge',
+    '🧾': 'receipt',
+    '🧿': 'nazar-amulet',
+    // إضافة المزيد من الإيموجيات العادية هنا إذا لزم
 };
 
-function toggleEmojiPanel() {
+const staticEmojis = [
+    '😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '😴', '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '🙁', '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧', '😨', '😩', '🤯', '😬', '😰', '😱', '🥵', '🥶', '😳', '🤪', '😵', '🥴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥳', '🥺', '🤠', '🤡', '🤥', '🤫', '🤭', '🧐', '🤓', '😈', '👿', '👹', '👺', '💀', '👻', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾',
+    // إضافة المزيد من الإيموجيات العادية
+    '👶', '🧒', '👦', '👧', '🧑', '👨', '👩', '🧓', '👴', '👵', '👨‍⚕️', '👩‍⚕️', '👨‍🎓', '👩‍🎓', '👨‍🏫', '👩‍🏫', '👨‍⚖️', '👩‍⚖️', '👨‍🌾', '👩‍🌾', '👨‍🍳', '👩‍🍳', '👨‍🔧', '👩‍🔧', '👨‍🏭', '👩‍🏭', '👨‍💼', '👩‍💼', '👨‍🔬', '👩‍🔬', '👨‍💻', '👩‍💻', '👨‍🎤', '👩‍🎤', '👨‍🎨', '👩‍🎨', '👨‍✈️', '👩‍✈️', '👨‍🚀', '👩‍🚀', '👨‍🚒', '👩‍🚒', '👮‍♂️', '👮‍♀️', '🕵️‍♂️', '🕵️‍♀️', '💂‍♂️', '💂‍♀️', '👷‍♂️', '👷‍♀️', '🤴', '👸', '👳‍♂️', '👳‍♀️', '👲', '🧕', '🤵', '👰', '🤰', '🤱', '👼', '🎅', '🤶', '🦸‍♂️', '🦸‍♀️', '🦹‍♂️', '🦹‍♀️', '🧙‍♂️', '🧙‍♀️', '🧚‍♂️', '🧚‍♀️', '🧛‍♂️', '🧛‍♀️', '🧜‍♂️', '🧜‍♀️', '🧝‍♂️', '🧝‍♀️', '🧞‍♂️', '🧞‍♀️', '🧟‍♂️', '🧟‍♀️', '💆‍♂️', '💆‍♀️', '💇‍♂️', '💇‍♀️', '🚶‍♂️', '🚶‍♀️', '🏃‍♂️', '🏃‍♀️', '💃', '🕺', '👯‍♂️', '👯‍♀️', '🧖‍♂️', '🧖‍♀️', '🧘‍♂️', '🧘‍♀️', '🛀', '🛌', '🕴️', '🗣️', '👤', '👥', '🫂', '👣', '🦰', '🦱', '🦳', '🦲'
+];
+
+function toggleEmojiPanel(type = 'animated') {
     const existingPanel = document.querySelector('.emoji-panel');
     if (existingPanel) {
         existingPanel.remove();
         return;
     }
-    
+
     const emojiPanel = document.createElement('div');
     emojiPanel.className = 'emoji-panel';
-    
-    let emojiHTML = '<div class="emoji-panel-header">😀 الإيموجي المتحركة</div>';
+
+    let emojiHTML = `<div class="emoji-panel-header">😀 الإيموجي ${type === 'animated' ? 'المتحركة' : 'العادية'}</div>`;
     emojiHTML += '<div class="emoji-grid">';
-    
-    Object.keys(animatedEmojis).forEach(emoji => {
-        emojiHTML += `<span class="animated-emoji ${animatedEmojis[emoji]}" onclick="insertEmoji('${emoji}')">${emoji}</span>`;
-    });
-    
+
+    if (type === 'animated') {
+        Object.keys(animatedEmojis).forEach(emoji => {
+            emojiHTML += `<span class="animated-emoji ${animatedEmojis[emoji]}" onclick="insertEmoji('${emoji}')">${emoji}</span>`;
+        });
+    } else {
+        staticEmojis.forEach(emoji => {
+            emojiHTML += `<span class="static-emoji" onclick="insertEmoji('${emoji}')">${emoji}</span>`;
+        });
+    }
+
     emojiHTML += '</div>';
     emojiPanel.innerHTML = emojiHTML;
-    
+
     const messageInputArea = document.querySelector('.message-input-area');
     messageInputArea.appendChild(emojiPanel);
 }
@@ -561,7 +888,7 @@ function insertEmoji(emoji) {
     const currentText = messageInput.value;
     messageInput.value = currentText + emoji;
     messageInput.focus();
-    
+
     // إضافة تأثير انفجار عند الإدراج
     createEmojiExplosion(emoji);
 }
@@ -570,13 +897,13 @@ function createEmojiExplosion(emoji) {
     const explosion = document.createElement('div');
     explosion.className = 'emoji-explosion';
     explosion.textContent = emoji;
-    
+
     // وضع عشوائي على الشاشة
     explosion.style.left = Math.random() * window.innerWidth + 'px';
     explosion.style.top = Math.random() * window.innerHeight + 'px';
-    
+
     document.body.appendChild(explosion);
-    
+
     // إزالة التأثير بعد 2 ثانية
     setTimeout(() => {
         if (explosion.parentNode) {
@@ -590,12 +917,12 @@ function addEmojiAnimations() {
     const messages = document.querySelectorAll('.message-content');
     messages.forEach(message => {
         let content = message.innerHTML;
-        
+
         Object.keys(animatedEmojis).forEach(emoji => {
             const regex = new RegExp(emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
             content = content.replace(regex, `<span class="animated-emoji ${animatedEmojis[emoji]}">${emoji}</span>`);
         });
-        
+
         message.innerHTML = content;
     });
 }
@@ -603,16 +930,16 @@ function addEmojiAnimations() {
 // تأثير المطر المتحرك
 function createEmojiRain() {
     const rainEmojis = ['✨', '🎆', '🎉', '❤️', '💜', '🌹'];
-    
+
     for (let i = 0; i < 20; i++) {
         setTimeout(() => {
             const rainDrop = document.createElement('div');
             rainDrop.className = 'emoji-rain';
             rainDrop.textContent = rainEmojis[Math.floor(Math.random() * rainEmojis.length)];
             rainDrop.style.left = Math.random() * window.innerWidth + 'px';
-            
+
             document.body.appendChild(rainDrop);
-            
+
             setTimeout(() => {
                 if (rainDrop.parentNode) {
                     rainDrop.parentNode.removeChild(rainDrop);
@@ -627,7 +954,7 @@ function triggerSpecialEffects(message) {
     if (message.includes('🎉') || message.includes('🎆')) {
         createEmojiRain();
     }
-    
+
     if (message.includes('❤️') && message.includes('💜')) {
         createHeartEffect();
     }
@@ -635,7 +962,7 @@ function triggerSpecialEffects(message) {
 
 function createHeartEffect() {
     const hearts = ['❤️', '💜', '💙', '💚', '💛'];
-    
+
     for (let i = 0; i < 15; i++) {
         setTimeout(() => {
             const heart = document.createElement('div');
@@ -643,9 +970,9 @@ function createHeartEffect() {
             heart.textContent = hearts[Math.floor(Math.random() * hearts.length)];
             heart.style.left = Math.random() * window.innerWidth + 'px';
             heart.style.bottom = '0px';
-            
+
             document.body.appendChild(heart);
-            
+
             setTimeout(() => {
                 if (heart.parentNode) {
                     heart.parentNode.removeChild(heart);
@@ -674,10 +1001,18 @@ async function loadPrivateMessages(userId) {
         const response = await fetch(`/api/private-messages/${userId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (response.ok) {
             const messages = await response.json();
-            messages.forEach(message => displayPrivateMessage(message));
+            messages.forEach(message => {
+                if (message.type === 'text') {
+                    displayPrivateMessage(message);
+                } else if (message.type === 'image') {
+                    displayPrivateImageMessage(message);
+                } else if (message.type === 'voice') {
+                    displayPrivateVoiceMessage(message);
+                }
+            });
         }
     } catch (error) {
         console.error('خطأ في تحميل الرسائل الخاصة:', error);
@@ -687,16 +1022,16 @@ async function loadPrivateMessages(userId) {
 function displayPrivateMessage(message) {
     const container = document.getElementById('privateChatMessages');
     const messageElement = document.createElement('div');
-    
+
     const isOwn = message.user_id === currentUser.id;
     messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
-    
+
     const rankInfo = RANKS[message.rank] || RANKS.visitor;
     const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', { 
         hour: '2-digit', 
         minute: '2-digit' 
     });
-    
+
     messageElement.innerHTML = `
         <div class="message-header">
             <img src="${message.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar">
@@ -706,7 +1041,53 @@ function displayPrivateMessage(message) {
         </div>
         <div class="message-content">${escapeHtml(message.message)}</div>
     `;
-    
+
+    container.appendChild(messageElement);
+    container.scrollTop = container.scrollHeight;
+}
+
+function displayPrivateImageMessage(data) {
+    const container = document.getElementById('privateChatMessages');
+    const messageElement = document.createElement('div');
+    const isOwn = data.user_id === currentUser.id;
+    messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
+
+    const rankInfo = RANKS[data.rank] || RANKS.visitor;
+    const time = new Date(data.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+
+    messageElement.innerHTML = `
+        <div class="message-header">
+            <img src="${data.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar">
+            <span class="message-author">${data.display_name}</span>
+            <span class="message-rank">${rankInfo.emoji} ${rankInfo.name}</span>
+            <span class="message-time">${time}</span>
+        </div>
+        <img src="${data.image_url}" alt="صورة مرسلة" class="chat-image">
+    `;
+
+    container.appendChild(messageElement);
+    container.scrollTop = container.scrollHeight;
+}
+
+function displayPrivateVoiceMessage(data) {
+    const container = document.getElementById('privateChatMessages');
+    const messageElement = document.createElement('div');
+    const isOwn = data.user_id === currentUser.id;
+    messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
+
+    const rankInfo = RANKS[data.rank] || RANKS.visitor;
+    const time = new Date(data.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+
+    messageElement.innerHTML = `
+        <div class="message-header">
+            <img src="${data.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar">
+            <span class="message-author">${data.display_name}</span>
+            <span class="message-rank">${rankInfo.emoji} ${rankInfo.name}</span>
+            <span class="message-time">${time}</span>
+        </div>
+        <audio controls src="${data.voice_url}"></audio>
+    `;
+
     container.appendChild(messageElement);
     container.scrollTop = container.scrollHeight;
 }
@@ -714,15 +1095,66 @@ function displayPrivateMessage(message) {
 function sendPrivateMessage() {
     const input = document.getElementById('privateMessageInput');
     const message = input.value.trim();
-    
+
     if (!message || !currentPrivateChatUser) return;
-    
+
     socket.emit('sendPrivateMessage', {
         message: message,
-        receiverId: currentPrivateChatUser.userId
+        receiverId: currentPrivateChatUser.userId,
+        type: 'text'
     });
-    
+
     input.value = '';
+}
+
+// إرسال صور عامة (معطل)
+function sendPublicImage(event) {
+    // الكود معطل الآن
+}
+
+// إرسال صور خاصة (معطل)
+function sendPrivateImage(event) {
+    // الكود معطل الآن
+}
+
+// تسجيل صوت عام (معطل)
+async function startVoiceRecordingPublic() {
+    // الكود معطل الآن
+}
+
+function stopVoiceRecordingPublic() {
+    // الكود معطل الآن
+}
+
+// تسجيل صوت خاص (معطل)
+async function startVoiceRecordingPrivate() {
+    // الكود معطل الآن
+}
+
+function stopVoiceRecordingPrivate() {
+    // الكود معطل الآن
+}
+
+// حذف غرفة
+async function deleteRoom(roomId) {
+    if (currentUser.role !== 'admin') return;
+    if (!confirm('هل تريد حذف هذه الغرفة؟')) return;
+
+    try {
+        const response = await fetch(`/api/rooms/${roomId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            socket.emit('deleteRoom', roomId);
+            alert('تم حذف الغرفة');
+        } else {
+            alert('خطأ في حذف الغرفة');
+        }
+    } catch (error) {
+        alert('خطأ في الاتصال');
+    }
 }
 
 // إدارة الملف الشخصي
@@ -740,25 +1172,25 @@ async function loadUserProfile() {
         const response = await fetch('/api/user/profile', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (response.ok) {
             const profile = await response.json();
-            
+
             if (profile.profile_image1) {
                 document.getElementById('profileImg1').src = profile.profile_image1;
             }
             if (profile.profile_image2) {
                 document.getElementById('profileImg2').src = profile.profile_image2;
             }
-            
+
             document.getElementById('newDisplayName').value = profile.display_name;
-            
+
             // تحميل المعلومات الشخصية
             if (profile.age) document.getElementById('userAge').value = profile.age;
             if (profile.gender) document.getElementById('userGender').value = profile.gender;
             if (profile.marital_status) document.getElementById('userMaritalStatus').value = profile.marital_status;
             if (profile.about_me) document.getElementById('userAboutMe').value = profile.about_me;
-            
+
             const rankInfo = RANKS[profile.rank] || RANKS.visitor;
             document.getElementById('currentRank').textContent = `${rankInfo.emoji} ${rankInfo.name}`;
         }
@@ -792,27 +1224,27 @@ function previewMessageBackground(input) {
 
 async function uploadProfileImages() {
     const formData = new FormData();
-    
+
     const file1 = document.getElementById('profileFile1').files[0];
     const file2 = document.getElementById('profileFile2').files[0];
-    
+
     if (file1) formData.append('profile1', file1);
     if (file2) formData.append('profile2', file2);
-    
+
     if (!file1 && !file2) {
         alert('يرجى اختيار صورة واحدة على الأقل');
         return;
     }
-    
+
     try {
         const response = await fetch('/api/upload-profile-images', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` },
             body: formData
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             alert('تم حفظ الصور بنجاح!');
             if (data.profile_image1) {
@@ -829,24 +1261,24 @@ async function uploadProfileImages() {
 
 async function uploadMessageBackground() {
     const file = document.getElementById('messageBackgroundFile').files[0];
-    
+
     if (!file) {
         alert('يرجى اختيار خلفية');
         return;
     }
-    
+
     const formData = new FormData();
     formData.append('messageBackground', file);
-    
+
     try {
         const response = await fetch('/api/upload-message-background', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` },
             body: formData
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             alert('تم حفظ خلفية الرسائل بنجاح!');
         } else {
@@ -859,12 +1291,12 @@ async function uploadMessageBackground() {
 
 async function updateDisplayName() {
     const newName = document.getElementById('newDisplayName').value.trim();
-    
+
     if (!newName) {
         alert('يرجى إدخال اسم صحيح');
         return;
     }
-    
+
     try {
         const response = await fetch('/api/user/display-name', {
             method: 'PUT',
@@ -874,9 +1306,9 @@ async function updateDisplayName() {
             },
             body: JSON.stringify({ display_name: newName })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             currentUser.display_name = data.display_name;
             document.getElementById('userDisplayName').textContent = data.display_name;
@@ -889,7 +1321,6 @@ async function updateDisplayName() {
     }
 }
 
-// إدارة الغرف
 function openCreateRoomModal() {
     if (currentUser.role !== 'admin') {
         alert('غير مسموح - للإداريين فقط');
@@ -923,28 +1354,28 @@ async function createRoom() {
     const name = document.getElementById('roomName').value.trim();
     const description = document.getElementById('roomDescription').value.trim();
     const backgroundFile = document.getElementById('roomBackgroundFile').files[0];
-    
+
     if (!name) {
         alert('يرجى إدخال اسم الغرفة');
         return;
     }
-    
+
     const formData = new FormData();
     formData.append('name', name);
     formData.append('description', description);
     if (backgroundFile) {
         formData.append('roomBackground', backgroundFile);
     }
-    
+
     try {
         const response = await fetch('/api/rooms', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` },
             body: formData
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             alert('تم إنشاء الغرفة بنجاح!');
             closeCreateRoomModal();
@@ -963,7 +1394,7 @@ async function openAdminPanel() {
         alert('غير مسموح - للإداريين فقط');
         return;
     }
-    
+
     document.getElementById('adminModal').classList.add('active');
     await loadAllUsers();
     loadAvailableRanks();
@@ -978,18 +1409,18 @@ async function loadAllUsers() {
         const response = await fetch('/api/all-users', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (response.ok) {
             const users = await response.json();
             const usersList = document.getElementById('allUsersList');
             usersList.innerHTML = '';
-            
+
             users.forEach(user => {
                 const userItem = document.createElement('div');
                 userItem.className = 'admin-user-item';
-                
+
                 const rankInfo = RANKS[user.rank] || RANKS.visitor;
-                
+
                 userItem.innerHTML = `
                     <div class="admin-user-info">
                         <img src="${user.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="admin-user-avatar">
@@ -1004,7 +1435,7 @@ async function loadAllUsers() {
                         تعيين رتبة
                     </button>
                 `;
-                
+
                 usersList.appendChild(userItem);
             });
         }
@@ -1016,17 +1447,17 @@ async function loadAllUsers() {
 function loadAvailableRanks() {
     const ranksList = document.getElementById('availableRanks');
     ranksList.innerHTML = '';
-    
+
     Object.entries(RANKS).forEach(([key, rank]) => {
         const rankItem = document.createElement('div');
         rankItem.className = 'rank-item';
-        
+
         rankItem.innerHTML = `
             <span class="rank-emoji">${rank.emoji}</span>
             <div class="rank-name">${rank.name}</div>
             <div class="rank-level">المستوى: ${rank.level}</div>
         `;
-        
+
         ranksList.appendChild(rankItem);
     });
 }
@@ -1035,10 +1466,10 @@ function openAssignRankModal(userId, userName) {
     selectedUserId = userId;
     document.getElementById('targetUserName').textContent = userName;
     document.getElementById('assignRankModal').classList.add('active');
-    
+
     const rankSelect = document.getElementById('rankSelect');
     rankSelect.innerHTML = '<option value="">اختر الرتبة</option>';
-    
+
     Object.entries(RANKS).forEach(([key, rank]) => {
         const option = document.createElement('option');
         option.value = key;
@@ -1055,12 +1486,12 @@ function closeAssignRankModal() {
 async function confirmAssignRank() {
     const newRank = document.getElementById('rankSelect').value;
     const reason = document.getElementById('rankReason').value;
-    
+
     if (!newRank) {
         alert('يرجى اختيار رتبة');
         return;
     }
-    
+
     try {
         const response = await fetch('/api/assign-rank', {
             method: 'POST',
@@ -1074,9 +1505,9 @@ async function confirmAssignRank() {
                 reason: reason
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             alert(data.message);
             closeAssignRankModal();
@@ -1093,11 +1524,11 @@ function logout() {
     localStorage.removeItem('chatToken');
     token = null;
     currentUser = null;
-    
+
     if (socket) {
         socket.disconnect();
     }
-    
+
     showLoginScreen();
 }
 
@@ -1116,7 +1547,7 @@ async function loadAllUsersForChat() {
         const response = await fetch('/api/all-users-chat', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (response.ok) {
             const users = await response.json();
             displayAllUsersForChat(users);
@@ -1130,22 +1561,22 @@ async function loadAllUsersForChat() {
 function displayAllUsersForChat(users) {
     const container = document.getElementById('allUsersListModal');
     container.innerHTML = '';
-    
+
     if (users.length === 0) {
         container.innerHTML = '<div class="no-users">لا يوجد مستخدمين آخرين</div>';
         return;
     }
-    
+
     users.forEach(user => {
         if (user.id === currentUser.id) return; // لا نظهر المستخدم نفسه
-        
+
         const userDiv = document.createElement('div');
         userDiv.className = 'user-chat-item';
-        
+
         const rankInfo = RANKS[user.rank] || RANKS.visitor;
         const statusClass = user.is_online ? 'online' : 'offline';
         const statusText = user.is_online ? 'متصل' : 'غير متصل';
-        
+
         const adminButtons = currentUser.role === 'admin' ? `
             <button onclick="openAssignRankForUser('${user.id}', '${user.display_name}')" class="admin-btn rank-btn">
                 🏆 رتبة
@@ -1154,7 +1585,7 @@ function displayAllUsersForChat(users) {
                 🔐 كلمة مرور
             </button>
         ` : '';
-        
+
         userDiv.innerHTML = `
             <div class="user-info">
                 <img src="${user.profile_image1 || getDefaultAvatar()}" alt="${user.display_name}" class="user-avatar">
@@ -1180,7 +1611,7 @@ function displayAllUsersForChat(users) {
                 ${adminButtons}
             </div>
         `;
-        
+
         container.appendChild(userDiv);
     });
 }
@@ -1188,7 +1619,7 @@ function displayAllUsersForChat(users) {
 function startPrivateChatFromList(userId, userName) {
     // إغلاق مودال قائمة المستخدمين
     closeAllUsersModal();
-    
+
     // بدء الدردشة الخاصة
     currentPrivateChatUser = { userId: parseInt(userId), displayName: userName };
     document.getElementById('privateChatUserName').textContent = userName;
@@ -1203,7 +1634,7 @@ async function updatePersonalInfo() {
     const gender = document.getElementById('userGender').value;
     const maritalStatus = document.getElementById('userMaritalStatus').value;
     const aboutMe = document.getElementById('userAboutMe').value;
-    
+
     try {
         const response = await fetch('/api/user/personal-info', {
             method: 'PUT',
@@ -1218,9 +1649,9 @@ async function updatePersonalInfo() {
                 about_me: aboutMe
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             alert('تم حفظ المعلومات بنجاح!');
         } else {
@@ -1243,9 +1674,9 @@ async function blockUser(userId, userName) {
                 },
                 body: JSON.stringify({ blockedUserId: userId })
             });
-            
+
             const data = await response.json();
-            
+
             if (response.ok) {
                 alert('تم حظر المستخدم بنجاح');
                 loadAllUsersForChat(); // إعادة تحميل القائمة
@@ -1268,9 +1699,9 @@ async function unblockUser(userId, userName) {
                     'Authorization': `Bearer ${token}`
                 }
             });
-            
+
             const data = await response.json();
-            
+
             if (response.ok) {
                 alert('تم إلغاء حظر المستخدم بنجاح');
                 loadAllUsersForChat(); // إعادة تحميل القائمة
@@ -1289,14 +1720,14 @@ async function changeUserPassword(userId, userName) {
         alert('غير مسموح - للإداريين فقط');
         return;
     }
-    
+
     const newPassword = prompt(`أدخل كلمة المرور الجديدة لـ ${userName}:`);
-    
+
     if (!newPassword || newPassword.length < 6) {
         alert('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
         return;
     }
-    
+
     try {
         const response = await fetch('/api/admin/change-password', {
             method: 'PUT',
@@ -1306,9 +1737,9 @@ async function changeUserPassword(userId, userName) {
             },
             body: JSON.stringify({ userId: userId, newPassword: newPassword })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             alert('تم تغيير كلمة المرور بنجاح');
         } else {
@@ -1327,7 +1758,7 @@ async function viewUserProfile(userId, userName) {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
+
         if (response.ok) {
             const user = await response.json();
             showUserProfileModal(user);
@@ -1346,23 +1777,23 @@ function quoteMessage(messageId, author, content) {
         author: author,
         content: content
     };
-    
+
     // عرض معاينة الاقتباس
     showQuotePreview();
-    
+
     // تركيز على حقل الرسالة
     document.getElementById('messageInput').focus();
 }
 
 function showQuotePreview() {
     const messageInputArea = document.querySelector('.message-input-area');
-    
+
     // إزالة معاينة سابقة إن وجدت
     const existingPreview = document.querySelector('.quote-preview');
     if (existingPreview) {
         existingPreview.remove();
     }
-    
+
     const quotePreview = document.createElement('div');
     quotePreview.className = 'quote-preview';
     quotePreview.innerHTML = `
@@ -1374,7 +1805,7 @@ function showQuotePreview() {
             <div class="quote-preview-text">${quotedMessage.content.substring(0, 100)}${quotedMessage.content.length > 100 ? '...' : ''}</div>
         </div>
     `;
-    
+
     messageInputArea.insertBefore(quotePreview, messageInputArea.firstChild);
 }
 
@@ -1390,16 +1821,16 @@ function mentionUser(userName) {
     const messageInput = document.getElementById('messageInput');
     const currentText = messageInput.value;
     const mention = `@${userName} `;
-    
+
     // إضافة الإشارة في بداية الرسالة أو بعد النص الموجود
     if (currentText.trim() === '') {
         messageInput.value = mention;
     } else {
         messageInput.value = currentText + ' ' + mention;
     }
-    
+
     messageInput.focus();
-    
+
     // تشغيل صوت الإشارة
     playMentionSound();
 }
@@ -1407,7 +1838,7 @@ function mentionUser(userName) {
 // وظائف الأصوات
 function playMessageSound() {
     if (localStorage.getItem('messageSoundsEnabled') !== 'false') {
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LLdCEIKnbH8N2QQAoUXrTp66hVFApGn+DyvmAaBjmS2e4QQwAAAA==');
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LLdCEIKnbH8N2QQAoUXrTp66hVFApGn+DyvmAaBjmS2e4QQAAAA==');
         audio.volume = 0.3;
         audio.play().catch(() => {});
     }
@@ -1440,7 +1871,7 @@ function showUserProfileModal(user) {
             🔐 تغيير كلمة المرور
         </button>
     ` : '';
-    
+
     const profileHtml = `
         <div class="user-profile-info">
             <div class="profile-header">
@@ -1453,14 +1884,14 @@ function showUserProfileModal(user) {
                     </span>
                 </div>
             </div>
-            
+
             <div class="profile-details">
                 ${user.age ? `<div class="profile-detail"><strong>العمر:</strong> ${user.age}</div>` : ''}
                 ${user.gender ? `<div class="profile-detail"><strong>الجنس:</strong> ${user.gender}</div>` : ''}
                 ${user.marital_status ? `<div class="profile-detail"><strong>الحالة الاجتماعية:</strong> ${user.marital_status}</div>` : ''}
                 ${user.about_me ? `<div class="profile-detail about-me"><strong>عني:</strong><br>${user.about_me}</div>` : ''}
             </div>
-            
+
             <div class="profile-actions">
                 <button onclick="startPrivateChatFromList('${user.id}', '${user.display_name}'); closeUserProfileModal()" class="btn private-btn">
                     💬 دردشة خاصة
@@ -1472,7 +1903,7 @@ function showUserProfileModal(user) {
             </div>
         </div>
     `;
-    
+
     // عرض المعلومات في مودال مؤقت
     const modal = document.createElement('div');
     modal.className = 'modal active';
@@ -1484,7 +1915,7 @@ function showUserProfileModal(user) {
             ${profileHtml}
         </div>
     `;
-    
+
     document.body.appendChild(modal);
 }
 
@@ -1501,11 +1932,11 @@ function openAssignRankForUser(userId, userName) {
         alert('غير مسموح - للإداريين فقط');
         return;
     }
-    
+
     selectedUserId = parseInt(userId);
     document.getElementById('targetUserName').textContent = userName;
     document.getElementById('assignRankModal').classList.add('active');
-    
+
     // إغلاق مودال معلومات المستخدم إذا كان مفتوحاً
     closeUserProfileModal();
     closeAllUsersModal();
