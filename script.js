@@ -1962,3 +1962,109 @@ window.onclick = function(event) {
     });
 }
 
+// إرسال رسالة عامة في الغرفة
+function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const message = messageInput.value.trim();
+
+    // التحقق من أن الرسالة ليست فارغة
+    if (!message) return;
+
+    // إنشاء كائن الرسالة
+    const messageData = {
+        message: message,
+        roomId: currentRoomId,
+        type: 'text'
+    };
+
+    // دعم الاقتباس (إذا كان هناك رسالة مقتبسة)
+    if (quotedMessage) {
+        messageData.quoted_message_id = quotedMessage.id;
+        messageData.quoted_message = quotedMessage.content;
+        messageData.quoted_author = quotedMessage.author;
+    }
+
+    // إرسال الرسالة عبر السوكيت
+    socket.emit('sendMessage', messageData);
+
+    // إعادة تعيين حقل الإدخال ومسح الاقتباس
+    messageInput.value = '';
+    clearQuote();
+}
+
+// ربط الدالة بالحقل عند الضغط على Enter
+document.getElementById('messageInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+socket.on('newMessage', (message) => {
+    if (message.room_id === currentRoomId) {
+        displayMessage(message);
+        if (message.user_id !== currentUser.id) {
+            playMessageSound();
+            if (message.message.includes(`@${currentUser.display_name}`)) {
+                playMentionSound();
+                showMentionNotification(message);
+            }
+        }
+    }
+});
+
+let typingTimer;
+const TYPING_DELAY = 1000;
+
+document.getElementById('messageInput').addEventListener('input', () => {
+    clearTimeout(typingTimer);
+    socket.emit('typing', { roomId: currentRoomId, displayName: currentUser.display_name });
+    typingTimer = setTimeout(() => {
+        socket.emit('stopTyping', { roomId: currentRoomId });
+    }, TYPING_DELAY);
+});
+
+// في connectSocket()
+socket.on('userTyping', (data) => {
+    if (data.roomId === currentRoomId && data.displayName !== currentUser.display_name) {
+        const typingIndicator = document.createElement('div');
+        typingIndicator.id = 'typingIndicator';
+        typingIndicator.textContent = `${data.displayName} يكتب...`;
+        typingIndicator.style.color = '#1abc9c';
+        typingIndicator.style.fontSize = '0.8em';
+        typingIndicator.style.padding = '5px';
+        document.getElementById('messagesContainer').appendChild(typingIndicator);
+        setTimeout(() => {
+            if (typingIndicator.parentNode) typingIndicator.remove();
+        }, 2000);
+    }
+});
+
+socket.on('sendMessage', (data) => {
+    // تخزين الرسالة في قاعدة البيانات
+    db.run(
+        `INSERT INTO messages (user_id, room_id, message, type, quoted_message_id) VALUES (?, ?, ?, ?, ?)`,
+        [socket.userId, data.roomId, data.message, data.type || 'text', data.quoted_message_id || null],
+        function (err) {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            const message = {
+                id: this.lastID,
+                user_id: socket.userId,
+                display_name: socket.displayName,
+                rank: socket.rank,
+                profile_image1: socket.profileImage1,
+                message: data.message,
+                type: data.type || 'text',
+                room_id: data.roomId,
+                timestamp: new Date().toISOString(),
+                quoted_message: data.quoted_message,
+                quoted_author: data.quoted_author
+            };
+            // إرسال الرسالة إلى جميع المستخدمين في الغرفة
+            io.to(data.roomId).emit('newMessage', message);
+        }
+    );
+});
