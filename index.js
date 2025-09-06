@@ -353,6 +353,70 @@ app.get('/api/rooms', authenticateToken, (req, res) => {
 });
 
 // إنشاء غرفة جديدة (للإداريين فقط)
+app.delete('/api/rooms/:id', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'غير مسموح - للإداريين فقط' });
+    }
+
+    const roomId = parseInt(req.params.id);
+    
+    if (roomId === 1) {
+        return res.status(400).json({ error: 'لا يمكن حذف الغرفة الرئيسية' });
+    }
+
+    db.run('DELETE FROM rooms WHERE id = ?', [roomId], (err) => {
+        if (err) {
+            return res.status(500).json({ error: 'خطأ في حذف الغرفة' });
+        }
+        
+        // حذف رسائل الغرفة أيضاً
+        db.run('DELETE FROM messages WHERE room_id = ?', [roomId], (err) => {
+            if (err) {
+                console.error('خطأ في حذف رسائل الغرفة:', err);
+            }
+        });
+        
+        res.json({ success: true, message: 'تم حذف الغرفة بنجاح' });
+    });
+});
+
+// حذف رسالة
+app.delete('/api/messages/:id', authenticateToken, (req, res) => {
+    const messageId = parseInt(req.params.id);
+    
+    // التحقق من ملكية الرسالة أو صلاحية الإدارة
+    db.get('SELECT user_id FROM messages WHERE id = ?', [messageId], (err, message) => {
+        if (err) {
+            return res.status(500).json({ error: 'خطأ في قاعدة البيانات' });
+        }
+        
+        if (!message) {
+            return res.status(404).json({ error: 'الرسالة غير موجودة' });
+        }
+        
+        if (message.user_id !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'غير مسموح - يمكنك حذف رسائلك فقط' });
+        }
+        
+        db.run('DELETE FROM messages WHERE id = ?', [messageId], (err) => {
+            if (err) {
+                return res.status(500).json({ error: 'خطأ في حذف الرسالة' });
+            }
+            res.json({ success: true, message: 'تم حذف الرسالة بنجاح' });
+        });
+    });
+});
+
+// رفع الملفات الصوتية
+app.post('/api/upload-voice', authenticateToken, upload.single('voice'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'لم يتم رفع ملف صوتي' });
+    }
+    
+    const voice_url = `/uploads/${req.file.filename}`;
+    res.json({ voice_url });
+});
+
 app.post('/api/rooms', authenticateToken, upload.single('roomBackground'), (req, res) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'غير مسموح - للإداريين فقط' });
@@ -795,23 +859,48 @@ io.on('connection', (socket) => {
 
         const roomId = data.roomId || user.currentRoom || 1;
 
-        // حفظ الرسالة في قاعدة البيانات
-        db.run('INSERT INTO messages (user_id, email, message, room_id) VALUES (?, ?, ?, ?)',
-            [user.userId, user.email, data.message, roomId], function(err) {
+        // تحديد نوع الرسالة وحفظها
+        let query, params;
+        
+        if (data.voice_url) {
+            // رسالة صوتية
+            query = 'INSERT INTO messages (user_id, email, voice_url, room_id) VALUES (?, ?, ?, ?)';
+            params = [user.userId, user.email, data.voice_url, roomId];
+        } else if (data.image_url) {
+            // رسالة صورة
+            query = 'INSERT INTO messages (user_id, email, image_url, room_id) VALUES (?, ?, ?, ?)';
+            params = [user.userId, user.email, data.image_url, roomId];
+        } else {
+            // رسالة نصية
+            if (data.quoted_message_id) {
+                query = 'INSERT INTO messages (user_id, email, message, room_id, quoted_message_id, quoted_author, quoted_content) VALUES (?, ?, ?, ?, ?, ?, ?)';
+                params = [user.userId, user.email, data.message, roomId, data.quoted_message_id, data.quoted_author, data.quoted_content];
+            } else {
+                query = 'INSERT INTO messages (user_id, email, message, room_id) VALUES (?, ?, ?, ?)';
+                params = [user.userId, user.email, data.message, roomId];
+            }
+        }
+        
+        db.run(query, params, function(err) {
                 if (err) {
                     console.error('خطأ في حفظ الرسالة:', err);
                     return;
                 }
 
                 // الحصول على بيانات المستخدم الكاملة
-                            db.get('SELECT profile_image1, background_image, message_background FROM users WHERE id = ?', [user.userId], (err, userData) => {
+                db.get('SELECT profile_image1, background_image, message_background FROM users WHERE id = ?', [user.userId], (err, userData) => {
                     const messageData = {
                         id: this.lastID,
                         user_id: user.userId,
                         display_name: user.displayName,
                         rank: user.rank,
-                        message: data.message,
+                        message: data.message || null,
+                        voice_url: data.voice_url || null,
+                        image_url: data.image_url || null,
                         room_id: roomId,
+                        quoted_message_id: data.quoted_message_id || null,
+                        quoted_author: data.quoted_author || null,
+                        quoted_content: data.quoted_content || null,
                         profile_image1: userData?.profile_image1,
                         background_image: userData?.background_image,
                         message_background: userData?.message_background,
@@ -828,9 +917,21 @@ io.on('connection', (socket) => {
         const sender = connectedUsers.get(socket.id);
         if (!sender) return;
 
-        // حفظ الرسالة في قاعدة البيانات
-        db.run('INSERT INTO messages (user_id, email, message, is_private, receiver_id) VALUES (?, ?, ?, ?, ?)',
-            [sender.userId, sender.email, data.message, true, data.receiverId], function(err) {
+        // تحديد نوع الرسالة وحفظها
+        let query, params;
+        
+        if (data.voice_url) {
+            query = 'INSERT INTO messages (user_id, email, voice_url, is_private, receiver_id) VALUES (?, ?, ?, ?, ?)';
+            params = [sender.userId, sender.email, data.voice_url, true, data.receiverId];
+        } else if (data.image_url) {
+            query = 'INSERT INTO messages (user_id, email, image_url, is_private, receiver_id) VALUES (?, ?, ?, ?, ?)';
+            params = [sender.userId, sender.email, data.image_url, true, data.receiverId];
+        } else {
+            query = 'INSERT INTO messages (user_id, email, message, is_private, receiver_id) VALUES (?, ?, ?, ?, ?)';
+            params = [sender.userId, sender.email, data.message, true, data.receiverId];
+        }
+        
+        db.run(query, params, function(err) {
                 if (err) {
                     console.error('خطأ في حفظ الرسالة الخاصة:', err);
                     return;
@@ -841,7 +942,9 @@ io.on('connection', (socket) => {
                     user_id: sender.userId,
                     display_name: sender.displayName,
                     rank: sender.rank,
-                    message: data.message,
+                    message: data.message || null,
+                    voice_url: data.voice_url || null,
+                    image_url: data.image_url || null,
                     is_private: true,
                     receiver_id: data.receiverId,
                     timestamp: new Date().toISOString()
@@ -858,6 +961,73 @@ io.on('connection', (socket) => {
                     }
                 }
             });
+    });
+
+    // إرسال رسالة صوتية في الغرفة
+    socket.on('sendVoice', (data) => {
+        const user = connectedUsers.get(socket.id);
+        if (!user) return;
+        
+        const roomId = data.roomId || user.currentRoom || 1;
+        
+        socket.emit('sendMessage', {
+            voice_url: data.voice_url,
+            roomId: roomId
+        });
+    });
+    
+    // إرسال رسالة صوتية خاصة
+    socket.on('sendPrivateVoice', (data) => {
+        const sender = connectedUsers.get(socket.id);
+        if (!sender) return;
+        
+        socket.emit('sendPrivateMessage', {
+            voice_url: data.voice_url,
+            receiverId: data.receiverId
+        });
+    });
+    
+    // إرسال صورة في الغرفة
+    socket.on('sendImage', (data) => {
+        const user = connectedUsers.get(socket.id);
+        if (!user) return;
+        
+        const roomId = data.roomId || user.currentRoom || 1;
+        
+        socket.emit('sendMessage', {
+            image_url: data.image_url,
+            roomId: roomId
+        });
+    });
+    
+    // إرسال صورة خاصة
+    socket.on('sendPrivateImage', (data) => {
+        const sender = connectedUsers.get(socket.id);
+        if (!sender) return;
+        
+        socket.emit('sendPrivateMessage', {
+            image_url: data.image_url,
+            receiverId: data.receiverId
+        });
+    });
+    
+    // حذف رسالة
+    socket.on('deleteMessage', (data) => {
+        io.to(`room_${data.roomId}`).emit('messageDeleted', data.messageId);
+    });
+    
+    // حذف رسالة خاصة
+    socket.on('deletePrivateMessage', (data) => {
+        // إشعار المستخدمين المعنيين بحذف الرسالة
+        socket.emit('privateMessageDeleted', data.messageId);
+        
+        // البحث عن المستقبل وإشعاره
+        for (let [socketId, userData] of connectedUsers) {
+            if (userData.userId === data.receiverId) {
+                socket.to(socketId).emit('privateMessageDeleted', data.messageId);
+                break;
+            }
+        }
     });
 
     // قطع الاتصال

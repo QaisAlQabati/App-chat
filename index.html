@@ -81,6 +81,7 @@
                     <div id="messagesContainer" class="messages-container"></div>
                     <div class="message-input-area">
                         <input type="text" id="messageInput" placeholder="اكتب رسالتك هنا..." maxlength="500">
+                        <button id="recordBtn" onclick="startVoiceRecording(false)" class="btn" style="background: #e74c3c; margin-left: 5px;">🎤 تسجيل صوتي</button>
                         <button onclick="sendMessage()" class="send-btn">إرسال</button>
                     </div>
                 </div>
@@ -234,6 +235,7 @@
             
             <div class="private-chat-input">
                 <input type="text" id="privateMessageInput" placeholder="اكتب رسالتك الخاصة..." maxlength="500">
+                <button id="privateRecordBtn" onclick="startVoiceRecording(true)" class="btn" style="background: #e74c3c; margin-left: 5px;">🎤</button>
                 <button onclick="sendPrivateMessage()" class="send-btn">إرسال</button>
             </div>
         </div>

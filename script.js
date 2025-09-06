@@ -1,1814 +1,431 @@
 // متغيرات عامة
 let socket;
 let currentUser = null;
-let token = localStorage.getItem('chatToken');
-let currentRoomId = 1;
-let selectedUserId = null;
-let currentPrivateChatUser = null;
-let mediaRecorder = null;
+let currentRoom = 1;
+let isRecording = false;
+let mediaRecorder;
 let audioChunks = [];
+let quotedMessage = null;
 
-// الرتب المتاحة
-const RANKS = {
-    visitor: { name: 'Visitor', emoji: '👋', level: 0 },
-    bronze: { name: 'Bronze Member', emoji: '🥉', level: 1 },
-    silver: { name: 'Silver Member', emoji: '🥈', level: 2 },
-    gold: { name: 'Gold Member', emoji: '🥇', level: 3 },
-    diamond: { name: 'Diamond Member', emoji: '💎', level: 4 },
-    star: { name: 'Super Moderator', emoji: '⭐', level: 5 },
-    prince: { name: 'Admin', emoji: '👑', level: 6 },
-    trophy: { name: 'Owner', emoji: '🏆', level: 7 }
+// الأصوات
+const sounds = {
+    message: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYE'),
+    notification: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYE')
 };
 
-// التحقق من التوكن عند تحميل الصفحة
-document.addEventListener('DOMContentLoaded', function() {
-    if (token) {
-        validateToken();
-    } else {
-        showLoginScreen();
+// إعدادات الأصوات
+let soundSettings = {
+    messageSound: true,
+    notificationSound: true,
+    voiceMessageSound: true
+};
+
+// تحميل إعدادات الأصوات من localStorage
+function loadSoundSettings() {
+    const saved = localStorage.getItem('soundSettings');
+    if (saved) {
+        soundSettings = { ...soundSettings, ...JSON.parse(saved) };
     }
-    setupEventListeners();
-});
-
-function setupEventListeners() {
-    document.getElementById('loginForm').addEventListener('submit', handleLogin);
-    document.getElementById('registerForm').addEventListener('submit', handleRegister);
-
-    // إرسال الرسائل بالضغط على Enter
-    document.getElementById('messageInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-
-    // إرسال الرسائل الخاصة بالضغط على Enter
-    document.getElementById('privateMessageInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendPrivateMessage();
-        }
-    });
-
-    // إضافة مستمعات لإرسال الصور (معطلة الآن)
-    // document.getElementById('uploadImagePublic').addEventListener('change', sendPublicImage);
-    // document.getElementById('uploadImagePrivate').addEventListener('change', sendPrivateImage);
-
-    // إضافة مستمعات لتسجيل الصوت (معطلة الآن)
-    // document.getElementById('startVoicePublic').addEventListener('click', startVoiceRecordingPublic);
-    // document.getElementById('stopVoicePublic').addEventListener('click', stopVoiceRecordingPublic);
-    // document.getElementById('startVoicePrivate').addEventListener('click', startVoiceRecordingPrivate);
-    // document.getElementById('stopVoicePrivate').addEventListener('click', stopVoiceRecordingPrivate);
 }
 
+// حفظ إعدادات الأصوات
+function saveSoundSettings() {
+    localStorage.setItem('soundSettings', JSON.stringify(soundSettings));
+}
+
+// تشغيل الصوت
+function playSound(type) {
+    if (soundSettings[type + 'Sound'] && sounds[type]) {
+        sounds[type].play().catch(e => console.log('خطأ في تشغيل الصوت:', e));
+    }
+}
+
+// التحقق من تسجيل الدخول
+function checkAuth() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        showScreen('loginScreen');
+        return false;
+    }
+    
+    // فك تشفير JWT بسيط (في الإنتاج استخدم مكتبة مناسبة)
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        currentUser = payload;
+        return true;
+    } catch (e) {
+        localStorage.removeItem('token');
+        showScreen('loginScreen');
+        return false;
+    }
+}
+
+// عرض الشاشة
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+    });
+    document.getElementById(screenId).classList.add('active');
+}
+
+// تبديل التبويبات
 function showTab(tabName) {
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.form').forEach(form => form.classList.remove('active'));
-
+    
     event.target.classList.add('active');
     document.getElementById(tabName + 'Form').classList.add('active');
-    document.getElementById('loginError').textContent = '';
 }
 
-function showLoginScreen() {
-    document.getElementById('loginScreen').classList.add('active');
-    document.getElementById('chatScreen').classList.remove('active');
-}
-
-function showChatScreen() {
-    document.getElementById('loginScreen').classList.remove('active');
-    document.getElementById('chatScreen').classList.add('active');
-}
-
-async function handleLogin(e) {
+// تسجيل الدخول
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-
+    
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
-
+    
     try {
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
-
+        
         const data = await response.json();
-
+        
         if (response.ok) {
-            token = data.token;
+            localStorage.setItem('token', data.token);
             currentUser = data.user;
-            localStorage.setItem('chatToken', token);
-            showChatScreen();
-            setupChat();
+            initializeChat();
         } else {
             document.getElementById('loginError').textContent = data.error;
         }
     } catch (error) {
         document.getElementById('loginError').textContent = 'خطأ في الاتصال';
     }
-}
+});
 
-async function handleRegister(e) {
+// تسجيل حساب جديد
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-
+    
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
     const displayName = document.getElementById('registerDisplayName').value;
-
+    
     try {
         const response = await fetch('/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password, display_name: displayName })
         });
-
+        
         const data = await response.json();
-
+        
         if (response.ok) {
-            token = data.token;
+            localStorage.setItem('token', data.token);
             currentUser = data.user;
-            localStorage.setItem('chatToken', token);
-            showChatScreen();
-            setupChat();
+            initializeChat();
         } else {
             document.getElementById('loginError').textContent = data.error;
         }
     } catch (error) {
         document.getElementById('loginError').textContent = 'خطأ في الاتصال';
     }
-}
+});
 
-async function validateToken() {
-    try {
-        const response = await fetch('/api/user/profile', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-            const userData = await response.json();
-            currentUser = userData;
-            showChatScreen();
-            setupChat();
-        } else {
-            localStorage.removeItem('chatToken');
-            token = null;
-            showLoginScreen();
-        }
-    } catch (error) {
-        localStorage.removeItem('chatToken');
-        token = null;
-        showLoginScreen();
-    }
-}
-
-function setupChat() {
-    updateUserInfo();
-    connectSocket();
-    loadRooms();
-    loadMessages(currentRoomId);
-
-    if (currentUser.role === 'admin') {
-        document.getElementById('adminBtn').style.display = 'block';
-        document.getElementById('createRoomBtn').style.display = 'block';
-    }
-}
-
-function updateUserInfo() {
+// تهيئة الشات
+async function initializeChat() {
+    showScreen('chatScreen');
+    loadSoundSettings();
+    
+    // عرض معلومات المستخدم
     document.getElementById('userDisplayName').textContent = currentUser.display_name;
-
-    const rankInfo = RANKS[currentUser.rank] || RANKS.visitor;
-    document.getElementById('userRank').textContent = `${rankInfo.emoji} ${rankInfo.name}`;
-
+    document.getElementById('userRank').textContent = getRankDisplay(currentUser.rank);
+    
     if (currentUser.profile_image1) {
         document.getElementById('userAvatar').src = currentUser.profile_image1;
     }
-}
-
-function connectSocket() {
+    
+    // إظهار زر الإدارة للإداريين
+    if (currentUser.role === 'admin') {
+        document.getElementById('adminBtn').style.display = 'inline-block';
+        document.getElementById('createRoomBtn').style.display = 'block';
+    }
+    
+    // تهيئة Socket.IO
     socket = io();
-
+    
     socket.emit('join', {
         userId: currentUser.id,
         displayName: currentUser.display_name,
         rank: currentUser.rank,
         email: currentUser.email,
-        roomId: currentRoomId
+        roomId: currentRoom
     });
-
+    
+    // استقبال الرسائل العامة
     socket.on('newMessage', (message) => {
-        if (message.room_id === currentRoomId) {
-            displayMessage(message);
-
-            if (message.user_id !== currentUser.id) {
-                playMessageSound();
-
-                if (message.message.includes(`@${currentUser.display_name}`)) {
-                    playMentionSound();
-                    showMentionNotification(message);
-                }
-            }
-        }
-    });
-
-    socket.on('roomUsersList', (users) => {
-        updateUsersList(users);
-    });
-
-    socket.on('newPrivateMessage', (message) => {
-        if (currentPrivateChatUser && 
-            (message.user_id === currentPrivateChatUser.userId || 
-             message.receiver_id === currentPrivateChatUser.userId || 
-             message.user_id === currentUser.id || 
-             message.receiver_id === currentUser.id)) {
-            displayPrivateMessage(message);
-        }
-
+        displayMessage(message, false);
         if (message.user_id !== currentUser.id) {
-            playPrivateMessageSound();
-
-            if (Notification.permission === 'granted') {
-                const notification = new Notification(`رسالة خاصة من ${message.display_name}`, {
-                    body: message.message,
-                    icon: message.profile_image1 || '/default-avatar.png'
-                });
-                setTimeout(() => notification.close(), 5000);
-            }
+            playSound('message');
         }
     });
-
-    // تعطيل للصور والصوت
-    // socket.on('newImage', (data) => { ... });
-    // socket.on('newPrivateImage', (data) => { ... });
-    // socket.on('newVoice', (data) => { ... });
-    // socket.on('newPrivateVoice', (data) => { ... });
-
-    socket.on('roomChanged', (newRoomId) => {
-        currentRoomId = newRoomId;
-        loadMessages(newRoomId);
+    
+    // استقبال الرسائل الخاصة
+    socket.on('newPrivateMessage', (message) => {
+        displayPrivateMessage(message);
+        if (message.user_id !== currentUser.id) {
+            playSound('notification');
+        }
     });
-
+    
+    // استقبال قائمة المستخدمين في الغرفة
+    socket.on('roomUsersList', (users) => {
+        displayRoomUsers(users);
+    });
+    
+    // تغيير الغرفة
+    socket.on('roomChanged', (roomId) => {
+        currentRoom = roomId;
+        loadRoomMessages(roomId);
+    });
+    
+    // حذف غرفة
     socket.on('roomDeleted', (roomId) => {
-        if (roomId === currentRoomId) {
-            // الانتقال إلى غرفة افتراضية
-            changeRoom(1, 'الغرفة الرئيسية');
+        if (currentRoom === roomId) {
+            currentRoom = 1;
+            socket.emit('changeRoom', 1);
         }
         loadRooms();
     });
+    
+    // تحميل البيانات الأولية
+    await loadRooms();
+    await loadRoomMessages(currentRoom);
+    await loadAllUsers();
 }
 
+// تحميل الغرف
 async function loadRooms() {
     try {
         const response = await fetch('/api/rooms', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
-
-        if (response.ok) {
-            const rooms = await response.json();
-            updateRoomsList(rooms);
-        }
+        
+        const rooms = await response.json();
+        const roomsList = document.getElementById('roomsList');
+        
+        roomsList.innerHTML = rooms.map(room => `
+            <div class="room-item ${room.id === currentRoom ? 'active' : ''}" onclick="changeRoom(${room.id})">
+                <div class="room-item-icon">${room.name.charAt(0)}</div>
+                <div class="room-item-info">
+                    <div class="room-item-name">${room.name}</div>
+                    <div class="room-item-desc">${room.description || ''}</div>
+                </div>
+                ${currentUser.role === 'admin' && room.id !== 1 ? `<button onclick="deleteRoom(${room.id})" class="btn" style="background: #e74c3c; color: white; padding: 5px 10px; font-size: 12px;">حذف</button>` : ''}
+            </div>
+        `).join('');
     } catch (error) {
         console.error('خطأ في تحميل الغرف:', error);
     }
 }
 
-function updateRoomsList(rooms) {
-    const roomsList = document.getElementById('roomsList');
-    roomsList.innerHTML = '';
-
-    rooms.forEach(room => {
-        const roomItem = document.createElement('div');
-        roomItem.className = `room-item ${room.id === currentRoomId ? 'active' : ''}`;
-        roomItem.onclick = () => changeRoom(room.id, room.name);
-
-        const roomIcon = room.name.charAt(0).toUpperCase();
-
-        roomItem.innerHTML = `
-            <div class="room-item-icon">${roomIcon}</div>
-            <div class="room-item-info">
-                <div class="room-item-name">${room.name}</div>
-                <div class="room-item-desc">${room.description || 'غرفة دردشة'}</div>
-            </div>
-        `;
-
-        // إضافة زر حذف للإداريين
-        if (currentUser.role === 'admin') {
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'delete-room-btn';
-            deleteBtn.textContent = '🗑️';
-            deleteBtn.onclick = (e) => {
-                e.stopPropagation();
-                deleteRoom(room.id);
-            };
-            roomItem.appendChild(deleteBtn);
-        }
-
-        roomsList.appendChild(roomItem);
-    });
-}
-
-function changeRoom(roomId, roomName) {
-    if (roomId === currentRoomId) return;
-
-    currentRoomId = roomId;
-    document.getElementById('currentRoomName').textContent = roomName;
-
-    document.querySelectorAll('.room-item').forEach(item => item.classList.remove('active'));
-    event.currentTarget.classList.add('active');
-
+// تغيير الغرفة
+function changeRoom(roomId) {
+    if (roomId === currentRoom) return;
+    
+    currentRoom = roomId;
     socket.emit('changeRoom', roomId);
-
-    document.getElementById('messagesContainer').innerHTML = '';
-    loadMessages(roomId);
+    
+    // تحديث واجهة الغرف
+    document.querySelectorAll('.room-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    event.target.closest('.room-item').classList.add('active');
+    
+    // تحديث اسم الغرفة
+    const roomName = event.target.closest('.room-item').querySelector('.room-item-name').textContent;
+    document.getElementById('currentRoomName').textContent = roomName;
+    
+    loadRoomMessages(roomId);
 }
 
-async function loadMessages(roomId) {
+// تحميل رسائل الغرفة
+async function loadRoomMessages(roomId) {
     try {
         const response = await fetch(`/api/messages/${roomId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
-
-        if (response.ok) {
-            const messages = await response.json();
-            messages.forEach(message => {
-                if (message.type === 'text') {
-                    displayMessage(message);
-                } else if (message.type === 'image') {
-                    displayImageMessage(message);
-                } else if (message.type === 'voice') {
-                    displayVoiceMessage(message);
-                }
-            });
-        }
+        
+        const messages = await response.json();
+        const container = document.getElementById('messagesContainer');
+        container.innerHTML = '';
+        
+        messages.forEach(message => displayMessage(message, false));
+        container.scrollTop = container.scrollHeight;
     } catch (error) {
         console.error('خطأ في تحميل الرسائل:', error);
     }
 }
 
-function updateUsersList(users) {
-    const usersList = document.getElementById('usersList');
-    usersList.innerHTML = '';
-
-    users.forEach(user => {
-        if (user.userId === currentUser.id) return;
-
-        const userItem = document.createElement('div');
-        userItem.className = 'user-item';
-        userItem.onclick = () => openPrivateChat(user);
-
-        const rankInfo = RANKS[user.rank] || RANKS.visitor;
-
-        userItem.innerHTML = `
-            <img src="${user.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية">
-            <div class="user-item-info">
-                <div class="user-item-name">${user.displayName}</div>
-                <div class="user-item-rank">${rankInfo.emoji} ${rankInfo.name}</div>
-            </div>
-        `;
-
-        usersList.appendChild(userItem);
-    });
-}
-
-// متغير عام لحفظ الرسالة المقتبسة
-let quotedMessage = null;
-
-function displayMessage(message) {
-    const messagesContainer = document.getElementById('messagesContainer');
-    const messageElement = document.createElement('div');
-
-    const isOwn = message.user_id === currentUser.id;
-    messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
-    messageElement.setAttribute('data-message-id', message.id);
-
-    // إضافة خلفية الرسالة إذا كانت موجودة
+// عرض الرسالة
+function displayMessage(message, isPrivate = false) {
+    const container = isPrivate ? 
+        document.getElementById('privateChatMessages') : 
+        document.getElementById('messagesContainer');
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${message.user_id === currentUser.id ? 'own' : 'other'}`;
+    messageDiv.dataset.messageId = message.id;
+    
+    // إضافة خلفية الرسالة إذا كانت متوفرة
     if (message.message_background) {
-        messageElement.style.backgroundImage = `url(${message.message_background})`;
-        messageElement.classList.add('has-background');
+        messageDiv.style.backgroundImage = `url(${message.message_background})`;
+        messageDiv.classList.add('has-background');
     }
-
-    const rankInfo = RANKS[message.rank] || RANKS.visitor;
-    const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-    });
-
-    messageElement.innerHTML = `
-        <div class="message-header">
-            <img src="${message.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar clickable-avatar" onclick="viewUserProfile('${message.user_id}', '${message.display_name}')">
-            <span class="message-author">${message.display_name}</span>
-            <span class="message-rank">${rankInfo.emoji} ${rankInfo.name}</span>
-            <span class="message-time">${time}</span>
-            <div class="message-actions">
-                <button class="quote-btn" onclick="quoteMessage('${message.id}', '${message.display_name}', \`${escapeHtml(message.message).replace(/`/g, '\\`')}\`)" title="اقتباس">
-                    📋
-                </button>
-            </div>
-        </div>
-        ${message.quoted_message ? `
-            <div class="quoted-message">
-                <div class="quote-author">💬 ${message.quoted_author}:</div>
-                <div class="quote-content">${escapeHtml(message.quoted_message)}</div>
-            </div>
-        ` : ''}
-        <div class="message-content">${escapeHtml(message.message)}</div>
-    `;
-
-    messagesContainer.appendChild(messageElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-function displayImageMessage(data) {
-    const messagesContainer = document.getElementById('messagesContainer');
-    const messageElement = document.createElement('div');
-    const isOwn = data.user_id === currentUser.id;
-    messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
-
-    const rankInfo = RANKS[data.rank] || RANKS.visitor;
-    const time = new Date(data.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-
-    messageElement.innerHTML = `
-        <div class="message-header">
-            <img src="${data.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar">
-            <span class="message-author">${data.display_name}</span>
-            <span class="message-rank">${rankInfo.emoji} ${rankInfo.name}</span>
-            <span class="message-time">${time}</span>
-        </div>
-        <img src="${data.image_url}" alt="صورة مرسلة" class="chat-image">
-    `;
-
-    messagesContainer.appendChild(messageElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-function displayVoiceMessage(data) {
-    const messagesContainer = document.getElementById('messagesContainer');
-    const messageElement = document.createElement('div');
-    const isOwn = data.user_id === currentUser.id;
-    messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
-
-    const rankInfo = RANKS[data.rank] || RANKS.visitor;
-    const time = new Date(data.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-
-    messageElement.innerHTML = `
-        <div class="message-header">
-            <img src="${data.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar">
-            <span class="message-author">${data.display_name}</span>
-            <span class="message-rank">${rankInfo.emoji} ${rankInfo.name}</span>
-            <span class="message-time">${time}</span>
-        </div>
-        <audio controls src="${data.voice_url}"></audio>
-    `;
-
-    messagesContainer.appendChild(messageElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-function sendMessage() {
-    const messageInput = document.getElementById('messageInput');
-    const message = messageInput.value.trim();
-
-    if (!message) return;
-
-    const messageData = {
-        message: message,
-        roomId: currentRoomId,
-        type: 'text'
-    };
-
-    // إضافة بيانات الاقتباس إذا وجدت
-    if (quotedMessage) {
-        messageData.quoted_message_id = quotedMessage.id;
-        messageData.quoted_message = quotedMessage.content;
-        messageData.quoted_author = quotedMessage.author;
-    }
-
-    socket.emit('sendMessage', messageData);
-
-    messageInput.value = '';
-    clearQuote(); // مسح الاقتباس بعد الإرسال
-}
-
-// وظائف الإشعارات
-function showMentionNotification(message) {
-    if (Notification.permission === 'granted') {
-        const notification = new Notification(`إشارة من ${message.display_name}`, {
-            body: message.message,
-            icon: message.profile_image1 || '/default-avatar.png'
-        });
-
-        setTimeout(() => notification.close(), 5000);
-    }
-}
-
-// طلب إذن الإشعارات
-function requestNotificationPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-    }
-}
-
-// عرض إعدادات الأصوات
-function openSoundSettings() {
-    const settingsModal = new Document.createElement('div');
-    settingsModal.className = 'modal active';
-    settingsModal.id = 'soundSettingsModal';
-
-    const messageSoundsEnabled = localStorage.getItem('messageSoundsEnabled') !== 'false';
-    const privateSoundsEnabled = localStorage.getItem('privateSoundsEnabled') !== 'false';
-    const mentionSoundsEnabled = localStorage.getItem('mentionSoundsEnabled') !== 'false';
-
-    settingsModal.innerHTML = `
-        <div class="modal-content">
-            <span class="close" onclick="closeSoundSettings()">&times;</span>
-            <h2>🔊 إعدادات الأصوات</h2>
-
-            <div class="sound-settings">
-                <div class="sound-setting">
-                    <label>
-                        <input type="checkbox" id="messageSounds" ${messageSoundsEnabled ? 'checked' : ''}>
-                        أصوات الرسائل العامة
-                    </label>
-                    <button onclick="testMessageSound()" class="test-sound-btn">تجربة</button>
-                </div>
-
-                <div class="sound-setting">
-                    <label>
-                        <input type="checkbox" id="privateSounds" ${privateSoundsEnabled ? 'checked' : ''}>
-                        أصوات الرسائل الخاصة
-                    </label>
-                    <button onclick="testPrivateSound()" class="test-sound-btn">تجربة</button>
-                </div>
-
-                <div class="sound-setting">
-                    <label>
-                        <input type="checkbox" id="mentionSounds" ${mentionSoundsEnabled ? 'checked' : ''}>
-                        أصوات الإشارات
-                    </label>
-                    <button onclick="testMentionSound()" class="test-sound-btn">تجربة</button>
-                </div>
-
-                <div class="sound-setting">
-                    <button onclick="requestNotificationPermission()" class="btn">
-                        🔔 تفعيل الإشعارات
-                    </button>
+    
+    let messageContent = '';
+    
+    // رسالة صوتية
+    if (message.voice_url) {
+        messageContent = `
+            <div class="message-header">
+                <img src="${message.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar clickable-avatar" onclick="showUserProfile(${message.user_id})">
+                <span class="message-author clickable-name" onclick="mentionUser('${message.display_name}')">${message.display_name}</span>
+                <span class="message-rank">${getRankDisplay(message.rank)}</span>
+                <span class="message-time">${formatTime(message.timestamp)}</span>
+                <div class="message-actions">
+                    <button class="quote-btn" onclick="quoteMessage(${message.id}, '${message.display_name}', 'رسالة صوتية')" title="اقتباس">💬</button>
+                    ${message.user_id === currentUser.id || currentUser.role === 'admin' ? `<button class="quote-btn" onclick="deleteMessage(${message.id}, ${isPrivate})" title="حذف">🗑️</button>` : ''}
                 </div>
             </div>
-
-            <div class="sound-actions">
-                <button onclick="saveSoundSettings()" class="btn save-btn">حفظ الإعدادات</button>
-                <button onclick="closeSoundSettings()" class="btn cancel-btn">إلغاء</button>
+            <div class="message-content">
+                <div class="voice-message">
+                    🎤 رسالة صوتية
+                    <audio controls>
+                        <source src="${message.voice_url}" type="audio/webm">
+                        متصفحك لا يدعم تشغيل الصوت
+                    </audio>
+                </div>
             </div>
-        </div>
-    `;
-
-    document.body.appendChild(settingsModal);
-}
-
-function closeSoundSettings() {
-    const modal = document.getElementById('soundSettingsModal');
-    if (modal) {
-        modal.remove();
+        `;
     }
-}
-
-function saveSoundSettings() {
-    const messageSounds = document.getElementById('messageSounds').checked;
-    const privateSounds = document.getElementById('privateSounds').checked;
-    const mentionSounds = document.getElementById('mentionSounds').checked;
-
-    localStorage.setItem('messageSoundsEnabled', messageSounds);
-    localStorage.setItem('privateSoundsEnabled', privateSounds);
-    localStorage.setItem('mentionSoundsEnabled', mentionSounds);
-
-    alert('تم حفظ إعدادات الأصوات!');
-    closeSoundSettings();
-}
-
-function testMessageSound() {
-    playMessageSound();
-}
-
-function testPrivateSound() {
-    playPrivateMessageSound();
-}
-
-function testMentionSound() {
-    playMentionSound();
-}
-
-// توسيع قائمة الإيموجيات المتحركة والعادية
-const animatedEmojis = {
-    '😂': 'laugh',
-    '😍': 'heart-eyes',
-    '😘': 'kiss',
-    '😎': 'cool',
-    '😭': 'sob',
-    '😡': 'angry',
-    '😱': 'shocked',
-    '😊': 'happy',
-    '👍': 'thumbs-up',
-    '👎': 'thumbs-down',
-    '❤️': 'heart',
-    '🔥': 'fire',
-    '✨': 'sparkles',
-    '🎉': 'party',
-    '💜': 'purple-heart',
-    '🌹': 'rose',
-    '💫': 'dizzy',
-    '🌈': 'rainbow',
-    '🎆': 'fireworks',
-    '💎': 'gem',
-    '😀': 'grin',
-    '😃': 'smiley',
-    '😄': 'smile',
-    '😅': 'sweat-smile',
-    '😆': 'laughing',
-    '😉': 'wink',
-    '😋': 'yum',
-    '😌': 'relieved',
-    '😔': 'pensive',
-    '😕': 'confused',
-    '😖': 'confounded',
-    '😗': 'kissing',
-    '😙': 'kissing-smiling-eyes',
-    '😚': 'kissing-closed-eyes',
-    '😛': 'stuck-out-tongue',
-    '😜': 'stuck-out-tongue-winking-eye',
-    '😝': 'stuck-out-tongue-closed-eyes',
-    '😞': 'disappointed',
-    '😟': 'worried',
-    '😠': 'angry',
-    '😢': 'cry',
-    '😣': 'persevere',
-    '😤': 'triumph',
-    '😥': 'disappointed-relieved',
-    '😦': 'frowning',
-    '😧': 'anguished',
-    '😨': 'fearful',
-    '😩': 'weary',
-    '😪': 'sleepy',
-    '😫': 'tired-face',
-    '😬': 'grimacing',
-    '😮': 'open-mouth',
-    '😯': 'hushed',
-    '😰': 'cold-sweat',
-    '😱': 'scream',
-    '😲': 'astonished',
-    '😳': 'flushed',
-    '😴': 'sleeping',
-    '😵': 'dizzy-face',
-    '😷': 'mask',
-    '😸': 'smile-cat',
-    '😹': 'joy-cat',
-    '😺': 'smiley-cat',
-    '😻': 'heart-eyes-cat',
-    '😼': 'kissing-cat',
-    '😽': 'smirk-cat',
-    '😾': 'weary-cat',
-    '😿': 'crying-cat-face',
-    '🙀': 'scream-cat',
-    '🙁': 'slightly-frowning-face',
-    '🙂': 'slightly-smiling-face',
-    '🙃': 'upside-down-face',
-    '🙄': 'face-with-rolling-eyes',
-    '🤐': 'zipper-mouth-face',
-    '🤑': 'money-mouth-face',
-    '🤒': 'face-with-thermometer',
-    '🤓': 'nerd-face',
-    '🤔': 'thinking-face',
-    '🤕': 'face-with-head-bandage',
-    '🤖': 'robot-face',
-    '🤗': 'hugging-face',
-    '🤘': 'sign-of-the-horns',
-    '🤙': 'call-me-hand',
-    '🤚': 'raised-back-of-hand',
-    '🤛': 'left-facing-fist',
-    '🤜': 'right-facing-fist',
-    '🤝': 'handshake',
-    '🤞': 'crossed-fingers',
-    '🤟': 'love-you-gesture',
-    '🤠': 'face-with-cowboy-hat',
-    '🤡': 'clown-face',
-    '🤢': 'nauseated-face',
-    '🤣': 'rolling-on-the-floor-laughing',
-    '🤤': 'drooling-face',
-    '🤥': 'lying-face',
-    '🤦': 'face-palm',
-    '🤧': 'sneezing-face',
-    '🤨': 'face-with-raised-eyebrow',
-    '🤩': 'star-struck',
-    '🤪': 'zany-face',
-    '🤫': 'shushing-face',
-    '🤬': 'face-with-symbols-on-mouth',
-    '🤭': 'face-with-hand-over-mouth',
-    '🤮': 'face-vomiting',
-    '🤯': 'exploding-head',
-    '🥰': 'smiling-face-with-hearts',
-    '🥱': 'yawning-face',
-    '🥲': 'smiling-face-with-tear',
-    '🥳': 'partying-face',
-    '🥴': 'woozy-face',
-    '🥵': 'hot-face',
-    '🥶': 'cold-face',
-    '🥷': 'ninja',
-    '🥸': 'disguised-face',
-    '🥺': 'pleading-face',
-    '🥼': 'lab-coat',
-    '🥽': 'goggles',
-    '🥾': 'hiking-boot',
-    '🥿': 'flat-shoe',
-    '🦀': 'crab',
-    '🦁': 'lion-face',
-    '🦂': 'scorpion',
-    '🦃': 'turkey',
-    '🦄': 'unicorn-face',
-    '🦅': 'eagle',
-    '🦆': 'duck',
-    '🦇': 'bat',
-    '🦈': 'shark',
-    '🦉': 'owl',
-    '🦊': 'fox-face',
-    '🦋': 'butterfly',
-    '🦌': 'deer',
-    '🦍': 'gorilla',
-    '🦎': 'lizard',
-    '🦏': 'rhinoceros',
-    '🦐': 'shrimp',
-    '🦑': 'squid',
-    '🦒': 'giraffe-face',
-    '🦓': 'zebra-face',
-    '🦔': 'hedgehog',
-    '🦕': 'sauropod',
-    '🦖': 't-rex',
-    '🦗': 'cricket',
-    '🦘': 'kangaroo',
-    '🦙': 'llama',
-    '🦚': 'peacock',
-    '🦛': 'hippopotamus',
-    '🦜': 'parrot',
-    '🦝': 'raccoon',
-    '🦞': 'lobster',
-    '🦟': 'mosquito',
-    '🦠': 'microbe',
-    '🦡': 'badger',
-    '🦢': 'swan',
-    '🦥': 'sloth',
-    '🦦': 'otter',
-    '🦧': 'orangutan',
-    '🦨': 'skunk',
-    '🦩': 'flamingo',
-    '🦪': 'oyster',
-    '🦫': 'beaver',
-    '🦬': 'bison',
-    '🦭': 'seal',
-    '🦮': 'guide-dog',
-    '🦯': 'probing-cane',
-    '🦰': 'red-haired',
-    '🦱': 'curly-haired',
-    '🦲': 'bald',
-    '🦳': 'white-haired',
-    '🦴': 'bone',
-    '🦵': 'leg',
-    '🦶': 'foot',
-    '🦷': 'tooth',
-    '🦸': 'superhero',
-    '🦹': 'supervillain',
-    '🦺': 'safety-vest',
-    '🦻': 'ear-with-hearing-aid',
-    '🦼': 'motorized-wheelchair',
-    '🦽': 'manual-wheelchair',
-    '🦾': 'mechanical-arm',
-    '🦿': 'mechanical-leg',
-    '🧀': 'cheese-wedge',
-    '🧁': 'cupcake',
-    '🧂': 'salt',
-    '🧃': 'beverage-box',
-    '🧄': 'garlic',
-    '🧅': 'onion',
-    '🧆': 'falafel',
-    '🧇': 'waffle',
-    '🧈': 'butter',
-    '🧉': 'mate-drink',
-    '🧊': 'ice-cube',
-    '🧋': 'bubble-tea',
-    '🧌': 'troll',
-    '🧍': 'person-standing',
-    '🧎': 'person-kneeling',
-    '🧏': 'deaf-person',
-    '🧐': 'face-with-monocle',
-    '🧑': 'adult',
-    '🧒': 'child',
-    '🧓': 'older-adult',
-    '🧔': 'bearded-person',
-    '🧕': 'person-with-headscarf',
-    '🧖': 'person-in-steamy-room',
-    '🧗': 'person-climbing',
-    '🧘': 'person-in-lotus-position',
-    '🧙': 'mage',
-    '🧚': 'fairy',
-    '🧛': 'vampire',
-    '🧜': 'merperson',
-    '🧝': 'elf',
-    '🧞': 'genie',
-    '🧟': 'zombie',
-    '🧠': 'brain',
-    '🧡': 'orange-heart',
-    '🧢': 'billed-cap',
-    '🧣': 'scarf',
-    '🧤': 'gloves',
-    '🧥': 'coat',
-    '🧦': 'socks',
-    '🧧': 'red-envelope',
-    '🧨': 'firecracker',
-    '🧩': 'jigsaw',
-    '🧪': 'test-tube',
-    '🧫': 'petri-dish',
-    '🧬': 'dna',
-    '🧭': 'compass',
-    '🧮': 'abacus',
-    '🧯': 'fire-extinguisher',
-    '🧰': 'toolbox',
-    '🧱': 'brick',
-    '🧲': 'magnet',
-    '🧳': 'luggage',
-    '🧴': 'lotion-bottle',
-    '🧵': 'thread',
-    '🧶': 'yarn',
-    '🧷': 'safety-pin',
-    '🧸': 'teddy-bear',
-    '🧹': 'broom',
-    '🧺': 'basket',
-    '🧻': 'roll-of-paper',
-    '🧼': 'soap',
-    '🧽': 'sponge',
-    '🧾': 'receipt',
-    '🧿': 'nazar-amulet',
-    // إضافة المزيد من الإيموجيات العادية هنا إذا لزم
-};
-
-const staticEmojis = [
-    '😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '😴', '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '🙁', '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧', '😨', '😩', '🤯', '😬', '😰', '😱', '🥵', '🥶', '😳', '🤪', '😵', '🥴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥳', '🥺', '🤠', '🤡', '🤥', '🤫', '🤭', '🧐', '🤓', '😈', '👿', '👹', '👺', '💀', '👻', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾',
-    // إضافة المزيد من الإيموجيات العادية
-    '👶', '🧒', '👦', '👧', '🧑', '👨', '👩', '🧓', '👴', '👵', '👨‍⚕️', '👩‍⚕️', '👨‍🎓', '👩‍🎓', '👨‍🏫', '👩‍🏫', '👨‍⚖️', '👩‍⚖️', '👨‍🌾', '👩‍🌾', '👨‍🍳', '👩‍🍳', '👨‍🔧', '👩‍🔧', '👨‍🏭', '👩‍🏭', '👨‍💼', '👩‍💼', '👨‍🔬', '👩‍🔬', '👨‍💻', '👩‍💻', '👨‍🎤', '👩‍🎤', '👨‍🎨', '👩‍🎨', '👨‍✈️', '👩‍✈️', '👨‍🚀', '👩‍🚀', '👨‍🚒', '👩‍🚒', '👮‍♂️', '👮‍♀️', '🕵️‍♂️', '🕵️‍♀️', '💂‍♂️', '💂‍♀️', '👷‍♂️', '👷‍♀️', '🤴', '👸', '👳‍♂️', '👳‍♀️', '👲', '🧕', '🤵', '👰', '🤰', '🤱', '👼', '🎅', '🤶', '🦸‍♂️', '🦸‍♀️', '🦹‍♂️', '🦹‍♀️', '🧙‍♂️', '🧙‍♀️', '🧚‍♂️', '🧚‍♀️', '🧛‍♂️', '🧛‍♀️', '🧜‍♂️', '🧜‍♀️', '🧝‍♂️', '🧝‍♀️', '🧞‍♂️', '🧞‍♀️', '🧟‍♂️', '🧟‍♀️', '💆‍♂️', '💆‍♀️', '💇‍♂️', '💇‍♀️', '🚶‍♂️', '🚶‍♀️', '🏃‍♂️', '🏃‍♀️', '💃', '🕺', '👯‍♂️', '👯‍♀️', '🧖‍♂️', '🧖‍♀️', '🧘‍♂️', '🧘‍♀️', '🛀', '🛌', '🕴️', '🗣️', '👤', '👥', '🫂', '👣', '🦰', '🦱', '🦳', '🦲'
-];
-
-function toggleEmojiPanel(type = 'animated') {
-    const existingPanel = document.querySelector('.emoji-panel');
-    if (existingPanel) {
-        existingPanel.remove();
-        return;
+    // رسالة صورة
+    else if (message.image_url) {
+        messageContent = `
+            <div class="message-header">
+                <img src="${message.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar clickable-avatar" onclick="showUserProfile(${message.user_id})">
+                <span class="message-author clickable-name" onclick="mentionUser('${message.display_name}')">${message.display_name}</span>
+                <span class="message-rank">${getRankDisplay(message.rank)}</span>
+                <span class="message-time">${formatTime(message.timestamp)}</span>
+                <div class="message-actions">
+                    <button class="quote-btn" onclick="quoteMessage(${message.id}, '${message.display_name}', 'صورة')" title="اقتباس">💬</button>
+                    ${message.user_id === currentUser.id || currentUser.role === 'admin' ? `<button class="quote-btn" onclick="deleteMessage(${message.id}, ${isPrivate})" title="حذف">🗑️</button>` : ''}
+                </div>
+            </div>
+            <div class="message-content">
+                <img src="${message.image_url}" alt="صورة" class="message-image" onclick="openImageModal('${message.image_url}')">
+            </div>
+        `;
     }
-
-    const emojiPanel = document.createElement('div');
-    emojiPanel.className = 'emoji-panel';
-
-    let emojiHTML = `<div class="emoji-panel-header">😀 الإيموجي ${type === 'animated' ? 'المتحركة' : 'العادية'}</div>`;
-    emojiHTML += '<div class="emoji-grid">';
-
-    if (type === 'animated') {
-        Object.keys(animatedEmojis).forEach(emoji => {
-            emojiHTML += `<span class="animated-emoji ${animatedEmojis[emoji]}" onclick="insertEmoji('${emoji}')">${emoji}</span>`;
-        });
-    } else {
-        staticEmojis.forEach(emoji => {
-            emojiHTML += `<span class="static-emoji" onclick="insertEmoji('${emoji}')">${emoji}</span>`;
-        });
-    }
-
-    emojiHTML += '</div>';
-    emojiPanel.innerHTML = emojiHTML;
-
-    const messageInputArea = document.querySelector('.message-input-area');
-    messageInputArea.appendChild(emojiPanel);
-}
-
-function insertEmoji(emoji) {
-    const messageInput = document.getElementById('messageInput');
-    const currentText = messageInput.value;
-    messageInput.value = currentText + emoji;
-    messageInput.focus();
-
-    // إضافة تأثير انفجار عند الإدراج
-    createEmojiExplosion(emoji);
-}
-
-function createEmojiExplosion(emoji) {
-    const explosion = document.createElement('div');
-    explosion.className = 'emoji-explosion';
-    explosion.textContent = emoji;
-
-    // وضع عشوائي على الشاشة
-    explosion.style.left = Math.random() * window.innerWidth + 'px';
-    explosion.style.top = Math.random() * window.innerHeight + 'px';
-
-    document.body.appendChild(explosion);
-
-    // إزالة التأثير بعد 2 ثانية
-    setTimeout(() => {
-        if (explosion.parentNode) {
-            explosion.parentNode.removeChild(explosion);
+    // رسالة نصية
+    else {
+        let processedMessage = message.message;
+        
+        // معالجة الاقتباس
+        if (message.quoted_message_id) {
+            processedMessage = `
+                <div class="quoted-message">
+                    <div class="quote-author">${message.quoted_author}</div>
+                    <div class="quote-content">${message.quoted_content}</div>
+                </div>
+                ${processedMessage}
+            `;
         }
-    }, 2000);
-}
-
-// تأثيرات الإيموجي في الرسائل
-function addEmojiAnimations() {
-    const messages = document.querySelectorAll('.message-content');
-    messages.forEach(message => {
-        let content = message.innerHTML;
-
-        Object.keys(animatedEmojis).forEach(emoji => {
-            const regex = new RegExp(emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-            content = content.replace(regex, `<span class="animated-emoji ${animatedEmojis[emoji]}">${emoji}</span>`);
-        });
-
-        message.innerHTML = content;
-    });
-}
-
-// تأثير المطر المتحرك
-function createEmojiRain() {
-    const rainEmojis = ['✨', '🎆', '🎉', '❤️', '💜', '🌹'];
-
-    for (let i = 0; i < 20; i++) {
-        setTimeout(() => {
-            const rainDrop = document.createElement('div');
-            rainDrop.className = 'emoji-rain';
-            rainDrop.textContent = rainEmojis[Math.floor(Math.random() * rainEmojis.length)];
-            rainDrop.style.left = Math.random() * window.innerWidth + 'px';
-
-            document.body.appendChild(rainDrop);
-
-            setTimeout(() => {
-                if (rainDrop.parentNode) {
-                    rainDrop.parentNode.removeChild(rainDrop);
-                }
-            }, 3000);
-        }, i * 100);
+        
+        // معالجة الأكواد
+        processedMessage = processedMessage.replace(/```([\s\S]*?)```/g, '<pre class="code-block"><code>$1</code></pre>');
+        processedMessage = processedMessage.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+        
+        // معالجة الإشارات
+        processedMessage = processedMessage.replace(/@(\w+)/g, '<span data-mention="$1">@$1</span>');
+        
+        messageContent = `
+            <div class="message-header">
+                <img src="${message.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar clickable-avatar" onclick="showUserProfile(${message.user_id})">
+                <span class="message-author clickable-name" onclick="mentionUser('${message.display_name}')">${message.display_name}</span>
+                <span class="message-rank">${getRankDisplay(message.rank)}</span>
+                <span class="message-time">${formatTime(message.timestamp)}</span>
+                <div class="message-actions">
+                    <button class="quote-btn" onclick="quoteMessage(${message.id}, '${message.display_name}', '${message.message.substring(0, 50)}...')" title="اقتباس">💬</button>
+                    ${message.user_id === currentUser.id || currentUser.role === 'admin' ? `<button class="quote-btn" onclick="deleteMessage(${message.id}, ${isPrivate})" title="حذف">🗑️</button>` : ''}
+                </div>
+            </div>
+            <div class="message-content">${processedMessage}</div>
+        `;
     }
+    
+    messageDiv.innerHTML = messageContent;
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight;
 }
 
-// تفعيل مطر الإيموجي عند وصول رسائل خاصة
-function triggerSpecialEffects(message) {
-    if (message.includes('🎉') || message.includes('🎆')) {
-        createEmojiRain();
-    }
-
-    if (message.includes('❤️') && message.includes('💜')) {
-        createHeartEffect();
-    }
-}
-
-function createHeartEffect() {
-    const hearts = ['❤️', '💜', '💙', '💚', '💛'];
-
-    for (let i = 0; i < 15; i++) {
-        setTimeout(() => {
-            const heart = document.createElement('div');
-            heart.className = 'floating-heart';
-            heart.textContent = hearts[Math.floor(Math.random() * hearts.length)];
-            heart.style.left = Math.random() * window.innerWidth + 'px';
-            heart.style.bottom = '0px';
-
-            document.body.appendChild(heart);
-
-            setTimeout(() => {
-                if (heart.parentNode) {
-                    heart.parentNode.removeChild(heart);
-                }
-            }, 4000);
-        }, i * 200);
-    }
-}
-
-// إدارة الدردشة الخاصة
-function openPrivateChat(user) {
-    currentPrivateChatUser = user;
-    document.getElementById('privateChatUserName').textContent = user.displayName;
-    document.getElementById('privateChatModal').classList.add('active');
-    document.getElementById('privateChatMessages').innerHTML = '';
-    loadPrivateMessages(user.userId);
-}
-
-function closePrivateChatModal() {
-    document.getElementById('privateChatModal').classList.remove('active');
-    currentPrivateChatUser = null;
-}
-
-async function loadPrivateMessages(userId) {
+// حذف رسالة
+async function deleteMessage(messageId, isPrivate = false) {
+    if (!confirm('هل أنت متأكد من حذف هذه الرسالة؟')) return;
+    
     try {
-        const response = await fetch(`/api/private-messages/${userId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-            const messages = await response.json();
-            messages.forEach(message => {
-                if (message.type === 'text') {
-                    displayPrivateMessage(message);
-                } else if (message.type === 'image') {
-                    displayPrivateImageMessage(message);
-                } else if (message.type === 'voice') {
-                    displayPrivateVoiceMessage(message);
-                }
-            });
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل الرسائل الخاصة:', error);
-    }
-}
-
-function displayPrivateMessage(message) {
-    const container = document.getElementById('privateChatMessages');
-    const messageElement = document.createElement('div');
-
-    const isOwn = message.user_id === currentUser.id;
-    messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
-
-    const rankInfo = RANKS[message.rank] || RANKS.visitor;
-    const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-    });
-
-    messageElement.innerHTML = `
-        <div class="message-header">
-            <img src="${message.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar">
-            <span class="message-author">${message.display_name}</span>
-            <span class="message-rank">${rankInfo.emoji} ${rankInfo.name}</span>
-            <span class="message-time">${time}</span>
-        </div>
-        <div class="message-content">${escapeHtml(message.message)}</div>
-    `;
-
-    container.appendChild(messageElement);
-    container.scrollTop = container.scrollHeight;
-}
-
-function displayPrivateImageMessage(data) {
-    const container = document.getElementById('privateChatMessages');
-    const messageElement = document.createElement('div');
-    const isOwn = data.user_id === currentUser.id;
-    messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
-
-    const rankInfo = RANKS[data.rank] || RANKS.visitor;
-    const time = new Date(data.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-
-    messageElement.innerHTML = `
-        <div class="message-header">
-            <img src="${data.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar">
-            <span class="message-author">${data.display_name}</span>
-            <span class="message-rank">${rankInfo.emoji} ${rankInfo.name}</span>
-            <span class="message-time">${time}</span>
-        </div>
-        <img src="${data.image_url}" alt="صورة مرسلة" class="chat-image">
-    `;
-
-    container.appendChild(messageElement);
-    container.scrollTop = container.scrollHeight;
-}
-
-function displayPrivateVoiceMessage(data) {
-    const container = document.getElementById('privateChatMessages');
-    const messageElement = document.createElement('div');
-    const isOwn = data.user_id === currentUser.id;
-    messageElement.className = `message ${isOwn ? 'own' : 'other'}`;
-
-    const rankInfo = RANKS[data.rank] || RANKS.visitor;
-    const time = new Date(data.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-
-    messageElement.innerHTML = `
-        <div class="message-header">
-            <img src="${data.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="message-avatar">
-            <span class="message-author">${data.display_name}</span>
-            <span class="message-rank">${rankInfo.emoji} ${rankInfo.name}</span>
-            <span class="message-time">${time}</span>
-        </div>
-        <audio controls src="${data.voice_url}"></audio>
-    `;
-
-    container.appendChild(messageElement);
-    container.scrollTop = container.scrollHeight;
-}
-
-function sendPrivateMessage() {
-    const input = document.getElementById('privateMessageInput');
-    const message = input.value.trim();
-
-    if (!message || !currentPrivateChatUser) return;
-
-    socket.emit('sendPrivateMessage', {
-        message: message,
-        receiverId: currentPrivateChatUser.userId,
-        type: 'text'
-    });
-
-    input.value = '';
-}
-
-// إرسال صور عامة (معطل)
-function sendPublicImage(event) {
-    // الكود معطل الآن
-}
-
-// إرسال صور خاصة (معطل)
-function sendPrivateImage(event) {
-    // الكود معطل الآن
-}
-
-// تسجيل صوت عام (معطل)
-async function startVoiceRecordingPublic() {
-    // الكود معطل الآن
-}
-
-function stopVoiceRecordingPublic() {
-    // الكود معطل الآن
-}
-
-// تسجيل صوت خاص (معطل)
-async function startVoiceRecordingPrivate() {
-    // الكود معطل الآن
-}
-
-function stopVoiceRecordingPrivate() {
-    // الكود معطل الآن
-}
-
-// حذف غرفة
-async function deleteRoom(roomId) {
-    if (currentUser.role !== 'admin') return;
-    if (!confirm('هل تريد حذف هذه الغرفة؟')) return;
-
-    try {
-        const response = await fetch(`/api/rooms/${roomId}`, {
+        const response = await fetch(`/api/messages/${messageId}`, {
             method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
-
+        
         if (response.ok) {
-            socket.emit('deleteRoom', roomId);
-            alert('تم حذف الغرفة');
-        } else {
-            alert('خطأ في حذف الغرفة');
-        }
-    } catch (error) {
-        alert('خطأ في الاتصال');
-    }
-}
-
-// إدارة الملف الشخصي
-function openProfileModal() {
-    document.getElementById('profileModal').classList.add('active');
-    loadUserProfile();
-}
-
-function closeProfileModal() {
-    document.getElementById('profileModal').classList.remove('active');
-}
-
-async function loadUserProfile() {
-    try {
-        const response = await fetch('/api/user/profile', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-            const profile = await response.json();
-
-            if (profile.profile_image1) {
-                document.getElementById('profileImg1').src = profile.profile_image1;
+            // إزالة الرسالة من الواجهة
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (messageElement) {
+                messageElement.remove();
             }
-            if (profile.profile_image2) {
-                document.getElementById('profileImg2').src = profile.profile_image2;
-            }
-
-            document.getElementById('newDisplayName').value = profile.display_name;
-
-            // تحميل المعلومات الشخصية
-            if (profile.age) document.getElementById('userAge').value = profile.age;
-            if (profile.gender) document.getElementById('userGender').value = profile.gender;
-            if (profile.marital_status) document.getElementById('userMaritalStatus').value = profile.marital_status;
-            if (profile.about_me) document.getElementById('userAboutMe').value = profile.about_me;
-
-            const rankInfo = RANKS[profile.rank] || RANKS.visitor;
-            document.getElementById('currentRank').textContent = `${rankInfo.emoji} ${rankInfo.name}`;
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل الملف الشخصي:', error);
-    }
-}
-
-function previewProfileImage(imageNumber, input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById(`profileImg${imageNumber}`).src = e.target.result;
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-}
-
-function previewMessageBackground(input) {
-    const preview = document.getElementById('messageBackgroundPreview');
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            preview.style.backgroundImage = `url(${e.target.result})`;
-            preview.classList.add('has-image');
-            preview.textContent = 'تم اختيار الخلفية';
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-}
-
-async function uploadProfileImages() {
-    const formData = new FormData();
-
-    const file1 = document.getElementById('profileFile1').files[0];
-    const file2 = document.getElementById('profileFile2').files[0];
-
-    if (file1) formData.append('profile1', file1);
-    if (file2) formData.append('profile2', file2);
-
-    if (!file1 && !file2) {
-        alert('يرجى اختيار صورة واحدة على الأقل');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/upload-profile-images', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('تم حفظ الصور بنجاح!');
-            if (data.profile_image1) {
-                currentUser.profile_image1 = data.profile_image1;
-                document.getElementById('userAvatar').src = data.profile_image1;
-            }
-        } else {
-            alert(data.error || 'خطأ في حفظ الصور');
-        }
-    } catch (error) {
-        alert('خطأ في الاتصال');
-    }
-}
-
-async function uploadMessageBackground() {
-    const file = document.getElementById('messageBackgroundFile').files[0];
-
-    if (!file) {
-        alert('يرجى اختيار خلفية');
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('messageBackground', file);
-
-    try {
-        const response = await fetch('/api/upload-message-background', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('تم حفظ خلفية الرسائل بنجاح!');
-        } else {
-            alert(data.error || 'خطأ في حفظ الخلفية');
-        }
-    } catch (error) {
-        alert('خطأ في الاتصال');
-    }
-}
-
-async function updateDisplayName() {
-    const newName = document.getElementById('newDisplayName').value.trim();
-
-    if (!newName) {
-        alert('يرجى إدخال اسم صحيح');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/user/display-name', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ display_name: newName })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            currentUser.display_name = data.display_name;
-            document.getElementById('userDisplayName').textContent = data.display_name;
-            alert('تم تحديث الاسم بنجاح!');
-        } else {
-            alert(data.error || 'خطأ في تحديث الاسم');
-        }
-    } catch (error) {
-        alert('خطأ في الاتصال');
-    }
-}
-
-function openCreateRoomModal() {
-    if (currentUser.role !== 'admin') {
-        alert('غير مسموح - للإداريين فقط');
-        return;
-    }
-    document.getElementById('createRoomModal').classList.add('active');
-}
-
-function closeCreateRoomModal() {
-    document.getElementById('createRoomModal').classList.remove('active');
-    document.getElementById('roomName').value = '';
-    document.getElementById('roomDescription').value = '';
-    document.getElementById('roomBackgroundPreview').style.backgroundImage = '';
-    document.getElementById('roomBackgroundPreview').classList.remove('has-image');
-}
-
-function previewRoomBackground(input) {
-    const preview = document.getElementById('roomBackgroundPreview');
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            preview.style.backgroundImage = `url(${e.target.result})`;
-            preview.classList.add('has-image');
-            preview.textContent = 'تم اختيار خلفية الغرفة';
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-}
-
-async function createRoom() {
-    const name = document.getElementById('roomName').value.trim();
-    const description = document.getElementById('roomDescription').value.trim();
-    const backgroundFile = document.getElementById('roomBackgroundFile').files[0];
-
-    if (!name) {
-        alert('يرجى إدخال اسم الغرفة');
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('description', description);
-    if (backgroundFile) {
-        formData.append('roomBackground', backgroundFile);
-    }
-
-    try {
-        const response = await fetch('/api/rooms', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('تم إنشاء الغرفة بنجاح!');
-            closeCreateRoomModal();
-            loadRooms();
-        } else {
-            alert(data.error || 'خطأ في إنشاء الغرفة');
-        }
-    } catch (error) {
-        alert('خطأ في الاتصال');
-    }
-}
-
-// باقي الوظائف من النسخة السابقة
-async function openAdminPanel() {
-    if (currentUser.role !== 'admin') {
-        alert('غير مسموح - للإداريين فقط');
-        return;
-    }
-
-    document.getElementById('adminModal').classList.add('active');
-    await loadAllUsers();
-    loadAvailableRanks();
-}
-
-function closeAdminPanel() {
-    document.getElementById('adminModal').classList.remove('active');
-}
-
-async function loadAllUsers() {
-    try {
-        const response = await fetch('/api/all-users', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-            const users = await response.json();
-            const usersList = document.getElementById('allUsersList');
-            usersList.innerHTML = '';
-
-            users.forEach(user => {
-                const userItem = document.createElement('div');
-                userItem.className = 'admin-user-item';
-
-                const rankInfo = RANKS[user.rank] || RANKS.visitor;
-
-                userItem.innerHTML = `
-                    <div class="admin-user-info">
-                        <img src="${user.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="admin-user-avatar">
-                        <div class="admin-user-details">
-                            <h4>${user.display_name}</h4>
-                            <p>${user.email}</p>
-                            <p>${rankInfo.emoji} ${rankInfo.name}</p>
-                            <p>الدور: ${user.role}</p>
-                        </div>
-                    </div>
-                    <button class="assign-rank-btn" onclick="openAssignRankModal(${user.id}, '${user.display_name}')">
-                        تعيين رتبة
-                    </button>
-                `;
-
-                usersList.appendChild(userItem);
-            });
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل المستخدمين:', error);
-    }
-}
-
-function loadAvailableRanks() {
-    const ranksList = document.getElementById('availableRanks');
-    ranksList.innerHTML = '';
-
-    Object.entries(RANKS).forEach(([key, rank]) => {
-        const rankItem = document.createElement('div');
-        rankItem.className = 'rank-item';
-
-        rankItem.innerHTML = `
-            <span class="rank-emoji">${rank.emoji}</span>
-            <div class="rank-name">${rank.name}</div>
-            <div class="rank-level">المستوى: ${rank.level}</div>
-        `;
-
-        ranksList.appendChild(rankItem);
-    });
-}
-
-function openAssignRankModal(userId, userName) {
-    selectedUserId = userId;
-    document.getElementById('targetUserName').textContent = userName;
-    document.getElementById('assignRankModal').classList.add('active');
-
-    const rankSelect = document.getElementById('rankSelect');
-    rankSelect.innerHTML = '<option value="">اختر الرتبة</option>';
-
-    Object.entries(RANKS).forEach(([key, rank]) => {
-        const option = document.createElement('option');
-        option.value = key;
-        option.textContent = `${rank.emoji} ${rank.name}`;
-        rankSelect.appendChild(option);
-    });
-}
-
-function closeAssignRankModal() {
-    document.getElementById('assignRankModal').classList.remove('active');
-    selectedUserId = null;
-}
-
-async function confirmAssignRank() {
-    const newRank = document.getElementById('rankSelect').value;
-    const reason = document.getElementById('rankReason').value;
-
-    if (!newRank) {
-        alert('يرجى اختيار رتبة');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/assign-rank', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                userId: selectedUserId,
-                newRank: newRank,
-                reason: reason
-            })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert(data.message);
-            closeAssignRankModal();
-            loadAllUsers();
-        } else {
-            alert(data.error || 'خطأ في تعيين الرتبة');
-        }
-    } catch (error) {
-        alert('خطأ في الاتصال');
-    }
-}
-
-function logout() {
-    localStorage.removeItem('chatToken');
-    token = null;
-    currentUser = null;
-
-    if (socket) {
-        socket.disconnect();
-    }
-
-    showLoginScreen();
-}
-
-// وظائف قائمة جميع المستخدمين
-async function openAllUsersModal() {
-    document.getElementById('allUsersModal').classList.add('active');
-    await loadAllUsersForChat();
-}
-
-function closeAllUsersModal() {
-    document.getElementById('allUsersModal').classList.remove('active');
-}
-
-async function loadAllUsersForChat() {
-    try {
-        const response = await fetch('/api/all-users-chat', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-            const users = await response.json();
-            displayAllUsersForChat(users);
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل المستخدمين:', error);
-        document.getElementById('allUsersListModal').innerHTML = '<div class="error">خطأ في تحميل المستخدمين</div>';
-    }
-}
-
-function displayAllUsersForChat(users) {
-    const container = document.getElementById('allUsersListModal');
-    container.innerHTML = '';
-
-    if (users.length === 0) {
-        container.innerHTML = '<div class="no-users">لا يوجد مستخدمين آخرين</div>';
-        return;
-    }
-
-    users.forEach(user => {
-        if (user.id === currentUser.id) return; // لا نظهر المستخدم نفسه
-
-        const userDiv = document.createElement('div');
-        userDiv.className = 'user-chat-item';
-
-        const rankInfo = RANKS[user.rank] || RANKS.visitor;
-        const statusClass = user.is_online ? 'online' : 'offline';
-        const statusText = user.is_online ? 'متصل' : 'غير متصل';
-
-        const adminButtons = currentUser.role === 'admin' ? `
-            <button onclick="openAssignRankForUser('${user.id}', '${user.display_name}')" class="admin-btn rank-btn">
-                🏆 رتبة
-            </button>
-            <button onclick="changeUserPassword('${user.id}', '${user.display_name}')" class="admin-btn password-btn">
-                🔐 كلمة مرور
-            </button>
-        ` : '';
-
-        userDiv.innerHTML = `
-            <div class="user-info">
-                <img src="${user.profile_image1 || getDefaultAvatar()}" alt="${user.display_name}" class="user-avatar">
-                <div class="user-details">
-                    <span class="user-name">${user.display_name}</span>
-                    <span class="user-rank">${rankInfo.emoji} ${rankInfo.name}</span>
-                    <span class="user-status ${statusClass}">${statusText}</span>
-                    ${user.age ? `<span class="user-age">العمر: ${user.age}</span>` : ''}
-                    ${user.gender ? `<span class="user-gender">${user.gender}</span>` : ''}
-                    ${user.marital_status ? `<span class="user-marital">${user.marital_status}</span>` : ''}
-                </div>
-            </div>
-            <div class="user-actions">
-                <button onclick="startPrivateChatFromList('${user.id}', '${user.display_name}')" class="private-chat-btn">
-                    💬 دردشة
-                </button>
-                <button onclick="viewUserProfile('${user.id}', '${user.display_name}')" class="view-profile-btn">
-                    👤 معلومات
-                </button>
-                <button onclick="blockUser('${user.id}', '${user.display_name}')" class="block-btn">
-                    ⛔ حظر
-                </button>
-                ${adminButtons}
-            </div>
-        `;
-
-        container.appendChild(userDiv);
-    });
-}
-
-function startPrivateChatFromList(userId, userName) {
-    // إغلاق مودال قائمة المستخدمين
-    closeAllUsersModal();
-
-    // بدء الدردشة الخاصة
-    currentPrivateChatUser = { userId: parseInt(userId), displayName: userName };
-    document.getElementById('privateChatUserName').textContent = userName;
-    document.getElementById('privateChatModal').classList.add('active');
-    document.getElementById('privateChatMessages').innerHTML = '';
-    loadPrivateMessages(parseInt(userId));
-}
-
-// تحديث المعلومات الشخصية
-async function updatePersonalInfo() {
-    const age = document.getElementById('userAge').value;
-    const gender = document.getElementById('userGender').value;
-    const maritalStatus = document.getElementById('userMaritalStatus').value;
-    const aboutMe = document.getElementById('userAboutMe').value;
-
-    try {
-        const response = await fetch('/api/user/personal-info', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                age: age ? parseInt(age) : null,
-                gender: gender,
-                marital_status: maritalStatus,
-                about_me: aboutMe
-            })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('تم حفظ المعلومات بنجاح!');
-        } else {
-            alert(data.error || 'خطأ في حفظ المعلومات');
-        }
-    } catch (error) {
-        alert('خطأ في الاتصال');
-    }
-}
-
-// حظر مستخدم
-async function blockUser(userId, userName) {
-    if (confirm(`هل أنت متأكد من حظر المستخدم ${userName}؟`)) {
-        try {
-            const response = await fetch('/api/block-user', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ blockedUserId: userId })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                alert('تم حظر المستخدم بنجاح');
-                loadAllUsersForChat(); // إعادة تحميل القائمة
+            
+            // إشعار المستخدمين الآخرين
+            if (isPrivate) {
+                socket.emit('deletePrivateMessage', { messageId });
             } else {
-                alert(data.error || 'خطأ في حظر المستخدم');
+                socket.emit('deleteMessage', { messageId, roomId: currentRoom });
             }
-        } catch (error) {
-            alert('خطأ في الاتصال');
-        }
-    }
-}
-
-// إلغاء حظر مستخدم
-async function unblockUser(userId, userName) {
-    if (confirm(`هل أنت متأكد من إلغاء حظر المستخدم ${userName}؟`)) {
-        try {
-            const response = await fetch(`/api/unblock-user/${userId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                alert('تم إلغاء حظر المستخدم بنجاح');
-                loadAllUsersForChat(); // إعادة تحميل القائمة
-            } else {
-                alert(data.error || 'خطأ في إلغاء الحظر');
-            }
-        } catch (error) {
-            alert('خطأ في الاتصال');
-        }
-    }
-}
-
-// تغيير كلمة مرور مستخدم (للإدارة)
-async function changeUserPassword(userId, userName) {
-    if (currentUser.role !== 'admin') {
-        alert('غير مسموح - للإداريين فقط');
-        return;
-    }
-
-    const newPassword = prompt(`أدخل كلمة المرور الجديدة لـ ${userName}:`);
-
-    if (!newPassword || newPassword.length < 6) {
-        alert('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/admin/change-password', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ userId: userId, newPassword: newPassword })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('تم تغيير كلمة المرور بنجاح');
-        } else {
-            alert(data.error || 'خطأ في تغيير كلمة المرور');
         }
     } catch (error) {
-        alert('خطأ في الاتصال');
+        console.error('خطأ في حذف الرسالة:', error);
+        alert('حدث خطأ في حذف الرسالة');
     }
 }
 
-// عرض معلومات مستخدم مع أزرار الإدارة
-async function viewUserProfile(userId, userName) {
-    try {
-        const response = await fetch(`/api/user-info/${userId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (response.ok) {
-            const user = await response.json();
-            showUserProfileModal(user);
-        } else {
-            alert('خطأ في تحميل معلومات المستخدم');
-        }
-    } catch (error) {
-        alert('خطأ في الاتصال');
-    }
-}
-
-// وظائف الاقتباس والإشارة
+// اقتباس رسالة
 function quoteMessage(messageId, author, content) {
-    quotedMessage = {
-        id: messageId,
-        author: author,
-        content: content
-    };
-
-    // عرض معاينة الاقتباس
-    showQuotePreview();
-
-    // تركيز على حقل الرسالة
-    document.getElementById('messageInput').focus();
-}
-
-function showQuotePreview() {
-    const messageInputArea = document.querySelector('.message-input-area');
-
-    // إزالة معاينة سابقة إن وجدت
-    const existingPreview = document.querySelector('.quote-preview');
-    if (existingPreview) {
-        existingPreview.remove();
-    }
-
+    quotedMessage = { id: messageId, author, content };
+    
     const quotePreview = document.createElement('div');
     quotePreview.className = 'quote-preview';
     quotePreview.innerHTML = `
-        <div class="quote-preview-content">
-            <div class="quote-preview-header">
-                <span>📋 رد على ${quotedMessage.author}:</span>
-                <button onclick="clearQuote()" class="clear-quote-btn">&times;</button>
-            </div>
-            <div class="quote-preview-text">${quotedMessage.content.substring(0, 100)}${quotedMessage.content.length > 100 ? '...' : ''}</div>
+        <div class="quote-preview-header">
+            اقتباس من ${author}
+            <button class="clear-quote-btn" onclick="clearQuote()">×</button>
         </div>
+        <div class="quote-preview-text">${content}</div>
     `;
-
-    messageInputArea.insertBefore(quotePreview, messageInputArea.firstChild);
+    
+    const inputArea = document.querySelector('.message-input-area');
+    const existingQuote = inputArea.querySelector('.quote-preview');
+    if (existingQuote) {
+        existingQuote.remove();
+    }
+    
+    inputArea.insertBefore(quotePreview, inputArea.firstChild);
+    document.getElementById('messageInput').focus();
 }
 
+// مسح الاقتباس
 function clearQuote() {
     quotedMessage = null;
     const quotePreview = document.querySelector('.quote-preview');
@@ -1817,254 +434,744 @@ function clearQuote() {
     }
 }
 
-function mentionUser(userName) {
-    const messageInput = document.getElementById('messageInput');
-    const currentText = messageInput.value;
-    const mention = `@${userName} `;
+// إشارة لمستخدم
+function mentionUser(username) {
+    const input = document.getElementById('messageInput');
+    const currentValue = input.value;
+    const mention = `@${username} `;
+    
+    if (!currentValue.includes(mention)) {
+        input.value = currentValue + mention;
+        input.focus();
+    }
+}
 
-    // إضافة الإشارة في بداية الرسالة أو بعد النص الموجود
-    if (currentText.trim() === '') {
-        messageInput.value = mention;
+// إرسال رسالة
+function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    const messageData = {
+        message,
+        roomId: currentRoom
+    };
+    
+    // إضافة الاقتباس إذا كان موجوداً
+    if (quotedMessage) {
+        messageData.quoted_message_id = quotedMessage.id;
+        messageData.quoted_author = quotedMessage.author;
+        messageData.quoted_content = quotedMessage.content;
+    }
+    
+    socket.emit('sendMessage', messageData);
+    input.value = '';
+    clearQuote();
+}
+
+// إرسال رسالة خاصة
+function sendPrivateMessage() {
+    const input = document.getElementById('privateMessageInput');
+    const message = input.value.trim();
+    const receiverId = parseInt(document.getElementById('privateChatModal').dataset.userId);
+    
+    if (!message || !receiverId) return;
+    
+    const messageData = {
+        message,
+        receiverId
+    };
+    
+    socket.emit('sendPrivateMessage', messageData);
+    input.value = '';
+}
+
+// بدء تسجيل الصوت
+async function startVoiceRecording(isPrivate = false) {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+        
+        mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            sendVoiceMessage(audioBlob, isPrivate);
+            stream.getTracks().forEach(track => track.stop());
+        };
+        
+        mediaRecorder.start();
+        isRecording = true;
+        
+        // تحديث واجهة المستخدم
+        const recordBtn = isPrivate ? 
+            document.getElementById('privateRecordBtn') : 
+            document.getElementById('recordBtn');
+        
+        recordBtn.textContent = '⏹️ إيقاف التسجيل';
+        recordBtn.onclick = () => stopVoiceRecording(isPrivate);
+        
+    } catch (error) {
+        console.error('خطأ في بدء التسجيل:', error);
+        alert('لا يمكن الوصول للميكروفون');
+    }
+}
+
+// إيقاف تسجيل الصوت
+function stopVoiceRecording(isPrivate = false) {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
+        
+        // تحديث واجهة المستخدم
+        const recordBtn = isPrivate ? 
+            document.getElementById('privateRecordBtn') : 
+            document.getElementById('recordBtn');
+        
+        recordBtn.textContent = '🎤 تسجيل صوتي';
+        recordBtn.onclick = () => startVoiceRecording(isPrivate);
+    }
+}
+
+// إرسال رسالة صوتية
+async function sendVoiceMessage(audioBlob, isPrivate = false) {
+    const formData = new FormData();
+    formData.append('voice', audioBlob, 'voice-message.webm');
+    
+    if (isPrivate) {
+        const receiverId = parseInt(document.getElementById('privateChatModal').dataset.userId);
+        formData.append('receiverId', receiverId);
     } else {
-        messageInput.value = currentText + ' ' + mention;
+        formData.append('roomId', currentRoom);
     }
-
-    messageInput.focus();
-
-    // تشغيل صوت الإشارة
-    playMentionSound();
-}
-
-// وظائف الأصوات
-function playMessageSound() {
-    if (localStorage.getItem('messageSoundsEnabled') !== 'false') {
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LLdCEIKnbH8N2QQAoUXrTp66hVFApGn+DyvmAaBjmS2e4QQAAAA==');
-        audio.volume = 0.3;
-        audio.play().catch(() => {});
-    }
-}
-
-function playPrivateMessageSound() {
-    if (localStorage.getItem('privateSoundsEnabled') !== 'false') {
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LLdCEIKnbH8N2QQAoUXrTp66hVFApGn+DyvmAaBjmS2e4AAAAA');
-        audio.volume = 0.5;
-        audio.play().catch(() => {});
-    }
-}
-
-function playMentionSound() {
-    if (localStorage.getItem('mentionSoundsEnabled') !== 'false') {
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LLdCEIKnbH8N2QQAoUXrTp66hVFApGn+DyvmAaBjmS2e4BBBBB');
-        audio.volume = 0.7;
-        audio.play().catch(() => {});
+    
+    try {
+        const response = await fetch('/api/upload-voice', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            const messageData = {
+                voice_url: data.voice_url,
+                roomId: currentRoom
+            };
+            
+            if (isPrivate) {
+                messageData.receiverId = parseInt(document.getElementById('privateChatModal').dataset.userId);
+                socket.emit('sendPrivateVoice', messageData);
+            } else {
+                socket.emit('sendVoice', messageData);
+            }
+        }
+    } catch (error) {
+        console.error('خطأ في إرسال الرسالة الصوتية:', error);
+        alert('حدث خطأ في إرسال الرسالة الصوتية');
     }
 }
 
-// عرض مودال معلومات المستخدم
-function showUserProfileModal(user) {
-    const rankInfo = RANKS[user.rank] || RANKS.visitor;
-    const adminActions = currentUser.role === 'admin' ? `
-        <button onclick="openAssignRankForUser('${user.id}', '${user.display_name}')" class="btn admin-btn">
-            🏆 تغيير الرتبة
-        </button>
-        <button onclick="changeUserPassword('${user.id}', '${user.display_name}')" class="btn admin-btn">
-            🔐 تغيير كلمة المرور
-        </button>
-    ` : '';
-
-    const profileHtml = `
-        <div class="user-profile-info">
-            <div class="profile-header">
-                <img src="${user.profile_image1 || getDefaultAvatar()}" alt="${user.display_name}" class="profile-large-avatar">
-                <div class="profile-main-info">
-                    <h3>${user.display_name}</h3>
-                    <span class="profile-rank">${rankInfo.emoji} ${rankInfo.name}</span>
-                    <span class="profile-status ${user.is_online ? 'online' : 'offline'}">
-                        ${user.is_online ? 'متصل الآن' : 'غير متصل'}
-                    </span>
-                </div>
-            </div>
-
-            <div class="profile-details">
-                ${user.age ? `<div class="profile-detail"><strong>العمر:</strong> ${user.age}</div>` : ''}
-                ${user.gender ? `<div class="profile-detail"><strong>الجنس:</strong> ${user.gender}</div>` : ''}
-                ${user.marital_status ? `<div class="profile-detail"><strong>الحالة الاجتماعية:</strong> ${user.marital_status}</div>` : ''}
-                ${user.about_me ? `<div class="profile-detail about-me"><strong>عني:</strong><br>${user.about_me}</div>` : ''}
-            </div>
-
-            <div class="profile-actions">
-                <button onclick="startPrivateChatFromList('${user.id}', '${user.display_name}'); closeUserProfileModal()" class="btn private-btn">
-                    💬 دردشة خاصة
-                </button>
-                <button onclick="blockUser('${user.id}', '${user.display_name}'); closeUserProfileModal()" class="btn block-btn">
-                    ⛔ حظر
-                </button>
-                ${adminActions}
+// عرض المستخدمين في الغرفة
+function displayRoomUsers(users) {
+    const usersList = document.getElementById('usersList');
+    usersList.innerHTML = users.map(user => `
+        <div class="user-item" onclick="openPrivateChat(${user.userId}, '${user.displayName}')">
+            <img src="${getDefaultAvatar()}" alt="صورة شخصية">
+            <div class="user-item-info">
+                <div class="user-item-name">${user.displayName}</div>
+                <div class="user-item-rank">${getRankDisplay(user.rank)}</div>
             </div>
         </div>
-    `;
-
-    // عرض المعلومات في مودال مؤقت
-    const modal = document.createElement('div');
-    modal.className = 'modal active';
-    modal.id = 'userProfileViewModal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <span class="close" onclick="closeUserProfileModal()">&times;</span>
-            <h2>معلومات المستخدم</h2>
-            ${profileHtml}
-        </div>
-    `;
-
-    document.body.appendChild(modal);
+    `).join('');
 }
 
-function closeUserProfileModal() {
-    const modal = document.getElementById('userProfileViewModal');
-    if (modal) {
-        modal.remove();
+// تحميل جميع المستخدمين
+async function loadAllUsers() {
+    try {
+        const response = await fetch('/api/all-users-chat', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const users = await response.json();
+        // سيتم استخدامها في مودال جميع المستخدمين
+        window.allUsers = users;
+    } catch (error) {
+        console.error('خطأ في تحميل المستخدمين:', error);
     }
 }
 
-// فتح مودال تعيين الرتبة لمستخدم معين
-function openAssignRankForUser(userId, userName) {
-    if (currentUser.role !== 'admin') {
-        alert('غير مسموح - للإداريين فقط');
+// فتح الدردشة الخاصة
+async function openPrivateChat(userId, userName) {
+    document.getElementById('privateChatUserName').textContent = userName;
+    document.getElementById('privateChatModal').dataset.userId = userId;
+    document.getElementById('privateChatModal').classList.add('active');
+    
+    // تحميل الرسائل الخاصة
+    try {
+        const response = await fetch(`/api/private-messages/${userId}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const messages = await response.json();
+        const container = document.getElementById('privateChatMessages');
+        container.innerHTML = '';
+        
+        messages.forEach(message => displayMessage(message, true));
+        container.scrollTop = container.scrollHeight;
+    } catch (error) {
+        console.error('خطأ في تحميل الرسائل الخاصة:', error);
+    }
+}
+
+// إغلاق الدردشة الخاصة
+function closePrivateChatModal() {
+    document.getElementById('privateChatModal').classList.remove('active');
+}
+
+// عرض الرسالة الخاصة
+function displayPrivateMessage(message) {
+    if (document.getElementById('privateChatModal').classList.contains('active')) {
+        const currentChatUserId = parseInt(document.getElementById('privateChatModal').dataset.userId);
+        if (message.user_id === currentChatUserId || message.receiver_id === currentChatUserId) {
+            displayMessage(message, true);
+        }
+    }
+}
+
+// فتح مودال جميع المستخدمين
+function openAllUsersModal() {
+    document.getElementById('allUsersModal').classList.add('active');
+    displayAllUsers();
+}
+
+// إغلاق مودال جميع المستخدمين
+function closeAllUsersModal() {
+    document.getElementById('allUsersModal').classList.remove('active');
+}
+
+// عرض جميع المستخدمين
+function displayAllUsers() {
+    const container = document.getElementById('allUsersListModal');
+    
+    if (!window.allUsers) {
+        container.innerHTML = '<div class="loading">جاري تحميل المستخدمين...</div>';
+        loadAllUsers().then(() => displayAllUsers());
         return;
     }
-
-    selectedUserId = parseInt(userId);
-    document.getElementById('targetUserName').textContent = userName;
-    document.getElementById('assignRankModal').classList.add('active');
-
-    // إغلاق مودال معلومات المستخدم إذا كان مفتوحاً
-    closeUserProfileModal();
-    closeAllUsersModal();
+    
+    container.innerHTML = window.allUsers.map(user => `
+        <div class="user-chat-item">
+            <div class="user-info">
+                <img src="${user.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="user-avatar">
+                <div class="user-details">
+                    <div class="user-name">${user.display_name}</div>
+                    <div class="user-rank">${getRankDisplay(user.rank)}</div>
+                    <div class="user-status ${user.is_online ? 'online' : 'offline'}">
+                        ${user.is_online ? 'متصل' : 'غير متصل'}
+                    </div>
+                    ${user.age ? `<div class="user-age">العمر: ${user.age}</div>` : ''}
+                    ${user.gender ? `<div class="user-gender">الجنس: ${user.gender}</div>` : ''}
+                    ${user.marital_status ? `<div class="user-marital">الحالة: ${user.marital_status}</div>` : ''}
+                </div>
+            </div>
+            <div class="user-actions">
+                <button class="private-chat-btn" onclick="openPrivateChat(${user.id}, '${user.display_name}'); closeAllUsersModal();">دردشة خاصة</button>
+                <button class="view-profile-btn" onclick="showUserProfile(${user.id})">عرض الملف</button>
+            </div>
+        </div>
+    `).join('');
 }
 
+// الحصول على الصورة الافتراضية
 function getDefaultAvatar() {
     return "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><circle cx='20' cy='20' r='20' fill='%23007bff'/><text x='20' y='25' text-anchor='middle' fill='white' font-size='16'>👤</text></svg>";
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+// الحصول على عرض الرتبة
+function getRankDisplay(rank) {
+    const ranks = {
+        visitor: '👋 زائر',
+        bronze: '🥉 عضو برونزي',
+        silver: '🥈 عضو فضي',
+        gold: '🥇 عضو ذهبي',
+        trophy: '🏆 كأس',
+        diamond: '💎 عضو الماس',
+        prince: '👑 برنس'
+    };
+    return ranks[rank] || '👋 زائر';
 }
 
-// إغلاق المودالات عند النقر خارجها
-window.onclick = function(event) {
-    const modals = document.querySelectorAll('.modal');
-    modals.forEach(modal => {
-        if (event.target === modal) {
-            modal.classList.remove('active');
-        }
+// تنسيق الوقت
+function formatTime(timestamp) {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('ar-SA', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
     });
 }
 
-// إرسال رسالة عامة في الغرفة
-function sendMessage() {
-    const messageInput = document.getElementById('messageInput');
-    const message = messageInput.value.trim();
-
-    // التحقق من أن الرسالة ليست فارغة
-    if (!message) return;
-
-    // إنشاء كائن الرسالة
-    const messageData = {
-        message: message,
-        roomId: currentRoomId,
-        type: 'text'
-    };
-
-    // دعم الاقتباس (إذا كان هناك رسالة مقتبسة)
-    if (quotedMessage) {
-        messageData.quoted_message_id = quotedMessage.id;
-        messageData.quoted_message = quotedMessage.content;
-        messageData.quoted_author = quotedMessage.author;
-    }
-
-    // إرسال الرسالة عبر السوكيت
-    socket.emit('sendMessage', messageData);
-
-    // إعادة تعيين حقل الإدخال ومسح الاقتباس
-    messageInput.value = '';
-    clearQuote();
+// فتح مودال الملف الشخصي
+function openProfileModal() {
+    document.getElementById('profileModal').classList.add('active');
+    loadUserProfile();
 }
 
-// ربط الدالة بالحقل عند الضغط على Enter
-document.getElementById('messageInput').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
+// إغلاق مودال الملف الشخصي
+function closeProfileModal() {
+    document.getElementById('profileModal').classList.remove('active');
+}
+
+// تحميل بيانات المستخدم
+async function loadUserProfile() {
+    try {
+        const response = await fetch('/api/user/profile', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const user = await response.json();
+        
+        // تحديث الصور
+        if (user.profile_image1) {
+            document.getElementById('profileImg1').src = user.profile_image1;
+        }
+        if (user.profile_image2) {
+            document.getElementById('profileImg2').src = user.profile_image2;
+        }
+        
+        // تحديث الرتبة الحالية
+        document.getElementById('currentRank').textContent = getRankDisplay(user.rank);
+        
+        // تحديث الاسم
+        document.getElementById('newDisplayName').value = user.display_name;
+        
+    } catch (error) {
+        console.error('خطأ في تحميل بيانات المستخدم:', error);
+    }
+}
+
+// معاينة صورة البروفايل
+function previewProfileImage(slot, input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById(`profileImg${slot}`).src = e.target.result;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// رفع صور البروفايل
+async function uploadProfileImages() {
+    const formData = new FormData();
+    
+    const file1 = document.getElementById('profileFile1').files[0];
+    const file2 = document.getElementById('profileFile2').files[0];
+    
+    if (file1) formData.append('profile1', file1);
+    if (file2) formData.append('profile2', file2);
+    
+    if (!file1 && !file2) {
+        alert('يرجى اختيار صورة واحدة على الأقل');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/upload-profile-images', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('تم حفظ الصور بنجاح');
+            if (data.profile_image1) {
+                document.getElementById('userAvatar').src = data.profile_image1;
+            }
+        } else {
+            alert(data.error || 'حدث خطأ في رفع الصور');
+        }
+    } catch (error) {
+        console.error('خطأ في رفع الصور:', error);
+        alert('حدث خطأ في رفع الصور');
+    }
+}
+
+// تحديث الاسم المعروض
+async function updateDisplayName() {
+    const newName = document.getElementById('newDisplayName').value.trim();
+    
+    if (!newName) {
+        alert('يرجى إدخال اسم صحيح');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/user/display-name', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({ display_name: newName })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('تم تحديث الاسم بنجاح');
+            document.getElementById('userDisplayName').textContent = newName;
+            currentUser.display_name = newName;
+        } else {
+            alert(data.error || 'حدث خطأ في تحديث الاسم');
+        }
+    } catch (error) {
+        console.error('خطأ في تحديث الاسم:', error);
+        alert('حدث خطأ في تحديث الاسم');
+    }
+}
+
+// تحديث المعلومات الشخصية
+async function updatePersonalInfo() {
+    const age = document.getElementById('userAge').value;
+    const gender = document.getElementById('userGender').value;
+    const maritalStatus = document.getElementById('userMaritalStatus').value;
+    const aboutMe = document.getElementById('userAboutMe').value;
+    
+    try {
+        const response = await fetch('/api/user/personal-info', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                age: age || null,
+                gender: gender || null,
+                marital_status: maritalStatus || null,
+                about_me: aboutMe || null
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('تم تحديث المعلومات بنجاح');
+        } else {
+            alert(data.error || 'حدث خطأ في تحديث المعلومات');
+        }
+    } catch (error) {
+        console.error('خطأ في تحديث المعلومات:', error);
+        alert('حدث خطأ في تحديث المعلومات');
+    }
+}
+
+// فتح إعدادات الأصوات
+function openSoundSettings() {
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+            <h2>إعدادات الأصوات</h2>
+            
+            <div class="sound-settings">
+                <div class="sound-setting">
+                    <label>
+                        <input type="checkbox" ${soundSettings.messageSound ? 'checked' : ''} onchange="updateSoundSetting('messageSound', this.checked)">
+                        صوت الرسائل العامة
+                    </label>
+                    <button class="test-sound-btn" onclick="playSound('message')">تجربة</button>
+                </div>
+                
+                <div class="sound-setting">
+                    <label>
+                        <input type="checkbox" ${soundSettings.notificationSound ? 'checked' : ''} onchange="updateSoundSetting('notificationSound', this.checked)">
+                        صوت الرسائل الخاصة
+                    </label>
+                    <button class="test-sound-btn" onclick="playSound('notification')">تجربة</button>
+                </div>
+                
+                <div class="sound-setting">
+                    <label>
+                        <input type="checkbox" ${soundSettings.voiceMessageSound ? 'checked' : ''} onchange="updateSoundSetting('voiceMessageSound', this.checked)">
+                        صوت الرسائل الصوتية
+                    </label>
+                    <button class="test-sound-btn" onclick="playSound('notification')">تجربة</button>
+                </div>
+            </div>
+            
+            <div class="sound-actions">
+                <button class="btn save-btn" onclick="this.closest('.modal').remove()">حفظ</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// تحديث إعداد الصوت
+function updateSoundSetting(setting, value) {
+    soundSettings[setting] = value;
+    saveSoundSettings();
+}
+
+// فتح لوحة الإدارة
+function openAdminPanel() {
+    if (currentUser.role !== 'admin') return;
+    
+    document.getElementById('adminModal').classList.add('active');
+    loadAllUsersForAdmin();
+    loadAvailableRanks();
+}
+
+// إغلاق لوحة الإدارة
+function closeAdminPanel() {
+    document.getElementById('adminModal').classList.remove('active');
+}
+
+// تحميل المستخدمين للإدارة
+async function loadAllUsersForAdmin() {
+    try {
+        const response = await fetch('/api/all-users', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const users = await response.json();
+        const container = document.getElementById('allUsersList');
+        
+        container.innerHTML = users.map(user => `
+            <div class="admin-user-item">
+                <div class="admin-user-info">
+                    <img src="${user.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="admin-user-avatar">
+                    <div class="admin-user-details">
+                        <h4>${user.display_name}</h4>
+                        <p>${user.email} - ${getRankDisplay(user.rank)}</p>
+                        <p>تاريخ التسجيل: ${new Date(user.created_at).toLocaleDateString('ar-SA')}</p>
+                    </div>
+                </div>
+                <button class="assign-rank-btn" onclick="openAssignRankModal(${user.id}, '${user.display_name}')">
+                    تعيين رتبة
+                </button>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('خطأ في تحميل المستخدمين:', error);
+    }
+}
+
+// تحميل الرتب المتاحة
+async function loadAvailableRanks() {
+    try {
+        const response = await fetch('/api/ranks', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const ranks = await response.json();
+        const container = document.getElementById('availableRanks');
+        
+        container.innerHTML = Object.entries(ranks).map(([key, rank]) => `
+            <div class="rank-item">
+                <span class="rank-emoji">${rank.emoji}</span>
+                <div class="rank-name">${rank.name}</div>
+                <div class="rank-level">المستوى: ${rank.level}</div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('خطأ في تحميل الرتب:', error);
+    }
+}
+
+// فتح مودال تعيين الرتبة
+async function openAssignRankModal(userId, userName) {
+    document.getElementById('targetUserName').textContent = userName;
+    document.getElementById('assignRankModal').dataset.userId = userId;
+    document.getElementById('assignRankModal').classList.add('active');
+    
+    // تحميل الرتب في القائمة المنسدلة
+    try {
+        const response = await fetch('/api/ranks', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const ranks = await response.json();
+        const select = document.getElementById('rankSelect');
+        
+        select.innerHTML = '<option value="">اختر الرتبة</option>' +
+            Object.entries(ranks).map(([key, rank]) => 
+                `<option value="${key}">${rank.emoji} ${rank.name}</option>`
+            ).join('');
+    } catch (error) {
+        console.error('خطأ في تحميل الرتب:', error);
+    }
+}
+
+// إغلاق مودال تعيين الرتبة
+function closeAssignRankModal() {
+    document.getElementById('assignRankModal').classList.remove('active');
+}
+
+// تأكيد تعيين الرتبة
+async function confirmAssignRank() {
+    const userId = document.getElementById('assignRankModal').dataset.userId;
+    const newRank = document.getElementById('rankSelect').value;
+    const reason = document.getElementById('rankReason').value;
+    
+    if (!newRank) {
+        alert('يرجى اختيار رتبة');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/assign-rank', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({ userId, newRank, reason })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(data.message);
+            closeAssignRankModal();
+            loadAllUsersForAdmin();
+        } else {
+            alert(data.error || 'حدث خطأ في تعيين الرتبة');
+        }
+    } catch (error) {
+        console.error('خطأ في تعيين الرتبة:', error);
+        alert('حدث خطأ في تعيين الرتبة');
+    }
+}
+
+// فتح مودال إنشاء غرفة
+function openCreateRoomModal() {
+    if (currentUser.role !== 'admin') return;
+    document.getElementById('createRoomModal').classList.add('active');
+}
+
+// إغلاق مودال إنشاء غرفة
+function closeCreateRoomModal() {
+    document.getElementById('createRoomModal').classList.remove('active');
+}
+
+// إنشاء غرفة جديدة
+async function createRoom() {
+    const name = document.getElementById('roomName').value.trim();
+    const description = document.getElementById('roomDescription').value.trim();
+    const backgroundFile = document.getElementById('roomBackgroundFile').files[0];
+    
+    if (!name) {
+        alert('يرجى إدخال اسم الغرفة');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('description', description);
+    if (backgroundFile) {
+        formData.append('roomBackground', backgroundFile);
+    }
+    
+    try {
+        const response = await fetch('/api/rooms', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('تم إنشاء الغرفة بنجاح');
+            closeCreateRoomModal();
+            loadRooms();
+            
+            // مسح النموذج
+            document.getElementById('roomName').value = '';
+            document.getElementById('roomDescription').value = '';
+            document.getElementById('roomBackgroundFile').value = '';
+            document.getElementById('roomBackgroundPreview').style.backgroundImage = '';
+        } else {
+            alert(data.error || 'حدث خطأ في إنشاء الغرفة');
+        }
+    } catch (error) {
+        console.error('خطأ في إنشاء الغرفة:', error);
+        alert('حدث خطأ في إنشاء الغرفة');
+    }
+}
+
+// حذف غرفة
+async function deleteRoom(roomId) {
+    if (!confirm('هل أنت متأكد من حذف هذه الغرفة؟')) return;
+    
+    try {
+        const response = await fetch(`/api/rooms/${roomId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (response.ok) {
+            socket.emit('deleteRoom', roomId);
+            loadRooms();
+        }
+    } catch (error) {
+        console.error('خطأ في حذف الغرفة:', error);
+        alert('حدث خطأ في حذف الغرفة');
+    }
+}
+
+// معاينة خلفية الغرفة
+function previewRoomBackground(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('roomBackgroundPreview');
+            preview.style.backgroundImage = `url(${e.target.result})`;
+            preview.classList.add('has-image');
+            preview.textContent = '';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// تسجيل الخروج
+function logout() {
+    localStorage.removeItem('token');
+    if (socket) {
+        socket.disconnect();
+    }
+    showScreen('loginScreen');
+    currentUser = null;
+}
+
+// معالجة الضغط على Enter
+document.getElementById('messageInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
         sendMessage();
     }
 });
 
-socket.on('newMessage', (message) => {
-    if (message.room_id === currentRoomId) {
-        displayMessage(message);
-        if (message.user_id !== currentUser.id) {
-            playMessageSound();
-            if (message.message.includes(`@${currentUser.display_name}`)) {
-                playMentionSound();
-                showMentionNotification(message);
-            }
-        }
+document.getElementById('privateMessageInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        sendPrivateMessage();
     }
 });
 
-let typingTimer;
-const TYPING_DELAY = 1000;
-
-document.getElementById('messageInput').addEventListener('input', () => {
-    clearTimeout(typingTimer);
-    socket.emit('typing', { roomId: currentRoomId, displayName: currentUser.display_name });
-    typingTimer = setTimeout(() => {
-        socket.emit('stopTyping', { roomId: currentRoomId });
-    }, TYPING_DELAY);
-});
-
-// في connectSocket()
-socket.on('userTyping', (data) => {
-    if (data.roomId === currentRoomId && data.displayName !== currentUser.display_name) {
-        const typingIndicator = document.createElement('div');
-        typingIndicator.id = 'typingIndicator';
-        typingIndicator.textContent = `${data.displayName} يكتب...`;
-        typingIndicator.style.color = '#1abc9c';
-        typingIndicator.style.fontSize = '0.8em';
-        typingIndicator.style.padding = '5px';
-        document.getElementById('messagesContainer').appendChild(typingIndicator);
-        setTimeout(() => {
-            if (typingIndicator.parentNode) typingIndicator.remove();
-        }, 2000);
+// تهيئة التطبيق
+document.addEventListener('DOMContentLoaded', () => {
+    if (checkAuth()) {
+        initializeChat();
     }
-});
-
-socket.on('sendMessage', (data) => {
-    // تخزين الرسالة في قاعدة البيانات
-    db.run(
-        `INSERT INTO messages (user_id, room_id, message, type, quoted_message_id) VALUES (?, ?, ?, ?, ?)`,
-        [socket.userId, data.roomId, data.message, data.type || 'text', data.quoted_message_id || null],
-        function (err) {
-            if (err) {
-                console.error(err);
-                return;
-            }
-            const message = {
-                id: this.lastID,
-                user_id: socket.userId,
-                display_name: socket.displayName,
-                rank: socket.rank,
-                profile_image1: socket.profileImage1,
-                message: data.message,
-                type: data.type || 'text',
-                room_id: data.roomId,
-                timestamp: new Date().toISOString(),
-                quoted_message: data.quoted_message,
-                quoted_author: data.quoted_author
-            };
-            // إرسال الرسالة إلى جميع المستخدمين في الغرفة
-            io.to(data.roomId).emit('newMessage', message);
-        }
-    );
 });
