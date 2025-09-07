@@ -55,6 +55,11 @@
                     <button onclick="openProfileModal()" class="btn">الملف الشخصي</button>
                     <button onclick="openAdminPanel()" class="btn admin-btn" id="adminBtn" style="display: none;">لوحة الإدارة</button>
                     <button onclick="logout()" class="btn logout-btn">خروج</button>
+                    <button id="notificationBell" class="btn" onclick="openNotifications()">
+                        <span>🔔</span><span id="notificationCount" class="notification-count">0</span>
+                    </button>
+                    <button id="themeToggle" class="btn" onclick="toggleTheme()">🌙/☀️</button>
+                    <button id="statsBtn" class="btn" onclick="showStats()">📊 إحصائيات</button>
                 </div>
             </div>
 
@@ -82,6 +87,7 @@
                     <div class="message-input-area">
                         <input type="text" id="messageInput" placeholder="اكتب رسالتك هنا..." maxlength="500">
                         <button id="recordBtn" onclick="startVoiceRecording(false)" class="btn" style="background: #e74c3c; margin-left: 5px;">🎤 تسجيل صوتي</button>
+                        <button class="emoji-btn" onclick="openEmojiPicker()">😊</button>
                         <button onclick="sendMessage()" class="send-btn">إرسال</button>
                     </div>
                 </div>
@@ -236,6 +242,13 @@
             <div class="private-chat-input">
                 <input type="text" id="privateMessageInput" placeholder="اكتب رسالتك الخاصة..." maxlength="500">
                 <button id="privateRecordBtn" onclick="startVoiceRecording(true)" class="btn" style="background: #e74c3c; margin-left: 5px;">🎤</button>
+                <button class="emoji-btn" onclick="openEmojiPicker()">😊</button>
+                <button id="privateQuickHelloBtn" class="btn">مرحبًا</button>
+                <button id="privateSendImageBtn" class="btn">صورة</button>
+                <button id="privateSendFileBtn" class="btn">ملف</button>
+                <button id="privateSettingsBtn" class="btn">إعدادات</button>
+                <button id="backToPublicBtn" class="btn">عودة إلى العام</button>
+                <button id="privateChatToggleBtn" class="btn">الخاص</button>
                 <button onclick="sendPrivateMessage()" class="send-btn">إرسال</button>
             </div>
         </div>
