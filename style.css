@@ -873,7 +873,7 @@ input[type="file"] {
     .chat-content {
         flex-direction: column;
     }
-    
+
     .users-sidebar {
         width: 100%;
         height: 250px;
@@ -882,34 +882,34 @@ input[type="file"] {
         flex-direction: row;
         gap: 1rem;
     }
-    
+
     .rooms-section, .users-section {
         flex: 1;
         min-width: 200px;
     }
-    
+
     .private-chat-modal {
         width: 95%;
         height: 90vh;
         margin: 5vh auto;
     }
-    
+
     .profile-images {
         flex-direction: column;
         align-items: center;
     }
-    
+
     .modal-content {
         margin: 10px;
         width: calc(100% - 20px);
     }
-    
+
     .header {
         flex-direction: column;
         gap: 10px;
         text-align: center;
     }
-    
+
     .header-buttons {
         justify-content: center;
         flex-wrap: wrap;
@@ -1405,12 +1405,12 @@ input[type="file"] {
         padding: 10px;
         font-size: 12px;
     }
-    
+
     .voice-message {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .message-image {
         max-width: 250px;
         max-height: 150px;
