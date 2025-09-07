@@ -6,6 +6,8 @@ let isRecording = false;
 let mediaRecorder;
 let audioChunks = [];
 let quotedMessage = null;
+let isTyping = false;
+let isPrivateTyping = false;
 
 // الرتب المتاحة
 const RANKS = {
@@ -19,7 +21,31 @@ const RANKS = {
     trophy: { name: 'Owner', emoji: '🏆', level: 7 }
 };
 
-// قائمة الإيموجيات
+// قائمة 200 اسم جاهز للاستخدام للإشارة @mention
+const MENTIONS = [
+    'User1','User2','User3','User4','User5','User6','User7','User8','User9','User10',
+    'User11','User12','User13','User14','User15','User16','User17','User18','User19','User20',
+    'User21','User22','User23','User24','User25','User26','User27','User28','User29','User30',
+    'User31','User32','User33','User34','User35','User36','User37','User38','User39','User40',
+    'User41','User42','User43','User44','User45','User46','User47','User48','User49','User50',
+    'User51','User52','User53','User54','User55','User56','User57','User58','User59','User60',
+    'User61','User62','User63','User64','User65','User66','User67','User68','User69','User70',
+    'User71','User72','User73','User74','User75','User76','User77','User78','User79','User80',
+    'User81','User82','User83','User84','User85','User86','User87','User88','User89','User90',
+    'User91','User92','User93','User94','User95','User96','User97','User98','User99','User100',
+    'User101','User102','User103','User104','User105','User106','User107','User108','User109','User110',
+    'User111','User112','User113','User114','User115','User116','User117','User118','User119','User120',
+    'User121','User122','User123','User124','User125','User126','User127','User128','User129','User130',
+    'User131','User132','User133','User134','User135','User136','User137','User138','User139','User140',
+    'User141','User142','User143','User144','User145','User146','User147','User148','User149','User150',
+    'User151','User152','User153','User154','User155','User156','User157','User158','User159','User160',
+    'User161','User162','User163','User164','User165','User166','User167','User168','User169','User170',
+    'User171','User172','User173','User174','User175','User176','User177','User178','User179','User180',
+    'User181','User182','User183','User184','User185','User186','User187','User188','User189','User190',
+    'User191','User192','User193','User194','User195','User196','User197','User198','User199','User200'
+];
+
+// قائمة الإيموجيات (تحسين معالجة GIFs)
 const EMOJIS = [
     {
         category: 'مضحكة',
@@ -322,8 +348,8 @@ const EMOJIS = [
 
 // الأصوات
 const sounds = {
-    message: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYE'),
-    notification: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYE')
+    message: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYE'),
+    notification: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYELIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTuR2O/JdSYE')
 };
 
 // إعدادات الأصوات
@@ -361,7 +387,6 @@ function checkAuth() {
         return false;
     }
 
-    // فك تشفير JWT بسيط (في الإنتاج استخدم مكتبة مناسبة)
     try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         currentUser = payload;
@@ -447,12 +472,42 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     }
 });
 
+// دالة debounce للحد من تكرار إرسال الأحداث
+function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+// عرض مؤشر الكتابة
+function showTypingIndicator(displayName, isPrivate = false) {
+    const indicator = isPrivate
+        ? document.getElementById('privateTypingIndicator')
+        : document.getElementById('typingIndicator');
+    if (indicator) {
+        indicator.textContent = `${displayName} يكتب...`;
+        indicator.classList.add('active');
+    }
+}
+
+// إخفاء مؤشر الكتابة
+function hideTypingIndicator(isPrivate = false) {
+    const indicator = isPrivate
+        ? document.getElementById('privateTypingIndicator')
+        : document.getElementById('typingIndicator');
+    if (indicator) {
+        indicator.textContent = '';
+        indicator.classList.remove('active');
+    }
+}
+
 // تهيئة الشات
 async function initializeChat() {
     showScreen('chatScreen');
     loadSoundSettings();
 
-    // عرض معلومات المستخدم
     document.getElementById('userDisplayName').textContent = currentUser.display_name;
     document.getElementById('userRank').textContent = getRankDisplay(currentUser.rank);
 
@@ -460,13 +515,11 @@ async function initializeChat() {
         document.getElementById('userAvatar').src = currentUser.profile_image1;
     }
 
-    // إظهار زر الإدارة للإداريين
     if (currentUser.role === 'admin') {
         document.getElementById('adminBtn').style.display = 'inline-block';
         document.getElementById('createRoomBtn').style.display = 'block';
     }
 
-    // تهيئة Socket.IO
     socket = io();
 
     socket.emit('join', {
@@ -477,7 +530,6 @@ async function initializeChat() {
         roomId: currentRoom
     });
 
-    // استقبال الرسائل العامة
     socket.on('newMessage', (message) => {
         displayMessage(message, false);
         if (message.user_id !== currentUser.id) {
@@ -486,7 +538,6 @@ async function initializeChat() {
         }
     });
 
-    // استقبال الرسائل الخاصة
     socket.on('newPrivateMessage', (message) => {
         displayPrivateMessage(message);
         if (message.user_id !== currentUser.id) {
@@ -495,18 +546,15 @@ async function initializeChat() {
         }
     });
 
-    // استقبال قائمة المستخدمين في الغرفة
     socket.on('roomUsersList', (users) => {
         displayRoomUsers(users);
     });
 
-    // تغيير الغرفة
     socket.on('roomChanged', (roomId) => {
         currentRoom = roomId;
         loadRoomMessages(roomId);
     });
 
-    // حذف غرفة
     socket.on('roomDeleted', (roomId) => {
         if (currentRoom === roomId) {
             currentRoom = 1;
@@ -515,10 +563,82 @@ async function initializeChat() {
         loadRooms();
     });
 
-    // تحميل البيانات الأولية
+    // مؤشرات الكتابة للدردشة العامة
+    socket.on('typing', ({ userId, displayName, roomId }) => {
+        if (roomId === currentRoom && userId !== currentUser.id) {
+            showTypingIndicator(displayName, false);
+        }
+    });
+
+    socket.on('stopTyping', ({ userId, roomId }) => {
+        if (roomId === currentRoom && userId !== currentUser.id) {
+            hideTypingIndicator(false);
+        }
+    });
+
+    // مؤشرات الكتابة للدردشة الخاصة
+    socket.on('privateTyping', ({ userId, displayName, receiverId }) => {
+        if (
+            document.getElementById('privateChatModal').classList.contains('active') &&
+            (userId === parseInt(document.getElementById('privateChatModal').dataset.userId) ||
+             receiverId === currentUser.id)
+        ) {
+            showTypingIndicator(displayName, true);
+        }
+    });
+
+    socket.on('privateStopTyping', ({ userId, receiverId }) => {
+        if (
+            document.getElementById('privateChatModal').classList.contains('active') &&
+            (userId === parseInt(document.getElementById('privateChatModal').dataset.userId) ||
+             receiverId === currentUser.id)
+        ) {
+            hideTypingIndicator(true);
+        }
+    });
+
     await loadRooms();
     await loadRoomMessages(currentRoom);
     await loadAllUsers();
+
+    // إضافة حدث الكتابة للدردشة العامة
+    const emitTyping = debounce(() => {
+        if (!isTyping) {
+            socket.emit('typing', {
+                userId: currentUser.id,
+                displayName: currentUser.display_name,
+                roomId: currentRoom
+            });
+            isTyping = true;
+        }
+        clearTimeout(window.typingTimeout);
+        window.typingTimeout = setTimeout(() => {
+            socket.emit('stopTyping', { userId: currentUser.id, roomId: currentRoom });
+            isTyping = false;
+        }, 3000);
+    }, 500);
+
+    document.getElementById('messageInput').addEventListener('input', emitTyping);
+
+    // إضافة حدث الكتابة للدردشة الخاصة
+    const emitPrivateTyping = debounce(() => {
+        const receiverId = parseInt(document.getElementById('privateChatModal').dataset.userId);
+        if (!isPrivateTyping && receiverId) {
+            socket.emit('privateTyping', {
+                userId: currentUser.id,
+                displayName: currentUser.display_name,
+                receiverId
+            });
+            isPrivateTyping = true;
+        }
+        clearTimeout(window.privateTypingTimeout);
+        window.privateTypingTimeout = setTimeout(() => {
+            socket.emit('privateStopTyping', { userId: currentUser.id, receiverId });
+            isPrivateTyping = false;
+        }, 3000);
+    }, 500);
+
+    document.getElementById('privateMessageInput').addEventListener('input', emitPrivateTyping);
 }
 
 // تحميل الغرف
@@ -553,13 +673,11 @@ function changeRoom(roomId) {
     currentRoom = roomId;
     socket.emit('changeRoom', roomId);
 
-    // تحديث واجهة الغرف
     document.querySelectorAll('.room-item').forEach(item => {
         item.classList.remove('active');
     });
     event.target.closest('.room-item').classList.add('active');
 
-    // تحديث اسم الغرفة
     const roomName = event.target.closest('.room-item').querySelector('.room-item-name').textContent;
     document.getElementById('currentRoomName').textContent = roomName;
 
@@ -584,17 +702,20 @@ async function loadRoomMessages(roomId) {
     }
 }
 
-// عرض الرسالة
+// عرض الرسالة - تحسين معالجة الإيموجيات
 function displayMessage(message, isPrivate = false) {
     const container = isPrivate ? 
         document.getElementById('privateChatMessages') : 
         document.getElementById('messagesContainer');
 
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${message.user_id === currentUser.id ? 'own' : 'other'}`;
+    const isOwn = message.user_id === currentUser.id;
+    messageDiv.className = `message ${isOwn ? 'own' : 'other'}`;
+    if (message.display_name && message.display_name.startsWith('!')) {
+        messageDiv.classList.add('message-highlight');
+    }
     messageDiv.dataset.messageId = message.id;
 
-    // إضافة خلفية الرسالة إذا كانت متوفرة
     if (message.message_background) {
         messageDiv.style.backgroundImage = `url(${message.message_background})`;
         messageDiv.classList.add('has-background');
@@ -602,7 +723,6 @@ function displayMessage(message, isPrivate = false) {
 
     let messageContent = '';
 
-    // رسالة صوتية
     if (message.voice_url) {
         messageContent = `
             <div class="message-header">
@@ -626,7 +746,6 @@ function displayMessage(message, isPrivate = false) {
             </div>
         `;
     }
-    // رسالة صورة
     else if (message.image_url) {
         messageContent = `
             <div class="message-header">
@@ -644,11 +763,9 @@ function displayMessage(message, isPrivate = false) {
             </div>
         `;
     }
-    // رسالة نصية
     else {
         let processedMessage = message.message;
 
-        // معالجة الاقتباس
         if (message.quoted_message_id) {
             processedMessage = `
                 <div class="quoted-message">
@@ -659,19 +776,19 @@ function displayMessage(message, isPrivate = false) {
             `;
         }
 
-        // معالجة الأكواد
         processedMessage = processedMessage.replace(/```([\s\S]*?)```/g, '<pre class="code-block"><code>$1</code></pre>');
         processedMessage = processedMessage.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
 
-        // معالجة الإشارات
         processedMessage = processedMessage.replace(/@(\w+)/g, '<span data-mention="$1">@$1</span>');
 
-        // معالجة الإيموجيات المتحركة (GIFs)
         EMOJIS.forEach(category => {
             category.items.forEach(emoji => {
                 if (emoji.type === 'gif') {
-                    const regex = new RegExp(emoji.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-                    processedMessage = processedMessage.replace(regex, `<img src="${emoji.code}" alt="${emoji.name}" class="emoji-gif">`);
+                    const regex = new RegExp(escapeRegExp(emoji.code), 'g');
+                    processedMessage = processedMessage.replace(regex, `<img src="${emoji.code}" alt="${emoji.name}" class="emoji-gif" loading="lazy">`);
+                } else {
+                    const regex = new RegExp(escapeRegExp(emoji.code), 'g');
+                    processedMessage = processedMessage.replace(regex, `<span class="emoji">${emoji.code}</span>`);
                 }
             });
         });
@@ -696,6 +813,11 @@ function displayMessage(message, isPrivate = false) {
     container.scrollTop = container.scrollHeight;
 }
 
+// دالة للهروب من الأحرف الخاصة في التعبيرات العادية
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // حذف رسالة
 async function deleteMessage(messageId, isPrivate = false) {
     if (!confirm('هل أنت متأكد من حذف هذه الرسالة؟')) return;
@@ -707,13 +829,11 @@ async function deleteMessage(messageId, isPrivate = false) {
         });
 
         if (response.ok) {
-            // إزالة الرسالة من الواجهة
             const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
             if (messageElement) {
                 messageElement.remove();
             }
 
-            // إشعار المستخدمين الآخرين
             if (isPrivate) {
                 socket.emit('deletePrivateMessage', { messageId });
             } else {
@@ -787,7 +907,7 @@ function openEmojiPicker() {
                         <div class="emoji-list">
                             ${category.items.map(emoji => `
                                 <span class="emoji-item" title="${emoji.name}" onclick="insertEmoji('${emoji.code}', '${emoji.type || 'text'}')">
-                                    ${emoji.type === 'gif' ? `<img src="${emoji.code}" alt="${emoji.name}" class="emoji-gif">` : emoji.code}
+                                    ${emoji.type === 'gif' ? `<img src="${emoji.code}" alt="${emoji.name}" class="emoji-gif" loading="lazy">` : emoji.code}
                                 </span>
                             `).join('')}
                         </div>
@@ -811,25 +931,27 @@ function insertEmoji(code, type) {
     const cursorPos = input.selectionStart;
     const textBefore = input.value.substring(0, cursorPos);
     const textAfter = input.value.substring(cursorPos);
-    input.value = textBefore + (type === 'gif' ? code : code + ' ') + textAfter;
+    input.value = textBefore + (type === 'gif' ? `[GIF:${code}]` : code + ' ') + textAfter;
     input.focus();
-    input.selectionStart = input.selectionEnd = cursorPos + (type === 'gif' ? code.length : code.length + 1);
+    input.selectionStart = input.selectionEnd = cursorPos + (type === 'gif' ? `[GIF:${code}]`.length : code.length + 1);
     closeEmojiPicker();
 }
 
 // إرسال رسالة
 function sendMessage() {
     const input = document.getElementById('messageInput');
-    const message = input.value.trim();
+    let message = input.value.trim();
 
     if (!message) return;
+
+    // تحويل الـ [GIF:url] إلى صورة عند الإرسال
+    message = message.replace(/\[GIF:([^\]]+)\]/g, '<img src="$1" alt="GIF" class="emoji-gif" loading="lazy">');
 
     const messageData = {
         message,
         roomId: currentRoom
     };
 
-    // إضافة الاقتباس إذا كان موجوداً
     if (quotedMessage) {
         messageData.quoted_message_id = quotedMessage.id;
         messageData.quoted_author = quotedMessage.author;
@@ -878,7 +1000,6 @@ async function startVoiceRecording(isPrivate = false) {
         mediaRecorder.start();
         isRecording = true;
 
-        // تحديث واجهة المستخدم
         const recordBtn = isPrivate ? 
             document.getElementById('privateRecordBtn') : 
             document.getElementById('recordBtn');
@@ -898,7 +1019,6 @@ function stopVoiceRecording(isPrivate = false) {
         mediaRecorder.stop();
         isRecording = false;
 
-        // تحديث واجهة المستخدم
         const recordBtn = isPrivate ? 
             document.getElementById('privateRecordBtn') : 
             document.getElementById('recordBtn');
@@ -951,15 +1071,26 @@ async function sendVoiceMessage(audioBlob, isPrivate = false) {
 // عرض المستخدمين في الغرفة
 function displayRoomUsers(users) {
     const usersList = document.getElementById('usersList');
-    usersList.innerHTML = users.map(user => `
-        <div class="user-item" onclick="openPrivateChat(${user.userId}, '${user.displayName}')">
-            <img src="${getDefaultAvatar()}" alt="صورة شخصية">
-            <div class="user-item-info">
-                <div class="user-item-name">${user.displayName}</div>
-                <div class="user-item-rank">${getRankDisplay(user.rank)}</div>
-            </div>
-        </div>
-    `).join('');
+    usersList.innerHTML = users.map(user => {
+        const rankDisplay = getRankDisplay(user.rank);
+        const hasStar = RANKS[user.rank] && RANKS[user.rank].level >= 5 ? '<span class="star-icon">★</span>' : '';
+        const flag = user.country ? `<img class="flag-icon" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='12' viewBox='0 0 16 12'><rect width='16' height='6' fill='${getFlagColor(user.country)}'/><rect y='6' width='16' height='6' fill='${getFlagColor(user.country + '2')}'/></svg>" alt="flag">` : '';
+        return `
+            <li class="user-item" onclick="openPrivateChat(${user.userId}, '${user.displayName}')">
+                <img src="${user.profile_image1 || getDefaultAvatar()}" alt="avatar">
+                <div class="user-item-info">
+                    <span class="user-item-name">${user.displayName}${hasStar}</span>
+                    <span class="user-item-rank">${rankDisplay}${flag}</span>
+                </div>
+            </li>
+        `;
+    }).join('');
+}
+
+// دالة مساعدة للألوان الافتراضية للأعلام
+function getFlagColor(country) {
+    const colors = { 'YE': '#ff0000', 'SA': '#00ff00', 'default': '#0000ff' };
+    return colors[color] || colors.default;
 }
 
 // تحميل جميع المستخدمين
@@ -970,7 +1101,6 @@ async function loadAllUsers() {
         });
 
         const users = await response.json();
-        // سيتم استخدامها في مودال جميع المستخدمين
         window.allUsers = users;
     } catch (error) {
         console.error('خطأ في تحميل المستخدمين:', error);
@@ -983,7 +1113,6 @@ async function openPrivateChat(userId, userName) {
     document.getElementById('privateChatModal').dataset.userId = userId;
     document.getElementById('privateChatModal').classList.add('active');
 
-    // تحميل الرسائل الخاصة
     try {
         const response = await fetch(`/api/private-messages/${userId}`, {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
@@ -1036,27 +1165,32 @@ function displayAllUsers() {
         return;
     }
 
-    container.innerHTML = window.allUsers.map(user => `
-        <div class="user-chat-item">
-            <div class="user-info">
-                <img src="${user.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="user-avatar">
-                <div class="user-details">
-                    <div class="user-name">${user.display_name}</div>
-                    <div class="user-rank">${getRankDisplay(user.rank)}</div>
-                    <div class="user-status ${user.is_online ? 'online' : 'offline'}">
-                        ${user.is_online ? 'متصل' : 'غير متصل'}
+    container.innerHTML = window.allUsers.map(user => {
+        const rankDisplay = getRankDisplay(user.rank);
+        const hasStar = RANKS[user.rank] && RANKS[user.rank].level >= 5 ? '<span class="star-icon">★</span>' : '';
+        const flag = user.country ? `<img class="flag-icon" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='12' viewBox='0 0 16 12'><rect width='16' height='6' fill='${getFlagColor(user.country)}'/><rect y='6' width='16' height='6' fill='${getFlagColor(user.country + '2')}'/></svg>" alt="flag">` : '';
+        return `
+            <div class="user-chat-item">
+                <div class="user-info">
+                    <img src="${user.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="user-avatar">
+                    <div class="user-details">
+                        <div class="user-name">${user.display_name}${hasStar}</div>
+                        <div class="user-rank">${rankDisplay}${flag}</div>
+                        <div class="user-status ${user.is_online ? 'online' : 'offline'}">
+                            ${user.is_online ? 'متصل' : 'غير متصل'}
+                        </div>
+                        ${user.age ? `<div class="user-age">العمر: ${user.age}</div>` : ''}
+                        ${user.gender ? `<div class="user-gender">الجنس: ${user.gender}</div>` : ''}
+                        ${user.marital_status ? `<div class="user-marital">الحالة: ${user.marital_status}</div>` : ''}
                     </div>
-                    ${user.age ? `<div class="user-age">العمر: ${user.age}</div>` : ''}
-                    ${user.gender ? `<div class="user-gender">الجنس: ${user.gender}</div>` : ''}
-                    ${user.marital_status ? `<div class="user-marital">الحالة: ${user.marital_status}</div>` : ''}
+                </div>
+                <div class="user-actions">
+                    <button class="private-chat-btn" onclick="openPrivateChat(${user.id}, '${user.display_name}'); closeAllUsersModal();">دردشة خاصة</button>
+                    <button class="view-profile-btn" onclick="showUserProfile(${user.id})">عرض الملف</button>
                 </div>
             </div>
-            <div class="user-actions">
-                <button class="private-chat-btn" onclick="openPrivateChat(${user.id}, '${user.display_name}'); closeAllUsersModal();">دردشة خاصة</button>
-                <button class="view-profile-btn" onclick="showUserProfile(${user.id})">عرض الملف</button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // الحصول على الصورة الافتراضية
@@ -1066,7 +1200,11 @@ function getDefaultAvatar() {
 
 // الحصول على عرض الرتبة
 function getRankDisplay(rank) {
-    return RANKS[rank] ? `${RANKS[rank].emoji} ${RANKS[rank].name}` : '👋 Visitor';
+    if (RANKS[rank]) {
+        const star = RANKS[rank].level >= 5 ? ' ★' : '';
+        return `${RANKS[rank].emoji}${star} ${RANKS[rank].name}`;
+    }
+    return '👋 Visitor';
 }
 
 // تنسيق الوقت
@@ -1099,7 +1237,6 @@ async function loadUserProfile() {
 
         const user = await response.json();
 
-        // تحديث الصور
         if (user.profile_image1) {
             document.getElementById('profileImg1').src = user.profile_image1;
         }
@@ -1107,10 +1244,8 @@ async function loadUserProfile() {
             document.getElementById('profileImg2').src = user.profile_image2;
         }
 
-        // تحديث الرتبة الحالية
         document.getElementById('currentRank').textContent = getRankDisplay(user.rank);
 
-        // تحديث الاسم
         document.getElementById('newDisplayName').value = user.display_name;
 
     } catch (error) {
@@ -1352,223 +1487,275 @@ async function loadAvailableRanks() {
     }
 }
 
-// فتح مودال تعيين الرتبة
-async function openAssignRankModal(userId, userName) {
-    document.getElementById('targetUserName').textContent = userName;
-    document.getElementById('assignRankModal').dataset.userId = userId;
-    document.getElementById('assignRankModal').classList.add('active');
+    // فتح مودال تعيين الرتبة
+    async function openAssignRankModal(userId, userName) {
+        document.getElementById('targetUserName').textContent = userName;
+        document.getElementById('assignRankModal').dataset.userId = userId;
+        document.getElementById('assignRankModal').classList.add('active');
 
-    // تحميل الرتب في القائمة المنسدلة
-    try {
-        const response = await fetch('/api/ranks', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
+        // تحميل الرتب المتاحة في قائمة الاختيار
+        const rankSelect = document.getElementById('rankSelect');
+        rankSelect.innerHTML = Object.entries(RANKS).map(([key, rank]) => `
+            <option value="${key}">${rank.emoji} ${rank.name}</option>
+        `).join('');
 
-        const ranks = await response.json();
-        const select = document.getElementById('rankSelect');
+        // إعداد نموذج تعيين الرتبة
+        document.getElementById('assignRankForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const rank = rankSelect.value;
 
-        select.innerHTML = '<option value="">اختر الرتبة</option>' +
-            Object.entries(ranks).map(([key, rank]) => 
-                `<option value="${key}">${rank.emoji} ${rank.name}</option>`
-            ).join('');
-    } catch (error) {
-        console.error('خطأ في تحميل الرتب:', error);
-    }
-}
+            try {
+                const response = await fetch('/api/assign-rank', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ userId, rank })
+                });
 
-// إغلاق مودال تعيين الرتبة
-function closeAssignRankModal() {
-    document.getElementById('assignRankModal').classList.remove('active');
-}
+                const data = await response.json();
 
-// تأكيد تعيين الرتبة
-async function confirmAssignRank() {
-    const userId = document.getElementById('assignRankModal').dataset.userId;
-    const newRank = document.getElementById('rankSelect').value;
-    const reason = document.getElementById('rankReason').value;
-
-    if (!newRank) {
-        alert('يرجى اختيار رتبة');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/assign-rank', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({ userId, newRank, reason })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert(data.message);
-            closeAssignRankModal();
-            loadAllUsersForAdmin();
-        } else {
-            alert(data.error || 'حدث خطأ في تعيين الرتبة');
-        }
-    } catch (error) {
-        console.error('خطأ في تعيين الرتبة:', error);
-        alert('حدث خطأ في تعيين الرتبة');
-    }
-}
-
-// فتح مودال إنشاء غرفة
-function openCreateRoomModal() {
-    if (currentUser.role !== 'admin') return;
-    document.getElementById('createRoomModal').classList.add('active');
-}
-
-// إغلاق مودال إنشاء غرفة
-function closeCreateRoomModal() {
-    document.getElementById('createRoomModal').classList.remove('active');
-}
-
-// إنشاء غرفة جديدة
-async function createRoom() {
-    const name = document.getElementById('roomName').value.trim();
-    const description = document.getElementById('roomDescription').value.trim();
-    const backgroundFile = document.getElementById('roomBackgroundFile').files[0];
-
-    if (!name) {
-        alert('يرجى إدخال اسم الغرفة');
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('description', description);
-    if (backgroundFile) {
-        formData.append('roomBackground', backgroundFile);
-    }
-
-    try {
-        const response = await fetch('/api/rooms', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('تم إنشاء الغرفة بنجاح');
-            closeCreateRoomModal();
-            loadRooms();
-
-            // مسح النموذج
-            document.getElementById('roomName').value = '';
-            document.getElementById('roomDescription').value = '';
-            document.getElementById('roomBackgroundFile').value = '';
-            document.getElementById('roomBackgroundPreview').style.backgroundImage = '';
-        } else {
-            alert(data.error || 'حدث خطأ في إنشاء الغرفة');
-        }
-    } catch (error) {
-        console.error('خطأ في إنشاء الغرفة:', error);
-        alert('حدث خطأ في إنشاء الغرفة');
-    }
-}
-
-// حذف غرفة
-async function deleteRoom(roomId) {
-    if (!confirm('هل أنت متأكد من حذف هذه الغرفة؟')) return;
-
-    try {
-        const response = await fetch(`/api/rooms/${roomId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-
-        if (response.ok) {
-            socket.emit('deleteRoom', roomId);
-            loadRooms();
-        }
-    } catch (error) {
-        console.error('خطأ في حذف الغرفة:', error);
-        alert('حدث خطأ في حذف الغرفة');
-    }
-}
-
-// معاينة خلفية الغرفة
-function previewRoomBackground(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.getElementById('roomBackgroundPreview');
-            preview.style.backgroundImage = `url(${e.target.result})`;
-            preview.classList.add('has-image');
-            preview.textContent = '';
+                if (response.ok) {
+                    alert(`تم تعيين رتبة ${RANKS[rank].name} للمستخدم ${userName}`);
+                    closeAssignRankModal();
+                    loadAllUsersForAdmin();
+                    socket.emit('rankUpdated', { userId, rank });
+                } else {
+                    alert(data.error || 'حدث خطأ في تعيين الرتبة');
+                }
+            } catch (error) {
+                console.error('خطأ في تعيين الرتبة:', error);
+                alert('حدث خطأ في تعيين الرتبة');
+            }
         };
-        reader.readAsDataURL(input.files[0]);
     }
-}
 
-// تسجيل الخروج
-function logout() {
-    localStorage.removeItem('token');
-    if (socket) {
-        socket.disconnect();
+    // إغلاق مودال تعيين الرتبة
+    function closeAssignRankModal() {
+        document.getElementById('assignRankModal').classList.remove('active');
+        document.getElementById('assignRankForm').onsubmit = null;
     }
-    showScreen('loginScreen');
-    currentUser = null;
-}
 
-// معالجة الضغط على Enter
-document.getElementById('messageInput').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        sendMessage();
+    // إنشاء غرفة جديدة
+    async function createRoom() {
+        const roomName = document.getElementById('newRoomName').value.trim();
+        const roomDescription = document.getElementById('newRoomDescription').value.trim();
+
+        if (!roomName) {
+            alert('يرجى إدخال اسم الغرفة');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/rooms', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ name: roomName, description: roomDescription })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert('تم إنشاء الغرفة بنجاح');
+                document.getElementById('newRoomName').value = '';
+                document.getElementById('newRoomDescription').value = '';
+                loadRooms();
+                socket.emit('newRoom', data.room);
+            } else {
+                alert(data.error || 'حدث خطأ في إنشاء الغرفة');
+            }
+        } catch (error) {
+            console.error('خطأ في إنشاء الغرفة:', error);
+            alert('حدث خطأ في إنشاء الغرفة');
+        }
     }
-});
 
-document.getElementById('privateMessageInput').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        sendPrivateMessage();
+    // حذف غرفة
+    async function deleteRoom(roomId) {
+        if (!confirm('هل أنت متأكد من حذف هذه الغرفة؟')) return;
+
+        try {
+            const response = await fetch(`/api/rooms/${roomId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+
+            if (response.ok) {
+                alert('تم حذف الغرفة بنجاح');
+                socket.emit('deleteRoom', roomId);
+                loadRooms();
+            } else {
+                const data = await response.json();
+                alert(data.error || 'حدث خطأ في حذف الغرفة');
+            }
+        } catch (error) {
+            console.error('خطأ في حذف الغرفة:', error);
+            alert('حدث خطأ في حذف الغرفة');
+        }
     }
-});
 
-// تهيئة التطبيق
-document.addEventListener('DOMContentLoaded', () => {
-    if (checkAuth()) {
-        initializeChat();
+    // عرض ملف المستخدم
+    async function showUserProfile(userId) {
+        try {
+            const response = await fetch(`/api/user/${userId}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+
+            const user = await response.json();
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+                    <h2>ملف المستخدم: ${user.display_name}</h2>
+                    <div class="user-profile">
+                        <img src="${user.profile_image1 || getDefaultAvatar()}" alt="صورة شخصية" class="profile-avatar">
+                        <div class="profile-details">
+                            <p><strong>الرتبة:</strong> ${getRankDisplay(user.rank)}</p>
+                            ${user.age ? `<p><strong>العمر:</strong> ${user.age}</p>` : ''}
+                            ${user.gender ? `<p><strong>الجنس:</strong> ${user.gender}</p>` : ''}
+                            ${user.marital_status ? `<p><strong>الحالة الاجتماعية:</strong> ${user.marital_status}</p>` : ''}
+                            ${user.about_me ? `<p><strong>عني:</strong> ${user.about_me}</p>` : ''}
+                            <p><strong>تاريخ التسجيل:</strong> ${new Date(user.created_at).toLocaleDateString('ar-SA')}</p>
+                        </div>
+                        <div class="profile-actions">
+                            <button class="btn" onclick="openPrivateChat(${user.id}, '${user.display_name}'); this.closest('.modal').remove()">دردشة خاصة</button>
+                            ${currentUser.role === 'admin' ? `<button class="btn" onclick="openAssignRankModal(${user.id}, '${user.display_name}'); this.closest('.modal').remove()">تعيين رتبة</button>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        } catch (error) {
+            console.error('خطأ في تحميل ملف المستخدم:', error);
+            alert('حدث خطأ في تحميل ملف المستخدم');
+        }
     }
-});
 
-// تحديث عدد الإشعارات
-function updateNotificationCount(count) {
-    const notificationCount = document.getElementById('notificationCount');
-    notificationCount.textContent = count > 0 ? count : '0';
-}
+    // فتح مودال رفع الصورة
+    function openImageUploadModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+                <h2>رفع صورة</h2>
+                <input type="file" id="imageUpload" accept="image/*">
+                <img id="imagePreview" src="" alt="معاينة الصورة" style="display: none; max-width: 100%; margin-top: 10px;">
+                <button class="btn" onclick="uploadImage()">رفع الصورة</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
 
-// فتح الإشعارات
-function openNotifications() {
-    alert('الإشعارات: ' + document.getElementById('notificationCount').textContent + ' رسالة جديدة');
-    updateNotificationCount(0);
-}
+        document.getElementById('imageUpload').addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('imagePreview');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
 
-// تبديل الثيم
-function toggleTheme() {
-    document.body.classList.toggle('dark-mode');
-    const themeToggle = document.getElementById('themeToggle');
-    themeToggle.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
-}
+    // رفع الصورة
+    async function uploadImage() {
+        const fileInput = document.getElementById('imageUpload');
+        if (!fileInput.files[0]) {
+            alert('يرجى اختيار صورة');
+            return;
+        }
 
-// عرض الإحصائيات
-function showStats() {
-    const stats = {
-        totalMessages: 150,
-        activeRooms: 5,
-        onlineUsers: 20
-    };
-    alert(`إحصائيات الدردشة:\n- الرسائل الإجمالية: ${stats.totalMessages}\n- الغرف النشطة: ${stats.activeRooms}\n- المستخدمون المتصلون: ${stats.onlineUsers}`);
-}
+        const formData = new FormData();
+        formData.append('image', fileInput.files[0]);
+        formData.append('roomId', currentRoom);
 
-// حساب عدد الرسائل غير المقروءة (مثال بسيط)
-function getUnreadMessagesCount() {
-    // هنا يمكنك التحقق من الرسائل غير المقروءة من قاعدة البيانات أو السيرفر
-    return 0; // استبدل هذا بالمنطق الفعلي
-}
+        try {
+            const response = await fetch('/api/upload-image', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                body: formData
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                socket.emit('sendImage', { image_url: data.image_url, roomId: currentRoom });
+                document.querySelector('.modal.active').remove();
+            } else {
+                alert(data.error || 'حدث خطأ في رفع الصورة');
+            }
+        } catch (error) {
+            console.error('خطأ في رفع الصورة:', error);
+            alert('حدث خطأ في رفع الصورة');
+        }
+    }
+
+    // فتح مودال عرض الصورة
+    function openImageModal(imageUrl) {
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+                <img src="${imageUrl}" alt="صورة" style="max-width: 100%;">
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // تحديث عدد الإشعارات
+    function updateNotificationCount(count) {
+        const badge = document.getElementById('notificationBadge');
+        if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    // الحصول على عدد الرسائل غير المقروءة
+    function getUnreadMessagesCount() {
+        // هنا يمكنك إضافة منطق لتتبع الرسائل غير المقروءة
+        // على سبيل المثال، يمكن تخزين حالة القراءة في قاعدة البيانات
+        return 0; // مؤقتًا، يمكن تعديله لاحقًا
+    }
+
+    // تسجيل الخروج
+    function logout() {
+        if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+            localStorage.removeItem('token');
+            socket.disconnect();
+            currentUser = null;
+            showScreen('loginScreen');
+        }
+    }
+
+    // تهيئة التطبيق عند تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', () => {
+        if (checkAuth()) {
+            initializeChat();
+        }
+
+        // إضافة مستمع لإرسال الرسائل عند الضغط على Enter
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        document.getElementById('privateMessageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendPrivateMessage();
+            }
+        });
+    });
