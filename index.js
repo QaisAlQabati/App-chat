@@ -359,7 +359,7 @@ app.delete('/api/rooms/:id', authenticateToken, (req, res) => {
     }
 
     const roomId = parseInt(req.params.id);
-    
+
     if (roomId === 1) {
         return res.status(400).json({ error: 'لا يمكن حذف الغرفة الرئيسية' });
     }
@@ -368,14 +368,14 @@ app.delete('/api/rooms/:id', authenticateToken, (req, res) => {
         if (err) {
             return res.status(500).json({ error: 'خطأ في حذف الغرفة' });
         }
-        
+
         // حذف رسائل الغرفة أيضاً
         db.run('DELETE FROM messages WHERE room_id = ?', [roomId], (err) => {
             if (err) {
                 console.error('خطأ في حذف رسائل الغرفة:', err);
             }
         });
-        
+
         res.json({ success: true, message: 'تم حذف الغرفة بنجاح' });
     });
 });
@@ -383,21 +383,21 @@ app.delete('/api/rooms/:id', authenticateToken, (req, res) => {
 // حذف رسالة
 app.delete('/api/messages/:id', authenticateToken, (req, res) => {
     const messageId = parseInt(req.params.id);
-    
+
     // التحقق من ملكية الرسالة أو صلاحية الإدارة
     db.get('SELECT user_id FROM messages WHERE id = ?', [messageId], (err, message) => {
         if (err) {
             return res.status(500).json({ error: 'خطأ في قاعدة البيانات' });
         }
-        
+
         if (!message) {
             return res.status(404).json({ error: 'الرسالة غير موجودة' });
         }
-        
+
         if (message.user_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ error: 'غير مسموح - يمكنك حذف رسائلك فقط' });
         }
-        
+
         db.run('DELETE FROM messages WHERE id = ?', [messageId], (err) => {
             if (err) {
                 return res.status(500).json({ error: 'خطأ في حذف الرسالة' });
@@ -412,7 +412,7 @@ app.post('/api/upload-voice', authenticateToken, upload.single('voice'), (req, r
     if (!req.file) {
         return res.status(400).json({ error: 'لم يتم رفع ملف صوتي' });
     }
-    
+
     const voice_url = `/uploads/${req.file.filename}`;
     res.json({ voice_url });
 });
@@ -450,7 +450,7 @@ app.post('/api/rooms', authenticateToken, upload.single('roomBackground'), (req,
 app.get('/api/private-messages/:userId', authenticateToken, (req, res) => {
     const otherUserId = req.params.userId;
     const currentUserId = req.user.id;
-    
+
     db.all(`SELECT m.*, u.display_name, u.role, u.rank, u.profile_image1
             FROM messages m 
             JOIN users u ON m.user_id = u.id 
@@ -490,7 +490,7 @@ app.get('/api/all-users-chat', authenticateToken, (req, res) => {
 // تحديث المعلومات الشخصية
 app.put('/api/user/personal-info', authenticateToken, (req, res) => {
     const { age, gender, marital_status, about_me } = req.body;
-    
+
     db.run('UPDATE users SET age = ?, gender = ?, marital_status = ?, about_me = ? WHERE id = ?', 
         [age, gender, marital_status, about_me, req.user.id], (err) => {
         if (err) {
@@ -564,13 +564,13 @@ app.put('/api/admin/change-password', authenticateToken, (req, res) => {
     }
 
     const { userId, newPassword } = req.body;
-    
+
     if (!newPassword || newPassword.length < 6) {
         return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' });
     }
 
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    
+
     db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId], (err) => {
         if (err) {
             return res.status(500).json({ error: 'خطأ في تغيير كلمة المرور' });
@@ -582,7 +582,7 @@ app.put('/api/admin/change-password', authenticateToken, (req, res) => {
 // الحصول على معلومات مستخدم (للإدارة أو المستخدم نفسه)
 app.get('/api/user-info/:userId', authenticateToken, (req, res) => {
     const { userId } = req.params;
-    
+
     // يمكن للإدارة رؤية أي مستخدم، أو للمستخدم رؤية نفسه
     if (req.user.role !== 'admin' && req.user.id !== parseInt(userId)) {
         return res.status(403).json({ error: 'غير مسموح' });
@@ -604,7 +604,7 @@ app.get('/api/all-users', authenticateToken, (req, res) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'غير مسموح' });
     }
-    
+
     db.all('SELECT id, email, display_name, role, rank, profile_image1, is_online, created_at FROM users ORDER BY created_at DESC', [], (err, users) => {
         if (err) {
             return res.status(500).json({ error: 'خطأ في قاعدة البيانات' });
@@ -772,11 +772,11 @@ app.put('/api/user/background', authenticateToken, (req, res) => {
 // تحديث الاسم المعروض
 app.put('/api/user/display-name', authenticateToken, (req, res) => {
     const { display_name } = req.body;
-    
+
     if (!display_name || display_name.trim().length < 2) {
         return res.status(400).json({ error: 'الاسم يجب أن يكون حرفين على الأقل' });
     }
-    
+
     db.run('UPDATE users SET display_name = ? WHERE id = ?', 
         [display_name.trim(), req.user.id], 
         (err) => {
@@ -804,17 +804,17 @@ io.on('connection', (socket) => {
             email: userData.email,
             currentRoom: userData.roomId || 1
         });
-        
+
         // الانضمام للغرفة
         const roomId = userData.roomId || 1;
         socket.join(`room_${roomId}`);
-        
+
         // تحديث قائمة مستخدمي الغرفة
         if (!roomUsers.has(roomId)) {
             roomUsers.set(roomId, new Set());
         }
         roomUsers.get(roomId).add(socket.id);
-        
+
         // إرسال قائمة المستخدمين في الغرفة
         const roomUsersList = Array.from(roomUsers.get(roomId) || []).map(socketId => connectedUsers.get(socketId)).filter(Boolean);
         io.to(`room_${roomId}`).emit('roomUsersList', roomUsersList);
@@ -826,29 +826,29 @@ io.on('connection', (socket) => {
         if (!user) return;
 
         const oldRoomId = user.currentRoom;
-        
+
         // مغادرة الغرفة القديمة
         socket.leave(`room_${oldRoomId}`);
         if (roomUsers.has(oldRoomId)) {
             roomUsers.get(oldRoomId).delete(socket.id);
         }
-        
+
         // الانضمام للغرفة الجديدة
         socket.join(`room_${newRoomId}`);
         user.currentRoom = newRoomId;
-        
+
         if (!roomUsers.has(newRoomId)) {
             roomUsers.set(newRoomId, new Set());
         }
         roomUsers.get(newRoomId).add(socket.id);
-        
+
         // تحديث قوائم المستخدمين
         const oldRoomUsersList = Array.from(roomUsers.get(oldRoomId) || []).map(socketId => connectedUsers.get(socketId)).filter(Boolean);
         const newRoomUsersList = Array.from(roomUsers.get(newRoomId) || []).map(socketId => connectedUsers.get(socketId)).filter(Boolean);
-        
+
         io.to(`room_${oldRoomId}`).emit('roomUsersList', oldRoomUsersList);
         io.to(`room_${newRoomId}`).emit('roomUsersList', newRoomUsersList);
-        
+
         socket.emit('roomChanged', newRoomId);
     });
 
@@ -861,7 +861,7 @@ io.on('connection', (socket) => {
 
         // تحديد نوع الرسالة وحفظها
         let query, params;
-        
+
         if (data.voice_url) {
             // رسالة صوتية
             query = 'INSERT INTO messages (user_id, email, voice_url, room_id) VALUES (?, ?, ?, ?)';
@@ -880,7 +880,7 @@ io.on('connection', (socket) => {
                 params = [user.userId, user.email, data.message, roomId];
             }
         }
-        
+
         db.run(query, params, function(err) {
                 if (err) {
                     console.error('خطأ في حفظ الرسالة:', err);
@@ -919,7 +919,7 @@ io.on('connection', (socket) => {
 
         // تحديد نوع الرسالة وحفظها
         let query, params;
-        
+
         if (data.voice_url) {
             query = 'INSERT INTO messages (user_id, email, voice_url, is_private, receiver_id) VALUES (?, ?, ?, ?, ?)';
             params = [sender.userId, sender.email, data.voice_url, true, data.receiverId];
@@ -930,7 +930,7 @@ io.on('connection', (socket) => {
             query = 'INSERT INTO messages (user_id, email, message, is_private, receiver_id) VALUES (?, ?, ?, ?, ?)';
             params = [sender.userId, sender.email, data.message, true, data.receiverId];
         }
-        
+
         db.run(query, params, function(err) {
                 if (err) {
                     console.error('خطأ في حفظ الرسالة الخاصة:', err);
@@ -952,7 +952,7 @@ io.on('connection', (socket) => {
 
                 // إرسال الرسالة للمرسل والمستقبل فقط
                 socket.emit('newPrivateMessage', messageData);
-                
+
                 // البحث عن socket المستقبل وإرسال الرسالة له
                 for (let [socketId, userData] of connectedUsers) {
                     if (userData.userId === data.receiverId) {
@@ -967,60 +967,60 @@ io.on('connection', (socket) => {
     socket.on('sendVoice', (data) => {
         const user = connectedUsers.get(socket.id);
         if (!user) return;
-        
+
         const roomId = data.roomId || user.currentRoom || 1;
-        
+
         socket.emit('sendMessage', {
             voice_url: data.voice_url,
             roomId: roomId
         });
     });
-    
+
     // إرسال رسالة صوتية خاصة
     socket.on('sendPrivateVoice', (data) => {
         const sender = connectedUsers.get(socket.id);
         if (!sender) return;
-        
+
         socket.emit('sendPrivateMessage', {
             voice_url: data.voice_url,
             receiverId: data.receiverId
         });
     });
-    
+
     // إرسال صورة في الغرفة
     socket.on('sendImage', (data) => {
         const user = connectedUsers.get(socket.id);
         if (!user) return;
-        
+
         const roomId = data.roomId || user.currentRoom || 1;
-        
+
         socket.emit('sendMessage', {
             image_url: data.image_url,
             roomId: roomId
         });
     });
-    
+
     // إرسال صورة خاصة
     socket.on('sendPrivateImage', (data) => {
         const sender = connectedUsers.get(socket.id);
         if (!sender) return;
-        
+
         socket.emit('sendPrivateMessage', {
             image_url: data.image_url,
             receiverId: data.receiverId
         });
     });
-    
+
     // حذف رسالة
     socket.on('deleteMessage', (data) => {
         io.to(`room_${data.roomId}`).emit('messageDeleted', data.messageId);
     });
-    
+
     // حذف رسالة خاصة
     socket.on('deletePrivateMessage', (data) => {
         // إشعار المستخدمين المعنيين بحذف الرسالة
         socket.emit('privateMessageDeleted', data.messageId);
-        
+
         // البحث عن المستقبل وإشعاره
         for (let [socketId, userData] of connectedUsers) {
             if (userData.userId === data.receiverId) {
@@ -1036,7 +1036,7 @@ io.on('connection', (socket) => {
         if (user) {
             // تحديث حالة المستخدم إلى غير متصل
             db.run('UPDATE users SET is_online = FALSE WHERE id = ?', [user.userId]);
-            
+
             // إزالة من قائمة الغرفة
             const roomId = user.currentRoom;
             if (roomUsers.has(roomId)) {
@@ -1044,7 +1044,7 @@ io.on('connection', (socket) => {
                 const roomUsersList = Array.from(roomUsers.get(roomId) || []).map(socketId => connectedUsers.get(socketId)).filter(Boolean);
                 io.to(`room_${roomId}`).emit('roomUsersList', roomUsersList);
             }
-            
+
             connectedUsers.delete(socket.id);
         }
         console.log('مستخدم منقطع:', socket.id);
