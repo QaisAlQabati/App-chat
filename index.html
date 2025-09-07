@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -14,6 +15,7 @@
             <div class="tabs">
                 <button class="tab active" onclick="showTab('login')">تسجيل الدخول</button>
                 <button class="tab" onclick="showTab('register')">إنشاء حساب</button>
+                <button class="tab" onclick="showTab('guest')">دخول كزائر</button>
             </div>
             
             <!-- تسجيل الدخول -->
@@ -24,11 +26,24 @@
             </form>
             
             <!-- إنشاء حساب -->
-            <form id="registerForm" class="form">
+            <form id="registerForm" class="form" style="display: none;">
                 <input type="text" id="registerDisplayName" placeholder="الاسم المعروض">
                 <input type="email" id="registerEmail" placeholder="البريد الإلكتروني" required>
                 <input type="password" id="registerPassword" placeholder="كلمة المرور" required>
                 <button type="submit">إنشاء حساب</button>
+            </form>
+            
+            <!-- دخول كزائر -->
+            <form id="guestForm" class="form" style="display: none;">
+                <input type="text" id="guestName" placeholder="الاسم المستخدم" required>
+                <input type="number" id="guestAge" placeholder="العمر" min="1" max="99" required>
+                <select id="guestGender" required>
+                    <option value="">اختر الجنس</option>
+                    <option value="ذكر">ذكر</option>
+                    <option value="أنثى">أنثى</option>
+                    <option value="آخر">آخر</option>
+                </select>
+                <button type="submit">دخول كزائر</button>
             </form>
             
             <div id="loginError" class="error"></div>
@@ -54,12 +69,14 @@
                     <button onclick="openSoundSettings()" class="btn">🔊 الأصوات</button>
                     <button onclick="openProfileModal()" class="btn">الملف الشخصي</button>
                     <button onclick="openAdminPanel()" class="btn admin-btn" id="adminBtn" style="display: none;">لوحة الإدارة</button>
+                    <button onclick="toggleChatMode()" class="btn">🔄 العام/الخاص</button>
                     <button onclick="logout()" class="btn logout-btn">خروج</button>
                     <button id="notificationBell" class="btn" onclick="openNotifications()">
                         <span>🔔</span><span id="notificationCount" class="notification-count">0</span>
                     </button>
                     <button id="themeToggle" class="btn" onclick="toggleTheme()">🌙/☀️</button>
                     <button id="statsBtn" class="btn" onclick="showStats()">📊 إحصائيات</button>
+                    <button onclick="openMenuModal()" class="btn">☰</button>
                 </div>
             </div>
 
@@ -74,7 +91,7 @@
                     </div>
                     <div class="users-section">
                         <h3>المستخدمون المتصلون</h3>
-                        <div id="usersList"></div>
+                        <ul id="usersList"></ul>
                     </div>
                 </div>
 
@@ -86,7 +103,9 @@
                     <div id="messagesContainer" class="messages-container"></div>
                     <div class="message-input-area">
                         <input type="text" id="messageInput" placeholder="اكتب رسالتك هنا..." maxlength="500">
-                        <button id="recordBtn" onclick="startVoiceRecording(false)" class="btn" style="background: #e74c3c; margin-left: 5px;">🎤 تسجيل صوتي</button>
+                        <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                        <button class="upload-image-btn" onclick="document.getElementById('imageInput').click()">📷</button>
+                        <button id="recordButton" class="btn record-btn" onclick="toggleVoiceRecording(false)">🎤</button>
                         <button class="emoji-btn" onclick="openEmojiPicker()">😊</button>
                         <button onclick="sendMessage()" class="send-btn">إرسال</button>
                     </div>
@@ -95,12 +114,43 @@
         </div>
     </div>
 
+    <!-- مودال المنيو -->
+    <div id="menuModal" class="modal">
+        <div class="modal-content menu-modal">
+            <span class="close" onclick="closeMenuModal()">&times;</span>
+            <h2>القائمة</h2>
+            <ul class="menu-list">
+                <li onclick="openHome()">🏠 الرئيسية</li>
+                <li onclick="openNewsModal()">📰 قناة الأخبار</li>
+                <li onclick="openAwards()">🏆 الجوائز</li>
+                <li onclick="openRanking()">💎 الترتيب</li>
+                <li onclick="openFriends()">👥 الأصدقاء</li>
+                <li onclick="openMessages()">✉️ الرسائل</li>
+                <li onclick="openSettings()">⚙️ الإعدادات</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- مودال الأخبار -->
+    <div id="newsModal" class="modal news-modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeNewsModal()">&times;</span>
+            <h2>قناة الأخبار</h2>
+            <div class="news-post-form">
+                <textarea id="newsContentInput" placeholder="اكتب خبرًا..." maxlength="500"></textarea>
+                <input type="file" id="newsFileInput" accept="image/*,video/*">
+                <label for="newsFileInput" class="upload-btn">اختر صورة أو فيديو</label>
+                <button onclick="postNews()" class="btn">نشر</button>
+            </div>
+            <div id="newsFeed" class="news-feed"></div>
+        </div>
+    </div>
+
     <!-- مودال الملف الشخصي -->
     <div id="profileModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeProfileModal()">&times;</span>
             <h2>الملف الشخصي</h2>
-            
             <div class="profile-section">
                 <h3>الصور الشخصية</h3>
                 <div class="profile-images">
@@ -117,13 +167,11 @@
                 </div>
                 <button onclick="uploadProfileImages()" class="btn save-btn">حفظ الصور</button>
             </div>
-
             <div class="profile-section">
                 <h3>تغيير الاسم</h3>
                 <input type="text" id="newDisplayName" placeholder="الاسم الجديد">
                 <button onclick="updateDisplayName()" class="btn save-btn">حفظ الاسم</button>
             </div>
-
             <div class="profile-section">
                 <h3>خلفية الرسائل</h3>
                 <input type="file" id="messageBackgroundFile" accept="image/*" onchange="previewMessageBackground(this)">
@@ -131,16 +179,13 @@
                 <div id="messageBackgroundPreview" class="background-preview"></div>
                 <button onclick="uploadMessageBackground()" class="btn save-btn">حفظ خلفية الرسائل</button>
             </div>
-
             <div class="profile-section">
                 <h3>المعلومات الشخصية</h3>
-                
                 <div class="personal-info-form">
                     <div class="form-group">
                         <label for="userAge">العمر:</label>
                         <input type="number" id="userAge" min="13" max="100" placeholder="اختياري">
                     </div>
-                    
                     <div class="form-group">
                         <label for="userGender">الجنس:</label>
                         <select id="userGender">
@@ -149,7 +194,6 @@
                             <option value="أنثى">أنثى</option>
                         </select>
                     </div>
-                    
                     <div class="form-group">
                         <label for="userMaritalStatus">الحالة الاجتماعية:</label>
                         <select id="userMaritalStatus">
@@ -160,16 +204,13 @@
                             <option value="خاطب">خاطب</option>
                         </select>
                     </div>
-                    
                     <div class="form-group">
                         <label for="userAboutMe">معلومات عني:</label>
                         <textarea id="userAboutMe" placeholder="اكتب شيئاً عن نفسك..."></textarea>
                     </div>
-                    
                     <button onclick="updatePersonalInfo()" class="btn save-btn">حفظ المعلومات الشخصية</button>
                 </div>
             </div>
-
             <div class="profile-section">
                 <h3>الرتبة الحالية</h3>
                 <div id="currentRank" class="current-rank"></div>
@@ -182,12 +223,10 @@
         <div class="modal-content admin-modal">
             <span class="close" onclick="closeAdminPanel()">&times;</span>
             <h2>لوحة إدارة الرتب</h2>
-            
             <div class="admin-section">
                 <h3>المستخدمون والرتب</h3>
                 <div id="allUsersList" class="users-management"></div>
             </div>
-
             <div class="admin-section">
                 <h3>الرتب المتاحة</h3>
                 <div id="availableRanks" class="ranks-list"></div>
@@ -200,7 +239,6 @@
         <div class="modal-content">
             <span class="close" onclick="closeAssignRankModal()">&times;</span>
             <h2>تعيين رتبة</h2>
-            
             <div class="assign-rank-form">
                 <p>تعيين رتبة للمستخدم: <span id="targetUserName"></span></p>
                 <select id="rankSelect">
@@ -217,7 +255,6 @@
         <div class="modal-content">
             <span class="close" onclick="closeCreateRoomModal()">&times;</span>
             <h2>إنشاء غرفة جديدة</h2>
-            
             <div class="create-room-form">
                 <input type="text" id="roomName" placeholder="اسم الغرفة (مثل: غرفة اليمن)" required>
                 <textarea id="roomDescription" placeholder="وصف الغرفة (اختياري)"></textarea>
@@ -232,19 +269,21 @@
     <!-- مودال الدردشة الخاصة -->
     <div id="privateChatModal" class="modal">
         <div class="modal-content private-chat-modal">
-            <span class="close" onclick="closePrivateChatModal()">&times;</span>
             <div class="private-chat-header">
+                <button class="header-btn" onclick="scrollToTopPrivateChat()">⬆️</button>
+                <button class="header-btn" onclick="toggleMaximizePrivateChat()">⏹</button>
+                <button class="header-btn" onclick="openPrivateSettings()">⚙️</button>
+                <span class="close" onclick="closePrivateChatModal()">✖️</span>
                 <h2>دردشة خاصة مع: <span id="privateChatUserName"></span></h2>
             </div>
-            
             <div id="privateChatMessages" class="private-chat-messages"></div>
-            
             <div class="private-chat-input">
                 <input type="text" id="privateMessageInput" placeholder="اكتب رسالتك الخاصة..." maxlength="500">
-                <button id="privateRecordBtn" onclick="startVoiceRecording(true)" class="btn" style="background: #e74c3c; margin-left: 5px;">🎤</button>
+                <input type="file" id="privateImageInput" accept="image/*" style="display: none;">
+                <button id="privateRecordBtn" class="btn record-btn" onclick="toggleVoiceRecording(true)">🎤</button>
                 <button class="emoji-btn" onclick="openEmojiPicker()">😊</button>
                 <button id="privateQuickHelloBtn" class="btn">مرحبًا</button>
-                <button id="privateSendImageBtn" class="btn">صورة</button>
+                <button id="privateSendImageBtn" class="btn upload-image-btn" onclick="document.getElementById('privateImageInput').click()">صورة</button>
                 <button id="privateSendFileBtn" class="btn">ملف</button>
                 <button id="privateSettingsBtn" class="btn">إعدادات</button>
                 <button id="backToPublicBtn" class="btn">عودة إلى العام</button>
@@ -259,7 +298,6 @@
         <div class="modal-content">
             <span class="close" onclick="closeAllUsersModal()">&times;</span>
             <h2>👥 جميع المستخدمين</h2>
-            
             <div class="all-users-list" id="allUsersListModal">
                 <div class="loading">جاري تحميل المستخدمين...</div>
             </div>
@@ -270,3 +308,4 @@
     <script src="script.js"></script>
 </body>
 </html>
+```
