@@ -82,9 +82,12 @@
     <div id="banScreen" class="screen">
         <div class="ban-container">
             <div class="ban-icon">🚫</div>
-            <h2>تم حظرك من الشات</h2>
-            <div id="banMessage" class="ban-message"></div>
-            <div id="banDuration" class="ban-duration"></div>
+            <h2>تم حظرك من الدخول</h2>
+            <div id="banReason" class="ban-reason"></div>
+            <div class="contact-info">
+                <p>للتواصل والاستفسار:</p>
+                <a href="mailto:njdj9985@gmail.com">njdj9985@gmail.com</a>
+            </div>
             <button onclick="checkBanStatus()" class="btn">التحقق من حالة الحظر</button>
         </div>
     </div>
@@ -94,17 +97,12 @@
         <!-- الشريط العلوي -->
         <header class="main-header">
             <div class="header-left">
-                <div class="user-profile-mini" onclick="openProfileModal()">
-                    <img id="headerUserAvatar" class="user-avatar-mini" src="" alt="">
-                    <div class="user-info-mini">
-                        <span id="headerUserName" class="user-name"></span>
-                        <span id="headerUserRank" class="user-rank"></span>
-                    </div>
+                <button class="hamburger-btn" onclick="openMainMenu()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="app-logo">
+                    <h1>🦂 شات وتين العقرب</h1>
                 </div>
-            </div>
-            
-            <div class="header-center">
-                <h1 class="app-title">🦂 شات وتين العقرب</h1>
             </div>
             
             <div class="header-right">
@@ -115,175 +113,127 @@
                 <button class="header-btn" onclick="openSettings()" title="الإعدادات">
                     <i class="fas fa-cog"></i>
                 </button>
-                <button class="header-btn" onclick="toggleTheme()" title="تغيير المظهر">
-                    <i class="fas fa-moon" id="themeIcon"></i>
-                </button>
-                <button class="header-btn admin-only" onclick="openAdminPanel()" title="لوحة الإدارة" style="display: none;">
-                    <i class="fas fa-crown"></i>
-                </button>
-                <button class="header-btn" onclick="logout()" title="تسجيل الخروج">
-                    <i class="fas fa-sign-out-alt"></i>
-                </button>
+                <div class="user-profile-mini" onclick="openProfileModal()">
+                    <img id="headerUserAvatar" class="user-avatar-mini" src="" alt="">
+                    <div class="user-info-mini">
+                        <span id="headerUserName" class="user-name"></span>
+                        <span id="headerUserRank" class="user-rank"></span>
+                    </div>
+                </div>
             </div>
         </header>
 
         <!-- المحتوى الرئيسي -->
         <main class="main-content">
-            <!-- الشريط الجانبي الأيسر -->
-            <aside class="left-sidebar">
-                <nav class="main-nav">
-                    <button class="nav-btn active" onclick="showSection('chat')" data-section="chat">
-                        <i class="fas fa-comments"></i>
-                        <span>الدردشة</span>
-                    </button>
-                    <button class="nav-btn" onclick="showSection('news')" data-section="news">
-                        <i class="fas fa-newspaper"></i>
-                        <span>الأخبار</span>
-                    </button>
-                    <button class="nav-btn" onclick="showSection('stories')" data-section="stories">
-                        <i class="fas fa-images"></i>
-                        <span>القصص</span>
-                    </button>
-                    <button class="nav-btn" onclick="showSection('friends')" data-section="friends">
-                        <i class="fas fa-user-friends"></i>
-                        <span>الأصدقاء</span>
-                    </button>
-                    <button class="nav-btn" onclick="showSection('help')" data-section="help">
-                        <i class="fas fa-question-circle"></i>
-                        <span>المساعدة</span>
-                    </button>
-                </nav>
-
-                <!-- قائمة الغرف -->
-                <div class="rooms-section">
-                    <h3>الغرف المتاحة</h3>
-                    <div id="roomsList" class="rooms-list"></div>
-                    <button class="create-room-btn admin-only" onclick="openCreateRoomModal()" style="display: none;">
-                        <i class="fas fa-plus"></i> إنشاء غرفة
-                    </button>
-                </div>
-            </aside>
-
-            <!-- المنطقة الوسطى -->
-            <section class="center-content">
-                <!-- قسم الدردشة -->
-                <div id="chatSection" class="content-section active">
-                    <div class="chat-header">
-                        <h2 id="currentRoomName">الغرفة الرئيسية</h2>
-                        <div class="chat-controls">
-                            <button class="control-btn" onclick="toggleChatMode()" title="تبديل وضع الدردشة">
-                                <i class="fas fa-exchange-alt"></i>
-                            </button>
-                            <button class="control-btn" onclick="clearChat()" title="مسح الدردشة">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div id="messagesContainer" class="messages-container"></div>
-                    
-                    <div class="message-input-container">
-                        <div class="input-tools">
-                            <button class="tool-btn" onclick="openEmojiPicker()" title="الرموز التعبيرية">
-                                <i class="fas fa-smile"></i>
-                            </button>
-                            <button class="tool-btn" onclick="document.getElementById('imageInput').click()" title="إرسال صورة">
-                                <i class="fas fa-image"></i>
-                            </button>
-                            <button class="tool-btn" onclick="document.getElementById('fileInput').click()" title="إرسال ملف">
-                                <i class="fas fa-paperclip"></i>
-                            </button>
-                            <button class="tool-btn" onclick="toggleVoiceRecording()" title="تسجيل صوتي" id="voiceBtn">
-                                <i class="fas fa-microphone"></i>
-                            </button>
-                        </div>
-                        
-                        <div class="message-input-wrapper">
-                            <input type="text" id="messageInput" placeholder="اكتب رسالتك هنا..." maxlength="1000">
-                            <button class="send-btn" onclick="sendMessage()">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                        </div>
-                        
-                        <input type="file" id="imageInput" accept="image/*" style="display: none;">
-                        <input type="file" id="fileInput" style="display: none;">
-                    </div>
-                </div>
-
-                <!-- قسم الأخبار -->
-                <div id="newsSection" class="content-section">
-                    <div class="news-header">
-                        <h2>📰 قناة الأخبار</h2>
-                        <button class="owner-only" onclick="openNewsPostModal()" style="display: none;">
-                            <i class="fas fa-plus"></i> نشر خبر
+            <!-- منطقة الدردشة -->
+            <div class="chat-area">
+                <div class="chat-header">
+                    <h2 id="currentRoomName">الغرفة الرئيسية</h2>
+                    <div class="chat-controls">
+                        <button class="control-btn" onclick="toggleChatMode()" title="تبديل وضع الدردشة">
+                            <i class="fas fa-exchange-alt"></i>
                         </button>
                     </div>
-                    <div id="newsFeed" class="news-feed"></div>
-                </div>
-
-                <!-- قسم القصص -->
-                <div id="storiesSection" class="content-section">
-                    <div class="stories-header">
-                        <h2>📸 القصص</h2>
-                        <button onclick="openAddStoryModal()">
-                            <i class="fas fa-plus"></i> إضافة قصة
-                        </button>
-                    </div>
-                    <div id="storiesContainer" class="stories-container"></div>
-                </div>
-
-                <!-- قسم الأصدقاء -->
-                <div id="friendsSection" class="content-section">
-                    <div class="friends-header">
-                        <h2>👥 الأصدقاء</h2>
-                        <div class="friends-tabs">
-                            <button class="tab-btn active" onclick="showFriendsTab('all')">الجميع</button>
-                            <button class="tab-btn" onclick="showFriendsTab('friends')">الأصدقاء</button>
-                            <button class="tab-btn" onclick="showFriendsTab('requests')">الطلبات</button>
-                        </div>
-                    </div>
-                    <div id="friendsContent" class="friends-content"></div>
-                </div>
-
-                <!-- قسم المساعدة -->
-                <div id="helpSection" class="content-section">
-                    <div class="help-header">
-                        <h2>❓ مركز المساعدة</h2>
-                    </div>
-                    <div class="help-content">
-                        <div class="help-form">
-                            <h3>إرسال رسالة للإدارة</h3>
-                            <textarea id="helpMessage" placeholder="اكتب رسالتك هنا..." rows="5"></textarea>
-                            <button onclick="sendHelpMessage()" class="btn">إرسال الرسالة</button>
-                        </div>
-                        <div class="help-faq">
-                            <h3>الأسئلة الشائعة</h3>
-                            <div class="faq-item">
-                                <h4>كيف أغير صورتي الشخصية؟</h4>
-                                <p>اذهب إلى الملف الشخصي واختر "تحديث الصور"</p>
-                            </div>
-                            <div class="faq-item">
-                                <h4>كيف أرسل رسالة خاصة؟</h4>
-                                <p>اضغط على اسم المستخدم في قائمة المتصلين</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- الشريط الجانبي الأيمن -->
-            <aside class="right-sidebar">
-                <div class="online-users">
-                    <h3>المتصلون الآن</h3>
-                    <div id="onlineUsersList" class="users-list"></div>
                 </div>
                 
-                <div class="trending-section">
-                    <h3>الأكثر نشاطاً</h3>
-                    <div id="trendingUsers" class="trending-users"></div>
+                <div id="messagesContainer" class="messages-container"></div>
+                
+                <div class="message-input-container">
+                    <div class="input-tools">
+                        <button class="tool-btn" onclick="document.getElementById('imageInput').click()" title="إرسال صورة">
+                            <i class="fas fa-image"></i>
+                        </button>
+                        <button class="tool-btn" onclick="toggleVoiceRecording()" title="تسجيل صوتي" id="voiceBtn">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        <button class="tool-btn" onclick="openEmojiPicker()" title="الرموز التعبيرية">
+                            <i class="fas fa-smile"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="message-input-wrapper">
+                        <input type="text" id="messageInput" placeholder="اكتب هنا..." maxlength="1000">
+                        <button class="send-btn" onclick="sendMessage()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    
+                    <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                    <input type="file" id="voiceInput" accept="audio/*" style="display: none;">
                 </div>
+            </div>
+
+            <!-- الشريط الجانبي للمستخدمين -->
+            <aside class="users-sidebar">
+                <div class="sidebar-header">
+                    <h3>المتصلون الآن</h3>
+                    <span id="onlineCount" class="online-count">0</span>
+                </div>
+                <div id="onlineUsersList" class="users-list"></div>
             </aside>
         </main>
+
+        <!-- شريط التحكم السفلي -->
+        <div class="bottom-control-bar">
+            <button class="control-btn" onclick="reloadPage()" title="تحديث الصفحة">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <button class="control-btn" onclick="openRadioPlayer()" title="الراديو">
+                <i class="fas fa-radio"></i>
+            </button>
+            <div class="music-controls">
+                <button class="control-btn" onclick="toggleMusicPlayer()" title="مشغل الموسيقى">
+                    <i class="fas fa-music"></i>
+                </button>
+                <div class="volume-control">
+                    <input type="range" id="volumeSlider" min="0" max="100" value="50">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- القائمة الرئيسية -->
+    <div id="mainMenuModal" class="modal">
+        <div class="modal-content main-menu">
+            <div class="modal-header">
+                <h2>القائمة الرئيسية</h2>
+                <button class="close-btn" onclick="closeMainMenu()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="menu-items">
+                <div class="menu-item" onclick="openNewsSection()">
+                    <i class="fas fa-newspaper"></i>
+                    <span>الأخبار</span>
+                    <p>انشر الأخبار والتحديثات</p>
+                </div>
+                <div class="menu-item" onclick="openStoriesSection()">
+                    <i class="fas fa-images"></i>
+                    <span>القصص اليومية</span>
+                    <p>شارك قصتك اليومية</p>
+                </div>
+                <div class="menu-item" onclick="openGamesSection()">
+                    <i class="fas fa-gamepad"></i>
+                    <span>الألعاب</span>
+                    <p>العب مع الأصدقاء</p>
+                </div>
+                <div class="menu-item" onclick="openQuizRoom()">
+                    <i class="fas fa-question-circle"></i>
+                    <span>غرفة المسابقات</span>
+                    <p>اختبر معلوماتك واربح النقاط</p>
+                </div>
+                <div class="menu-item" onclick="openRoomsManager()">
+                    <i class="fas fa-door-open"></i>
+                    <span>إدارة الغرف</span>
+                    <p>إنشاء وإدارة الغرف</p>
+                </div>
+                <div class="menu-item" onclick="openCoinsShop()">
+                    <i class="fas fa-coins"></i>
+                    <span>متجر النقاط</span>
+                    <p>اشتري المميزات بالنقاط</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- مودال الملف الشخصي -->
@@ -323,14 +273,24 @@
                                 </button>
                             </div>
                         </div>
+                        <div class="profile-stats">
+                            <div class="stat-item">
+                                <span class="stat-number" id="profileLikes">0</span>
+                                <span class="stat-label">إعجاب</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number" id="profileCoins">2000</span>
+                                <span class="stat-label">نقطة</span>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="profile-details">
                         <div class="profile-tabs">
                             <button class="tab-btn active" onclick="showProfileTab('info')">المعلومات</button>
                             <button class="tab-btn" onclick="showProfileTab('settings')">الإعدادات</button>
-                            <button class="tab-btn" onclick="showProfileTab('privacy')">الخصوصية</button>
                             <button class="tab-btn" onclick="showProfileTab('music')">الموسيقى</button>
+                            <button class="tab-btn" onclick="showProfileTab('decorations')">الزخارف</button>
                         </div>
                         
                         <!-- تبويب المعلومات -->
@@ -338,6 +298,14 @@
                             <div class="info-section">
                                 <label>الاسم المعروض:</label>
                                 <input type="text" id="displayNameInput" placeholder="اسمك المعروض">
+                            </div>
+                            <div class="info-section">
+                                <label>البريد الإلكتروني:</label>
+                                <input type="email" id="emailInput" placeholder="بريدك الإلكتروني">
+                            </div>
+                            <div class="info-section">
+                                <label>كلمة المرور الجديدة:</label>
+                                <input type="password" id="newPasswordInput" placeholder="كلمة المرور الجديدة">
                             </div>
                             <div class="info-section">
                                 <label>العمر:</label>
@@ -352,15 +320,6 @@
                                 </select>
                             </div>
                             <div class="info-section">
-                                <label>الحالة الاجتماعية:</label>
-                                <select id="maritalStatusInput">
-                                    <option value="">غير محدد</option>
-                                    <option value="أعزب">أعزب</option>
-                                    <option value="مرتبط">مرتبط</option>
-                                    <option value="متزوج">متزوج</option>
-                                </select>
-                            </div>
-                            <div class="info-section">
                                 <label>نبذة عني:</label>
                                 <textarea id="aboutMeInput" placeholder="اكتب شيئاً عن نفسك..."></textarea>
                             </div>
@@ -370,42 +329,20 @@
                         <!-- تبويب الإعدادات -->
                         <div id="profileSettingsTab" class="profile-tab">
                             <div class="settings-section">
+                                <h4>لون الاسم</h4>
+                                <input type="color" id="nameColorPicker" value="#ffffff">
+                                <button onclick="updateNameColor()">تطبيق اللون</button>
+                            </div>
+                            <div class="settings-section">
+                                <h4>لون الخط</h4>
+                                <input type="color" id="fontColorPicker" value="#000000">
+                                <button onclick="updateFontColor()">تطبيق اللون</button>
+                            </div>
+                            <div class="settings-section">
                                 <h4>خلفية الرسائل</h4>
                                 <input type="file" id="messageBackgroundInput" accept="image/*">
                                 <button onclick="uploadMessageBackground()">تحديث الخلفية</button>
                             </div>
-                            <div class="settings-section">
-                                <h4>زخرفة الاسم</h4>
-                                <select id="nameDecorationSelect">
-                                    <option value="">بدون زخرفة</option>
-                                    <option value="fire">نار 🔥</option>
-                                    <option value="star">نجوم ⭐</option>
-                                    <option value="crown">تاج 👑</option>
-                                    <option value="diamond">ماس 💎</option>
-                                </select>
-                                <button onclick="updateNameDecoration()">تطبيق الزخرفة</button>
-                            </div>
-                        </div>
-                        
-                        <!-- تبويب الخصوصية -->
-                        <div id="profilePrivacyTab" class="profile-tab">
-                            <div class="privacy-section">
-                                <h4>من يمكنه مراسلتك؟</h4>
-                                <select id="dmPrivacySelect">
-                                    <option value="everyone">الجميع</option>
-                                    <option value="friends">الأصدقاء فقط</option>
-                                    <option value="members">الأعضاء فقط</option>
-                                    <option value="none">لا أحد</option>
-                                </select>
-                            </div>
-                            <div class="privacy-section">
-                                <h4>إظهار آخر ظهور</h4>
-                                <label class="switch">
-                                    <input type="checkbox" id="showLastSeenToggle">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            <button onclick="updatePrivacySettings()" class="btn save-btn">حفظ إعدادات الخصوصية</button>
                         </div>
                         
                         <!-- تبويب الموسيقى -->
@@ -418,6 +355,24 @@
                                 </div>
                                 <button onclick="uploadProfileMusic()">رفع موسيقى</button>
                                 <button onclick="removeProfileMusic()">إزالة الموسيقى</button>
+                                <p class="feature-note">متاح للرتب العالية فقط</p>
+                            </div>
+                        </div>
+                        
+                        <!-- تبويب الزخارف -->
+                        <div id="profileDecorationsTab" class="profile-tab">
+                            <div class="decorations-section">
+                                <h4>زخرفة الاسم</h4>
+                                <select id="nameDecorationSelect">
+                                    <option value="">بدون زخرفة</option>
+                                    <option value="fire">نار 🔥</option>
+                                    <option value="star">نجوم ⭐</option>
+                                    <option value="crown">تاج 👑</option>
+                                    <option value="diamond">ماس 💎</option>
+                                    <option value="rainbow">قوس قزح 🌈</option>
+                                </select>
+                                <button onclick="updateNameDecoration()">تطبيق الزخرفة</button>
+                                <p class="feature-note">بعض الزخارف متاحة للرتب العالية فقط</p>
                             </div>
                         </div>
                     </div>
@@ -426,137 +381,101 @@
         </div>
     </div>
 
-    <!-- مودال الدردشة الخاصة -->
-    <div id="privateChatModal" class="modal">
-        <div class="modal-content private-chat-modal">
-            <div class="private-chat-header">
-                <div class="chat-user-info">
-                    <img id="privateChatAvatar" src="" alt="">
-                    <div>
-                        <h3 id="privateChatUserName"></h3>
-                        <span id="privateChatUserStatus" class="user-status"></span>
-                    </div>
-                </div>
-                <div class="chat-controls">
-                    <button onclick="togglePrivateChatSize()" title="تكبير/تصغير">
-                        <i class="fas fa-expand"></i>
-                    </button>
-                    <button onclick="closePrivateChatModal()" title="إغلاق">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-            
-            <div id="privateChatMessages" class="private-messages-container"></div>
-            
-            <div class="private-chat-input">
-                <div class="input-tools">
-                    <button onclick="openEmojiPicker()" title="رموز تعبيرية">
-                        <i class="fas fa-smile"></i>
-                    </button>
-                    <button onclick="document.getElementById('privateImageInput').click()" title="صورة">
-                        <i class="fas fa-image"></i>
-                    </button>
-                    <button onclick="togglePrivateVoiceRecording()" title="تسجيل صوتي">
-                        <i class="fas fa-microphone"></i>
-                    </button>
-                </div>
-                <input type="text" id="privateMessageInput" placeholder="اكتب رسالتك الخاصة...">
-                <button onclick="sendPrivateMessage()" class="send-btn">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-                <input type="file" id="privateImageInput" accept="image/*" style="display: none;">
-            </div>
-        </div>
-    </div>
-
-    <!-- مودال لوحة الإدارة -->
-    <div id="adminModal" class="modal">
-        <div class="modal-content admin-modal">
+    <!-- مودال عرض ملف شخصي آخر -->
+    <div id="viewProfileModal" class="modal">
+        <div class="modal-content profile-modal">
             <div class="modal-header">
-                <h2>👑 لوحة الإدارة</h2>
-                <button class="close-btn" onclick="closeAdminModal()">
+                <h2 id="viewProfileName">الملف الشخصي</h2>
+                <button class="close-btn" onclick="closeViewProfileModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             
-            <div class="admin-content">
-                <div class="admin-tabs">
-                    <button class="tab-btn active" onclick="showAdminTab('users')">إدارة المستخدمين</button>
-                    <button class="tab-btn" onclick="showAdminTab('ranks')">الرتب</button>
-                    <button class="tab-btn" onclick="showAdminTab('rooms')">الغرف</button>
-                    <button class="tab-btn" onclick="showAdminTab('bans')">الحظر والكتم</button>
-                    <button class="tab-btn" onclick="showAdminTab('reports')">التقارير</button>
+            <div class="profile-content">
+                <div class="profile-cover">
+                    <img id="viewProfileCover" src="" alt="خلفية البروفايل">
                 </div>
                 
-                <div id="adminUsersTab" class="admin-tab active">
-                    <div id="adminUsersList" class="admin-users-list"></div>
-                </div>
-                
-                <div id="adminRanksTab" class="admin-tab">
-                    <div class="ranks-management">
-                        <h3>الرتب المتاحة</h3>
-                        <div id="ranksList" class="ranks-list"></div>
+                <div class="profile-info">
+                    <div class="profile-avatar-section">
+                        <div class="profile-avatars">
+                            <div class="avatar-slot">
+                                <img id="viewProfileImg1" src="" alt="صورة 1">
+                            </div>
+                            <div class="avatar-slot">
+                                <img id="viewProfileImg2" src="" alt="صورة 2">
+                            </div>
+                        </div>
+                        <div class="profile-stats">
+                            <div class="stat-item">
+                                <span class="stat-number" id="viewProfileLikes">0</span>
+                                <span class="stat-label">إعجاب</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number" id="viewProfileCoins">0</span>
+                                <span class="stat-label">نقطة</span>
+                            </div>
+                        </div>
+                        <div class="profile-actions">
+                            <button onclick="likeProfile()" class="btn like-btn">
+                                <i class="fas fa-heart"></i> إعجاب
+                            </button>
+                            <button onclick="sendPrivateMessage()" class="btn message-btn">
+                                <i class="fas fa-envelope"></i> رسالة
+                            </button>
+                        </div>
                     </div>
-                </div>
-                
-                <div id="adminRoomsTab" class="admin-tab">
-                    <div class="rooms-management">
-                        <button onclick="openCreateRoomModal()" class="btn">إنشاء غرفة جديدة</button>
-                        <div id="adminRoomsList" class="admin-rooms-list"></div>
-                    </div>
-                </div>
-                
-                <div id="adminBansTab" class="admin-tab">
-                    <div class="bans-management">
-                        <h3>المستخدمون المحظورون</h3>
-                        <div id="bannedUsersList" class="banned-users-list"></div>
-                        <h3>المستخدمون المكتومون</h3>
-                        <div id="mutedUsersList" class="muted-users-list"></div>
-                    </div>
-                </div>
-                
-                <div id="adminReportsTab" class="admin-tab">
-                    <div class="reports-management">
-                        <h3>رسائل المساعدة</h3>
-                        <div id="helpMessagesList" class="help-messages-list"></div>
+                    
+                    <div class="profile-details">
+                        <div id="viewProfileInfo" class="profile-info-display">
+                            <!-- سيتم ملؤها بالجافاسكريبت -->
+                        </div>
+                        <div id="viewProfileMusic" class="profile-music-display">
+                            <!-- موسيقى البروفايل -->
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- مودال إنشاء غرفة -->
-    <div id="createRoomModal" class="modal">
-        <div class="modal-content">
+    <!-- مودال الأخبار -->
+    <div id="newsModal" class="modal">
+        <div class="modal-content news-modal">
             <div class="modal-header">
-                <h2>إنشاء غرفة جديدة</h2>
-                <button class="close-btn" onclick="closeCreateRoomModal()">
+                <h2>📰 قناة الأخبار</h2>
+                <button class="close-btn" onclick="closeNewsModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="room-form">
-                <input type="text" id="roomNameInput" placeholder="اسم الغرفة" required>
-                <textarea id="roomDescriptionInput" placeholder="وصف الغرفة"></textarea>
-                <input type="file" id="roomBackgroundInput" accept="image/*">
-                <button onclick="createRoom()" class="btn">إنشاء الغرفة</button>
+            <div class="news-content">
+                <div class="news-post-form">
+                    <textarea id="newsContentInput" placeholder="اكتب خبرًا..." maxlength="500"></textarea>
+                    <input type="file" id="newsFileInput" accept="image/*,video/*">
+                    <label for="newsFileInput" class="upload-btn">اختر صورة أو فيديو</label>
+                    <button onclick="postNews()" class="btn">نشر</button>
+                </div>
+                <div id="newsFeed" class="news-feed"></div>
             </div>
         </div>
     </div>
 
-    <!-- مودال نشر خبر -->
-    <div id="newsPostModal" class="modal">
-        <div class="modal-content">
+    <!-- مودال القصص -->
+    <div id="storiesModal" class="modal">
+        <div class="modal-content stories-modal">
             <div class="modal-header">
-                <h2>نشر خبر جديد</h2>
-                <button class="close-btn" onclick="closeNewsPostModal()">
+                <h2>📸 القصص اليومية</h2>
+                <button class="close-btn" onclick="closeStoriesModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="news-form">
-                <textarea id="newsContentInput" placeholder="محتوى الخبر..." rows="5"></textarea>
-                <input type="file" id="newsMediaInput" accept="image/*,video/*">
-                <button onclick="postNews()" class="btn">نشر الخبر</button>
+            <div class="stories-content">
+                <div class="add-story-section">
+                    <button onclick="openAddStoryModal()" class="btn add-story-btn">
+                        <i class="fas fa-plus"></i> إضافة قصة
+                    </button>
+                </div>
+                <div id="storiesContainer" class="stories-container"></div>
             </div>
         </div>
     </div>
@@ -578,26 +497,229 @@
         </div>
     </div>
 
-    <!-- مودال عرض القصة -->
-    <div id="viewStoryModal" class="modal story-viewer">
-        <div class="story-content">
-            <div class="story-header">
-                <div class="story-user-info">
-                    <img id="storyUserAvatar" src="" alt="">
-                    <span id="storyUserName"></span>
-                    <span id="storyTime"></span>
-                </div>
-                <button onclick="closeViewStoryModal()">
+    <!-- مودال غرفة المسابقات -->
+    <div id="quizRoomModal" class="modal">
+        <div class="modal-content quiz-room-modal">
+            <div class="modal-header">
+                <h2>🏆 غرفة المسابقات</h2>
+                <button class="close-btn" onclick="closeQuizRoom()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="story-media">
-                <img id="storyImage" src="" alt="" style="display: none;">
-                <video id="storyVideo" controls style="display: none;"></video>
+            <div class="quiz-content">
+                <div class="quiz-stats">
+                    <div class="stat-item">
+                        <span>نقاطك:</span>
+                        <span id="userQuizPoints">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>الترتيب:</span>
+                        <span id="userQuizRank">#-</span>
+                    </div>
+                </div>
+                <div id="quizQuestion" class="quiz-question">
+                    <h3 id="questionText">مرحباً بك في غرفة المسابقات!</h3>
+                    <div id="questionOptions" class="question-options"></div>
+                    <div class="quiz-timer">
+                        <span>الوقت المتبقي: </span>
+                        <span id="quizTimer">30</span>
+                        <span> ثانية</span>
+                    </div>
+                </div>
+                <div id="quizLeaderboard" class="quiz-leaderboard">
+                    <h4>لوحة المتصدرين</h4>
+                    <div id="leaderboardList"></div>
+                </div>
             </div>
-            <div class="story-text" id="storyText"></div>
-            <div class="story-progress">
-                <div class="progress-bar" id="storyProgress"></div>
+        </div>
+    </div>
+
+    <!-- مودال لوحة الإدارة -->
+    <div id="adminModal" class="modal">
+        <div class="modal-content admin-modal">
+            <div class="modal-header">
+                <h2>👑 لوحة الإدارة</h2>
+                <button class="close-btn" onclick="closeAdminModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="admin-content">
+                <div class="admin-tabs">
+                    <button class="tab-btn active" onclick="showAdminTab('users')">إدارة المستخدمين</button>
+                    <button class="tab-btn" onclick="showAdminTab('ranks')">الرتب</button>
+                    <button class="tab-btn" onclick="showAdminTab('rooms')">الغرف</button>
+                    <button class="tab-btn" onclick="showAdminTab('bans')">الحظر والكتم</button>
+                    <button class="tab-btn" onclick="showAdminTab('coins')">النقاط</button>
+                    <button class="tab-btn" onclick="showAdminTab('notifications')">الإشعارات</button>
+                </div>
+                
+                <div id="adminUsersTab" class="admin-tab active">
+                    <div class="admin-actions">
+                        <button onclick="refreshUsersList()" class="btn">تحديث القائمة</button>
+                    </div>
+                    <div id="adminUsersList" class="admin-users-list"></div>
+                </div>
+                
+                <div id="adminRanksTab" class="admin-tab">
+                    <div class="ranks-management">
+                        <h3>الرتب المتاحة</h3>
+                        <div id="ranksList" class="ranks-list"></div>
+                    </div>
+                </div>
+                
+                <div id="adminRoomsTab" class="admin-tab">
+                    <div class="rooms-management">
+                        <button onclick="openCreateRoomModal()" class="btn">إنشاء غرفة جديدة</button>
+                        <div id="adminRoomsList" class="admin-rooms-list"></div>
+                    </div>
+                </div>
+                
+                <div id="adminBansTab" class="admin-tab">
+                    <div class="bans-management">
+                        <h3>المستخدمون المحظورون</h3>
+                        <div id="bannedUsersList" class="banned-users-list"></div>
+                    </div>
+                </div>
+                
+                <div id="adminCoinsTab" class="admin-tab">
+                    <div class="coins-management">
+                        <h3>إدارة النقاط</h3>
+                        <div class="coins-form">
+                            <select id="coinsUserSelect">
+                                <option value="">اختر المستخدم</option>
+                            </select>
+                            <input type="number" id="coinsAmount" placeholder="عدد النقاط">
+                            <button onclick="giveCoins()" class="btn">إعطاء نقاط</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="adminNotificationsTab" class="admin-tab">
+                    <div class="notifications-management">
+                        <h3>إرسال إشعارات</h3>
+                        <div class="notification-form">
+                            <select id="notificationTarget">
+                                <option value="all">للجميع</option>
+                                <option value="specific">لمستخدم محدد</option>
+                            </select>
+                            <select id="specificUserSelect" style="display: none;">
+                                <option value="">اختر المستخدم</option>
+                            </select>
+                            <textarea id="notificationMessage" placeholder="نص الإشعار"></textarea>
+                            <button onclick="sendNotification()" class="btn">إرسال الإشعار</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال إجراءات المستخدم -->
+    <div id="userActionsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>إجراءات المستخدم</h2>
+                <button class="close-btn" onclick="closeUserActionsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="user-actions">
+                <div class="user-info">
+                    <img id="actionUserAvatar" src="" alt="">
+                    <span id="actionUserName"></span>
+                </div>
+                <div class="actions-grid">
+                    <button onclick="viewUserProfile()" class="action-btn">
+                        <i class="fas fa-user"></i>
+                        <span>عرض الملف الشخصي</span>
+                    </button>
+                    <button onclick="sendPrivateMessage()" class="action-btn">
+                        <i class="fas fa-envelope"></i>
+                        <span>رسالة خاصة</span>
+                    </button>
+                    <button onclick="openBanUserModal()" class="action-btn ban-btn admin-only">
+                        <i class="fas fa-ban"></i>
+                        <span>حظر</span>
+                    </button>
+                    <button onclick="openMuteUserModal()" class="action-btn mute-btn admin-only">
+                        <i class="fas fa-volume-mute"></i>
+                        <span>كتم</span>
+                    </button>
+                    <button onclick="openAssignRankModal()" class="action-btn rank-btn admin-only">
+                        <i class="fas fa-crown"></i>
+                        <span>تعيين رتبة</span>
+                    </button>
+                    <button onclick="openGiveCoinsModal()" class="action-btn coins-btn admin-only">
+                        <i class="fas fa-coins"></i>
+                        <span>إعطاء نقاط</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال حظر المستخدم -->
+    <div id="banUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>حظر المستخدم</h2>
+                <button class="close-btn" onclick="closeBanUserModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="ban-form">
+                <div class="form-group">
+                    <label>سبب الحظر:</label>
+                    <textarea id="banReason" placeholder="اكتب سبب الحظر..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>مدة الحظر:</label>
+                    <select id="banDuration">
+                        <option value="1h">ساعة واحدة</option>
+                        <option value="24h">24 ساعة</option>
+                        <option value="7d">أسبوع</option>
+                        <option value="30d">شهر</option>
+                        <option value="permanent">دائم</option>
+                    </select>
+                </div>
+                <button onclick="confirmBanUser()" class="btn ban-btn">تأكيد الحظر</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال تعيين الرتبة -->
+    <div id="assignRankModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>تعيين رتبة</h2>
+                <button class="close-btn" onclick="closeAssignRankModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="rank-form">
+                <div class="form-group">
+                    <label>المستخدم:</label>
+                    <span id="rankTargetUser"></span>
+                </div>
+                <div class="form-group">
+                    <label>الرتبة الجديدة:</label>
+                    <select id="newRankSelect">
+                        <option value="visitor">زائر</option>
+                        <option value="bronze">عضو برونزي</option>
+                        <option value="silver">عضو فضي</option>
+                        <option value="gold">عضو ذهبي</option>
+                        <option value="trophy">كأس</option>
+                        <option value="diamond">عضو الماس</option>
+                        <option value="prince">برنس</option>
+                        <option value="admin">إداري</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>سبب التغيير:</label>
+                    <textarea id="rankChangeReason" placeholder="سبب تغيير الرتبة (اختياري)"></textarea>
+                </div>
+                <button onclick="confirmAssignRank()" class="btn">تعيين الرتبة</button>
             </div>
         </div>
     </div>
@@ -625,67 +747,75 @@
                 </button>
             </div>
             <div class="settings-content">
-                <div class="setting-item">
-                    <label>أصوات الإشعارات</label>
-                    <label class="switch">
-                        <input type="checkbox" id="soundNotifications" checked>
-                        <span class="slider"></span>
-                    </label>
+                <div class="settings-section">
+                    <h3>إعدادات الصوت</h3>
+                    <div class="setting-item">
+                        <label>أصوات الإشعارات</label>
+                        <label class="switch">
+                            <input type="checkbox" id="soundNotifications" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 </div>
-                <div class="setting-item">
-                    <label>الإشعارات المنبثقة</label>
-                    <label class="switch">
-                        <input type="checkbox" id="popupNotifications" checked>
-                        <span class="slider"></span>
-                    </label>
+                <div class="settings-section">
+                    <h3>إعدادات الدردشة</h3>
+                    <div class="setting-item">
+                        <label>حفظ تاريخ الدردشة</label>
+                        <label class="switch">
+                            <input type="checkbox" id="saveChatHistory" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 </div>
-                <div class="setting-item">
-                    <label>حفظ تاريخ الدردشة</label>
-                    <label class="switch">
-                        <input type="checkbox" id="saveChatHistory" checked>
-                        <span class="slider"></span>
-                    </label>
+                <div class="settings-section">
+                    <h3>إجراءات</h3>
+                    <button onclick="exitChat()" class="btn">الخروج من الدردشة</button>
+                    <button onclick="exitRoom()" class="btn">الخروج من الغرفة</button>
+                    <button onclick="openHelpModal()" class="btn">المساعدة</button>
+                    <button onclick="showRanks()" class="btn">عرض الرتب</button>
+                    <button onclick="cleanRooms()" class="btn admin-only">تنظيف الغرف</button>
                 </div>
-                <button onclick="saveSettings()" class="btn">حفظ الإعدادات</button>
+                <button onclick="saveSettings()" class="btn save-btn">حفظ الإعدادات</button>
             </div>
         </div>
     </div>
 
-    <!-- مودال اختيار الرموز التعبيرية -->
-    <div id="emojiModal" class="modal">
-        <div class="modal-content emoji-modal">
-            <div class="modal-header">
-                <h2>الرموز التعبيرية</h2>
-                <button class="close-btn" onclick="closeEmojiModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="emoji-grid" id="emojiGrid"></div>
-        </div>
-    </div>
-
-    <!-- مودال إجراءات المستخدم -->
-    <div id="userActionsModal" class="modal">
+    <!-- مودال مشغل الراديو -->
+    <div id="radioPlayerModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>إجراءات المستخدم</h2>
-                <button class="close-btn" onclick="closeUserActionsModal()">
+                <h2>📻 مشغل الراديو</h2>
+                <button class="close-btn" onclick="closeRadioPlayer()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div class="user-actions">
-                <button onclick="banUser()" class="action-btn ban-btn">
-                    <i class="fas fa-ban"></i> حظر
-                </button>
-                <button onclick="muteUser()" class="action-btn mute-btn">
-                    <i class="fas fa-volume-mute"></i> كتم
-                </button>
-                <button onclick="assignRank()" class="action-btn rank-btn">
-                    <i class="fas fa-crown"></i> تعيين رتبة
-                </button>
-                <button onclick="viewUserProfile()" class="action-btn profile-btn">
-                    <i class="fas fa-user"></i> عرض الملف الشخصي
-                </button>
+            <div class="radio-content">
+                <div class="radio-stations">
+                    <div class="station" onclick="playRadioStation('station1')">
+                        <i class="fas fa-music"></i>
+                        <span>محطة الأغاني العربية</span>
+                    </div>
+                    <div class="station" onclick="playRadioStation('station2')">
+                        <i class="fas fa-music"></i>
+                        <span>محطة الأغاني الأجنبية</span>
+                    </div>
+                    <div class="station" onclick="playRadioStation('station3')">
+                        <i class="fas fa-music"></i>
+                        <span>محطة الموسيقى الكلاسيكية</span>
+                    </div>
+                </div>
+                <div class="radio-controls">
+                    <button id="radioPlayBtn" onclick="toggleRadio()">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <input type="range" id="radioVolume" min="0" max="100" value="50">
+                </div>
+                <div class="custom-music">
+                    <h4>أغانيك الخاصة</h4>
+                    <input type="file" id="customMusicInput" accept="audio/*" multiple>
+                    <button onclick="uploadCustomMusic()">رفع أغاني</button>
+                    <div id="customMusicList" class="custom-music-list"></div>
+                </div>
             </div>
         </div>
     </div>
