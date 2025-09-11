@@ -103,6 +103,59 @@ db.serialize(() => {
         }
     });
 
+    // إضافة عمود is_deleted إذا لم يكن موجوداً
+    db.run(`ALTER TABLE messages ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+            console.error('خطأ في إضافة عمود is_deleted:', err);
+        }
+    });
+
+    // إضافة عمود voice_url إذا لم يكن موجوداً
+    db.run(`ALTER TABLE messages ADD COLUMN voice_url TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+            console.error('خطأ في إضافة عمود voice_url:', err);
+        }
+    });
+
+    // إضافة عمود image_url إذا لم يكن موجوداً
+    db.run(`ALTER TABLE messages ADD COLUMN image_url TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+            console.error('خطأ في إضافة عمود image_url:', err);
+        }
+    });
+
+    // إضافة عمود coins للمستخدمين إذا لم يكن موجوداً
+    db.run(`ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 2000`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+            console.error('خطأ في إضافة عمود coins:', err);
+        }
+    });
+
+    // جدول الحظر
+    db.run(`CREATE TABLE IF NOT EXISTS bans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        banned_by INTEGER,
+        reason TEXT NOT NULL,
+        expires_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (banned_by) REFERENCES users (id)
+    )`);
+
+    // جدول تاريخ النقاط
+    db.run(`CREATE TABLE IF NOT EXISTS coins_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        amount INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        reason TEXT,
+        admin_id INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (admin_id) REFERENCES users (id)
+    )`);
+
     // جدول الأصدقاء
     db.run(`CREATE TABLE IF NOT EXISTS friendships (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -202,10 +255,10 @@ const upload = multer({
         fileSize: 5 * 1024 * 1024 // 5MB limit
     },
     fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith('image/')) {
+        if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('audio/')) {
             cb(null, true);
         } else {
-            cb(new Error('فقط الصور مسموحة!'), false);
+            cb(new Error('فقط الصور والملفات الصوتية مسموحة!'), false);
         }
     }
 });
@@ -394,14 +447,21 @@ app.delete('/api/messages/:id', authenticateToken, (req, res) => {
             return res.status(404).json({ error: 'الرسالة غير موجودة' });
         }
 
-        if (message.user_id !== req.user.id && req.user.role !== 'admin') {
+        if (message.user_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'owner') {
             return res.status(403).json({ error: 'غير مسموح - يمكنك حذف رسائلك فقط' });
         }
 
-        db.run('DELETE FROM messages WHERE id = ?', [messageId], (err) => {
+        // استخدام soft delete بدلاً من الحذف النهائي
+        db.run('UPDATE messages SET message = "[تم حذف هذه الرسالة]", is_deleted = 1 WHERE id = ?', [messageId], (err) => {
             if (err) {
                 return res.status(500).json({ error: 'خطأ في حذف الرسالة' });
             }
+            
+            // إرسال إشعار بحذف الرسالة عبر Socket.IO
+            if (req.app.get('io')) {
+                req.app.get('io').emit('messageDeleted', messageId);
+            }
+            
             res.json({ success: true, message: 'تم حذف الرسالة بنجاح' });
         });
     });
@@ -415,6 +475,141 @@ app.post('/api/upload-voice', authenticateToken, upload.single('voice'), (req, r
 
     const voice_url = `/uploads/${req.file.filename}`;
     res.json({ voice_url });
+});
+
+// رفع الصور للرسائل العامة
+app.post('/upload-image', authenticateToken, upload.single('image'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.json({ success: false, message: 'لم يتم رفع أي صورة' });
+        }
+        
+        const imageUrl = `/uploads/${req.file.filename}`;
+        res.json({ success: true, imageUrl: imageUrl });
+    } catch (error) {
+        console.error('خطأ في رفع الصورة:', error);
+        res.json({ success: false, message: 'حدث خطأ أثناء رفع الصورة' });
+    }
+});
+
+// رفع الصور للرسائل الخاصة
+app.post('/upload-private-image', authenticateToken, upload.single('image'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.json({ success: false, message: 'لم يتم رفع أي صورة' });
+        }
+        
+        const imageUrl = `/uploads/${req.file.filename}`;
+        res.json({ success: true, imageUrl: imageUrl });
+    } catch (error) {
+        console.error('خطأ في رفع الصورة الخاصة:', error);
+        res.json({ success: false, message: 'حدث خطأ أثناء رفع الصورة' });
+    }
+});
+
+// إزالة endpoint المكرر - تم دمجه في DELETE endpoint أعلاه
+
+// حظر المستخدم (للإداريين فقط)
+app.post('/api/ban', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin' && req.user.role !== 'owner') {
+        return res.status(403).json({ error: 'غير مسموح - للإداريين فقط' });
+    }
+
+    const { userId, reason, duration } = req.body;
+
+    if (!userId || !reason) {
+        return res.status(400).json({ error: 'معرف المستخدم وسبب الحظر مطلوبان' });
+    }
+
+    // التحقق من وجود المستخدم
+    db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: 'خطأ في قاعدة البيانات' });
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'المستخدم غير موجود' });
+        }
+
+        // منع حظر المالك أو الإداريين
+        if (user.role === 'owner' || (user.role === 'admin' && req.user.role !== 'owner')) {
+            return res.status(403).json({ error: 'لا يمكن حظر هذا المستخدم' });
+        }
+
+        // حساب تاريخ انتهاء الحظر
+        let banExpiresAt = null;
+        if (duration !== 'permanent') {
+            const hours = parseInt(duration);
+            banExpiresAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+        }
+
+        // إضافة الحظر أو تحديثه
+        db.run(`INSERT OR REPLACE INTO bans (user_id, banned_by, reason, expires_at, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [userId, req.user.id, reason, banExpiresAt], (err) => {
+                if (err) {
+                    return res.status(500).json({ error: 'خطأ في تطبيق الحظر' });
+                }
+
+                // تحديث حالة المستخدم
+                db.run('UPDATE users SET is_online = FALSE WHERE id = ?', [userId]);
+
+                res.json({ 
+                    success: true, 
+                    message: `تم حظر المستخدم ${user.display_name} بنجاح` 
+                });
+            });
+    });
+});
+
+// إهداء النقاط (للإداريين فقط)
+app.post('/api/give-coins', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin' && req.user.role !== 'owner') {
+        return res.status(403).json({ error: 'غير مسموح - للإداريين فقط' });
+    }
+
+    const { userId, amount, reason } = req.body;
+
+    if (!userId || !amount || amount < 1) {
+        return res.status(400).json({ error: 'معرف المستخدم وعدد النقاط مطلوبان' });
+    }
+
+    if (amount > 10000) {
+        return res.status(400).json({ error: 'لا يمكن إهداء أكثر من 10000 نقطة في المرة الواحدة' });
+    }
+
+    // التحقق من وجود المستخدم
+    db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: 'خطأ في قاعدة البيانات' });
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'المستخدم غير موجود' });
+        }
+
+        // تحديث نقاط المستخدم
+        const currentCoins = user.coins || 0;
+        const newCoins = currentCoins + parseInt(amount);
+
+        db.run('UPDATE users SET coins = ? WHERE id = ?', [newCoins, userId], (err) => {
+            if (err) {
+                return res.status(500).json({ error: 'خطأ في تحديث النقاط' });
+            }
+
+            // إضافة سجل في تاريخ النقاط
+            db.run(`INSERT INTO coins_history (user_id, amount, type, reason, admin_id, created_at) VALUES (?, ?, 'gift', ?, ?, CURRENT_TIMESTAMP)`,
+                [userId, amount, reason || 'إهداء من الإدارة', req.user.id], (err) => {
+                    if (err) {
+                        console.error('خطأ في إضافة سجل النقاط:', err);
+                    }
+                });
+
+            res.json({ 
+                success: true, 
+                message: `تم إهداء ${amount} نقطة لـ ${user.display_name} بنجاح`
+            });
+        });
+    });
 });
 
 app.post('/api/rooms', authenticateToken, upload.single('roomBackground'), (req, res) => {
@@ -720,6 +915,151 @@ app.get('/api/user/profile', authenticateToken, (req, res) => {
 });
 
 // باقي APIs الموجودة...
+// متغيرات لحفظ الأخبار والستوري مؤقتاً
+let newsArray = [];
+let storiesArray = [];
+let notificationsArray = [];
+
+// API للأخبار
+app.get('/api/news', authenticateToken, (req, res) => {
+    res.json(newsArray);
+});
+
+app.post('/api/news', authenticateToken, upload.single('newsFile'), (req, res) => {
+    const { content } = req.body;
+    if (!content && !req.file) {
+        return res.status(400).json({ error: 'يجب إدخال محتوى أو ملف' });
+    }
+
+    const media = req.file ? `/uploads/${req.file.filename}` : null;
+    const newNews = {
+        id: newsArray.length + 1,
+        content,
+        media,
+        display_name: req.user.displayName,
+        timestamp: new Date().toISOString(),
+        user_id: req.user.id
+    };
+
+    newsArray.push(newNews);
+    io.emit('newNews', newNews);
+    res.json(newNews);
+});
+
+// API للستوري
+app.get('/api/stories', authenticateToken, (req, res) => {
+    // إظهار الستوري النشطة فقط (خلال 24 ساعة)
+    const activeStories = storiesArray.filter(s => {
+        const storyTime = new Date(s.timestamp);
+        const now = new Date();
+        return (now - storyTime) < 24 * 60 * 60 * 1000;
+    });
+    res.json(activeStories);
+});
+
+app.post('/api/stories', authenticateToken, upload.single('storyImage'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'يجب رفع صورة أو فيديو' });
+    }
+
+    const { text } = req.body;
+    const newStory = {
+        id: storiesArray.length + 1,
+        image: `/uploads/${req.file.filename}`,
+        text: text || '',
+        display_name: req.user.displayName,
+        timestamp: new Date().toISOString(),
+        user_id: req.user.id
+    };
+
+    storiesArray.push(newStory);
+    io.emit('newStory', newStory);
+    res.json(newStory);
+});
+
+// API للإشعارات
+app.post('/api/send-notification', authenticateToken, (req, res) => {
+    // التحقق من الصلاحيات - فقط الإداريين والمالكين يمكنهم إرسال إشعارات للآخرين
+    if (req.user.role !== 'admin' && req.user.role !== 'owner') {
+        return res.status(403).json({ error: 'غير مسموح - للإداريين فقط' });
+    }
+
+    const { recipientId, message, type = 'info' } = req.body;
+    
+    if (!message) {
+        return res.status(400).json({ error: 'يجب إدخال رسالة الإشعار' });
+    }
+
+    if (!recipientId) {
+        return res.status(400).json({ error: 'يجب تحديد المستخدم المستقبل' });
+    }
+
+    const notification = {
+        id: notificationsArray.length + 1,
+        recipientId: parseInt(recipientId),
+        message,
+        type,
+        senderName: req.user.display_name || req.user.email,
+        timestamp: new Date().toISOString(),
+        read: false
+    };
+
+    notificationsArray.push(notification);
+    
+    // إرسال إشعار مباشر للمستخدم باستخدام user ID
+    io.to(`user_${recipientId}`).emit('newNotification', notification);
+    
+    res.json({ success: true, message: 'تم إرسال الإشعار بنجاح' });
+});
+
+app.get('/api/notifications', authenticateToken, (req, res) => {
+    const userNotifications = notificationsArray.filter(n => n.recipientId === req.user.id);
+    res.json(userNotifications);
+});
+
+// API للرسائل الخاصة
+app.get('/api/private-messages/:userId', authenticateToken, (req, res) => {
+    const otherUserId = parseInt(req.params.userId);
+    const currentUserId = req.user.id;
+    
+    db.all(`SELECT m.*, u.display_name, u.rank, u.profile_image1 
+            FROM messages m 
+            JOIN users u ON m.user_id = u.id 
+            WHERE m.is_private = TRUE 
+            AND ((m.user_id = ? AND m.receiver_id = ?) OR (m.user_id = ? AND m.receiver_id = ?))
+            ORDER BY m.timestamp ASC 
+            LIMIT 100`, 
+        [currentUserId, otherUserId, otherUserId, currentUserId], 
+        (err, messages) => {
+            if (err) {
+                return res.status(500).json({ error: 'خطأ في قاعدة البيانات' });
+            }
+            res.json(messages);
+        });
+});
+
+// API للحصول على جميع المستخدمين (للإشعارات والطرد)
+app.get('/api/all-users-list', authenticateToken, (req, res) => {
+    db.all('SELECT id, display_name, role, rank, profile_image1, is_online FROM users WHERE id != ? ORDER BY is_online DESC, display_name ASC', 
+        [req.user.id], (err, users) => {
+        if (err) {
+            return res.status(500).json({ error: 'خطأ في قاعدة البيانات' });
+        }
+        res.json(users);
+    });
+});
+
+// API للحصول على المتصلين حالياً
+app.get('/api/online-users', authenticateToken, (req, res) => {
+    db.all('SELECT id, display_name, role, rank, profile_image1 FROM users WHERE is_online = 1 ORDER BY display_name ASC', 
+        [], (err, users) => {
+        if (err) {
+            return res.status(500).json({ error: 'خطأ في قاعدة البيانات' });
+        }
+        res.json(users);
+    });
+});
+
 // إدارة الخلفيات
 app.get('/api/backgrounds', authenticateToken, (req, res) => {
     db.all('SELECT * FROM backgrounds ORDER BY created_at DESC', [], (err, backgrounds) => {
@@ -792,22 +1132,64 @@ app.put('/api/user/display-name', authenticateToken, (req, res) => {
 let connectedUsers = new Map();
 let roomUsers = new Map(); // مستخدمي كل غرفة
 
+// دالة لتحديث قائمة المتصلين
+function updateOnlineUsersList() {
+    const onlineUsers = Array.from(connectedUsers.values()).map(user => ({
+        userId: user.userId,
+        displayName: user.displayName,
+        rank: user.rank,
+        email: user.email
+    }));
+    
+    // إرسال قائمة المتصلين لجميع المستخدمين
+    io.emit('onlineUsersUpdated', onlineUsers);
+}
+
 io.on('connection', (socket) => {
     console.log('مستخدم متصل:', socket.id);
 
     // تسجيل المستخدم والانضمام للغرفة
     socket.on('join', (userData) => {
-        connectedUsers.set(socket.id, {
-            userId: userData.userId,
-            displayName: userData.displayName,
-            rank: userData.rank,
-            email: userData.email,
-            currentRoom: userData.roomId || 1
-        });
+        // التحقق من صحة التوكن
+        if (!userData.token) {
+            socket.emit('error', 'غير مخول - لا يوجد توكن');
+            socket.disconnect();
+            return;
+        }
+
+        try {
+            const decoded = jwt.verify(userData.token, JWT_SECRET);
+            
+            // التحقق من أن البيانات متطابقة
+            if (decoded.id !== userData.userId || decoded.email !== userData.email) {
+                socket.emit('error', 'غير مخول - بيانات غير صحيحة');
+                socket.disconnect();
+                return;
+            }
+
+            connectedUsers.set(socket.id, {
+                userId: userData.userId,
+                displayName: userData.displayName,
+                rank: userData.rank,
+                email: userData.email,
+                currentRoom: userData.roomId || 1,
+                verified: true
+            });
+        } catch (error) {
+            socket.emit('error', 'غير مخول - توكن غير صحيح');
+            socket.disconnect();
+            return;
+        }
 
         // الانضمام للغرفة
         const roomId = userData.roomId || 1;
         socket.join(`room_${roomId}`);
+        
+        // الانضمام لغرفة المستخدم الشخصية للإشعارات المستهدفة
+        socket.join(`user_${userData.userId}`);
+
+        // تحديث حالة المستخدم إلى متصل
+        db.run('UPDATE users SET is_online = TRUE WHERE id = ?', [userData.userId]);
 
         // تحديث قائمة مستخدمي الغرفة
         if (!roomUsers.has(roomId)) {
@@ -818,12 +1200,18 @@ io.on('connection', (socket) => {
         // إرسال قائمة المستخدمين في الغرفة
         const roomUsersList = Array.from(roomUsers.get(roomId) || []).map(socketId => connectedUsers.get(socketId)).filter(Boolean);
         io.to(`room_${roomId}`).emit('roomUsersList', roomUsersList);
+        
+        // إرسال قائمة المتصلين لجميع المستخدمين
+        updateOnlineUsersList();
     });
 
     // تغيير الغرفة
     socket.on('changeRoom', (newRoomId) => {
         const user = connectedUsers.get(socket.id);
-        if (!user) return;
+        if (!user || !user.verified) {
+            socket.emit('error', 'غير مخول - يجب تسجيل الدخول أولاً');
+            return;
+        }
 
         const oldRoomId = user.currentRoom;
 
@@ -855,7 +1243,10 @@ io.on('connection', (socket) => {
     // إرسال رسالة في غربة
     socket.on('sendMessage', (data) => {
         const user = connectedUsers.get(socket.id);
-        if (!user) return;
+        if (!user || !user.verified) {
+            socket.emit('error', 'غير مخول - يجب تسجيل الدخول أولاً');
+            return;
+        }
 
         const roomId = data.roomId || user.currentRoom || 1;
 
@@ -915,7 +1306,10 @@ io.on('connection', (socket) => {
     // إرسال رسالة خاصة
     socket.on('sendPrivateMessage', (data) => {
         const sender = connectedUsers.get(socket.id);
-        if (!sender) return;
+        if (!sender || !sender.verified) {
+            socket.emit('error', 'غير مخول - يجب تسجيل الدخول أولاً');
+            return;
+        }
 
         // تحديد نوع الرسالة وحفظها
         let query, params;
@@ -966,7 +1360,10 @@ io.on('connection', (socket) => {
     // إرسال رسالة صوتية في الغرفة
     socket.on('sendVoice', (data) => {
         const user = connectedUsers.get(socket.id);
-        if (!user) return;
+        if (!user || !user.verified) {
+            socket.emit('error', 'غير مخول - يجب تسجيل الدخول أولاً');
+            return;
+        }
 
         const roomId = data.roomId || user.currentRoom || 1;
 
@@ -979,7 +1376,10 @@ io.on('connection', (socket) => {
     // إرسال رسالة صوتية خاصة
     socket.on('sendPrivateVoice', (data) => {
         const sender = connectedUsers.get(socket.id);
-        if (!sender) return;
+        if (!sender || !sender.verified) {
+            socket.emit('error', 'غير مخول - يجب تسجيل الدخول أولاً');
+            return;
+        }
 
         socket.emit('sendPrivateMessage', {
             voice_url: data.voice_url,
@@ -990,7 +1390,10 @@ io.on('connection', (socket) => {
     // إرسال صورة في الغرفة
     socket.on('sendImage', (data) => {
         const user = connectedUsers.get(socket.id);
-        if (!user) return;
+        if (!user || !user.verified) {
+            socket.emit('error', 'غير مخول - يجب تسجيل الدخول أولاً');
+            return;
+        }
 
         const roomId = data.roomId || user.currentRoom || 1;
 
@@ -1003,7 +1406,10 @@ io.on('connection', (socket) => {
     // إرسال صورة خاصة
     socket.on('sendPrivateImage', (data) => {
         const sender = connectedUsers.get(socket.id);
-        if (!sender) return;
+        if (!sender || !sender.verified) {
+            socket.emit('error', 'غير مخول - يجب تسجيل الدخول أولاً');
+            return;
+        }
 
         socket.emit('sendPrivateMessage', {
             image_url: data.image_url,
@@ -1013,11 +1419,22 @@ io.on('connection', (socket) => {
 
     // حذف رسالة
     socket.on('deleteMessage', (data) => {
+        const user = connectedUsers.get(socket.id);
+        if (!user || !user.verified) {
+            socket.emit('error', 'غير مخول - يجب تسجيل الدخول أولاً');
+            return;
+        }
         io.to(`room_${data.roomId}`).emit('messageDeleted', data.messageId);
     });
 
     // حذف رسالة خاصة
     socket.on('deletePrivateMessage', (data) => {
+        const user = connectedUsers.get(socket.id);
+        if (!user || !user.verified) {
+            socket.emit('error', 'غير مخول - يجب تسجيل الدخول أولاً');
+            return;
+        }
+        
         // إشعار المستخدمين المعنيين بحذف الرسالة
         socket.emit('privateMessageDeleted', data.messageId);
 
@@ -1055,3 +1472,4 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`الخادم يعمل على البورت ${PORT}`);
 });
+
