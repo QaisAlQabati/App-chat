@@ -187,7 +187,12 @@ function updateUserInterface() {
 
 // تهيئة Socket.IO
 function initializeSocket() {
-    socket = io();
+    const token = localStorage.getItem('chatToken');
+    socket = io({
+        auth: {
+            token: token
+        }
+    });
     
     // الاتصال
     socket.on('connect', () => {
@@ -197,7 +202,8 @@ function initializeSocket() {
             displayName: currentUser.display_name,
             rank: currentUser.rank,
             email: currentUser.email,
-            roomId: currentRoom
+            roomId: currentRoom,
+            token: token
         });
     });
     
@@ -234,12 +240,38 @@ function initializeSocket() {
     socket.on('newNotification', (notification) => {
         showNotification(notification.message, notification.type || 'info');
         updateNotificationCount();
+        notificationsList.push(notification);
+    });
+    
+    // تحديث قائمة المتصلين
+    socket.on('onlineUsersUpdated', (users) => {
+        onlineUsersList = users;
+        // تحديث العدد في الشريط الجانبي
+        const sidebarCount = document.getElementById('onlineCount');
+        if (sidebarCount) {
+            sidebarCount.textContent = users.length;
+        }
+        
+        // تحديث قائمة المتصلين في المودال إذا كان مفتوحاً
+        const modal = document.getElementById('onlineUsersModal');
+        if (modal && modal.classList.contains('modal') && modal.style.display !== 'none') {
+            displayOnlineUsers();
+        }
     });
     
     // قطع الاتصال
     socket.on('disconnect', () => {
         console.log('انقطع الاتصال بالخادم');
         showNotification('انقطع الاتصال بالخادم', 'error');
+    });
+
+    // معالجة أخطاء الأمان
+    socket.on('error', (errorMessage) => {
+        console.error('خطأ في الأمان:', errorMessage);
+        showNotification('خطأ في الأمان: ' + errorMessage, 'error');
+        // إعادة توجيه لصفحة تسجيل الدخول
+        localStorage.removeItem('chatToken');
+        showLoginScreen();
     });
 }
 
@@ -1360,6 +1392,63 @@ function closeBanUserModal() {
     document.getElementById('banReason').value = '';
 }
 
+// فتح مودال إهداء النقاط
+function openGiveCoinsModal(userId, userName) {
+    document.getElementById('coinsTargetUser').textContent = userName;
+    document.getElementById('coinsTargetUser').setAttribute('data-user-id', userId);
+    openModal('giveCoinsModal');
+}
+
+// إهداء النقاط
+async function giveCoins() {
+    const userId = document.getElementById('coinsTargetUser').getAttribute('data-user-id');
+    const amount = document.getElementById('coinsAmount').value;
+    const reason = document.getElementById('coinsReason').value;
+    
+    if (!amount || amount < 1 || amount > 10000) {
+        showError('يرجى إدخال عدد صحيح من النقاط (1-10000)');
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        
+        const response = await fetch('/api/give-coins', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({
+                userId: parseInt(userId),
+                amount: parseInt(amount),
+                reason: reason
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            closeGiveCoinsModal();
+            loadAllUsers();
+            showNotification(`تم إهداء ${amount} نقطة بنجاح`, 'success');
+        } else {
+            showError(data.error);
+        }
+    } catch (error) {
+        showError('حدث خطأ في إهداء النقاط');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// إغلاق مودال إهداء النقاط
+function closeGiveCoinsModal() {
+    closeModal('giveCoinsModal');
+    document.getElementById('coinsAmount').value = '';
+    document.getElementById('coinsReason').value = '';
+}
+
 // إغلاق لوحة الإدارة
 function closeAdminModal() {
     closeModal('adminModal');
@@ -1932,3 +2021,668 @@ window.addEventListener('unhandledrejection', function(e) {
     console.error('خطأ غير معالج:', e.reason);
     showNotification('حدث خطأ في الشبكة', 'error');
 });
+
+// ==================== الميزات الجديدة ====================
+
+// متغيرات الإشعارات والميزات الجديدة
+let onlineUsersList = [];
+let allUsersList = [];
+let notificationsList = [];
+let privateChatMinimized = false;
+let currentPrivateChatUser = null;
+
+// متغيرات للميزات الجديدة
+var currentMusicPlayer = null;
+var isContestActive = false;
+var contestTimer = null;
+
+// وظائف إرسال الصور
+function openImagePicker() {
+    const imageInput = document.createElement('input');
+    imageInput.type = 'file';
+    imageInput.accept = 'image/*';
+    imageInput.multiple = true;
+    
+    imageInput.onchange = function(event) {
+        const files = event.target.files;
+        if (files.length > 0) {
+            for (let i = 0; i < files.length; i++) {
+                uploadImage(files[i]);
+            }
+        }
+    };
+    
+    imageInput.click();
+}
+
+function uploadImage(file) {
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        alert('حجم الصورة كبير جداً! الحد الأقصى 10 ميجابايت');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('roomId', currentRoomId);
+    
+    // عرض مؤشر التحميل
+    showUploadProgress('جاري رفع الصورة...');
+    
+    fetch('/upload-image', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideUploadProgress();
+        if (data.success) {
+            // إرسال رسالة مع رابط الصورة
+            socket.emit('sendMessage', {
+                message: '',
+                imageUrl: data.imageUrl,
+                roomId: currentRoomId,
+                type: 'image'
+            });
+        } else {
+            alert('فشل في رفع الصورة: ' + data.message);
+        }
+    })
+    .catch(error => {
+        hideUploadProgress();
+        console.error('خطأ في رفع الصورة:', error);
+        alert('حدث خطأ أثناء رفع الصورة');
+    });
+}
+
+function openPrivateImagePicker(receiverId) {
+    const imageInput = document.createElement('input');
+    imageInput.type = 'file';
+    imageInput.accept = 'image/*';
+    
+    imageInput.onchange = function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            uploadPrivateImage(file, receiverId);
+        }
+    };
+    
+    imageInput.click();
+}
+
+function uploadPrivateImage(file, receiverId) {
+    if (file.size > 10 * 1024 * 1024) { 
+        alert('حجم الصورة كبير جداً! الحد الأقصى 10 ميجابايت');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('receiverId', receiverId);
+    
+    showUploadProgress('جاري رفع الصورة الخاصة...');
+    
+    fetch('/upload-private-image', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideUploadProgress();
+        if (data.success) {
+            socket.emit('sendPrivateMessage', {
+                message: '',
+                imageUrl: data.imageUrl,
+                receiverId: receiverId,
+                type: 'image'
+            });
+        } else {
+            alert('فشل في رفع الصورة: ' + data.message);
+        }
+    })
+    .catch(error => {
+        hideUploadProgress();
+        console.error('خطأ في رفع الصورة الخاصة:', error);
+        alert('حدث خطأ أثناء رفع الصورة');
+    });
+}
+
+function showUploadProgress(message) {
+    const progressDiv = document.createElement('div');
+    progressDiv.id = 'uploadProgress';
+    progressDiv.className = 'upload-progress';
+    progressDiv.innerHTML = `
+        <div class="upload-progress-content">
+            <div class="upload-spinner"></div>
+            <span>${message}</span>
+        </div>
+    `;
+    document.body.appendChild(progressDiv);
+}
+
+function hideUploadProgress() {
+    const progressDiv = document.getElementById('uploadProgress');
+    if (progressDiv) {
+        progressDiv.remove();
+    }
+}
+
+// وظائف معاينة فيديو يوتيوب
+function detectAndProcessYouTubeLinks(message) {
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/g;
+    const matches = message.match(youtubeRegex);
+    
+    if (matches) {
+        matches.forEach(match => {
+            const videoId = extractYouTubeVideoId(match);
+            if (videoId) {
+                message = message.replace(match, createYouTubeEmbed(videoId));
+            }
+        });
+    }
+    
+    return message;
+}
+
+function extractYouTubeVideoId(url) {
+    const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+}
+
+function createYouTubeEmbed(videoId) {
+    return `
+        <div class="youtube-embed">
+            <iframe 
+                width="300" 
+                height="200" 
+                src="https://www.youtube.com/embed/${videoId}" 
+                frameborder="0" 
+                allowfullscreen>
+            </iframe>
+            <div class="youtube-info">
+                <span>🎥 فيديو يوتيوب</span>
+            </div>
+        </div>
+    `;
+}
+
+// وظائف حذف الرسائل
+function deleteMessage(messageId, messageElement) {
+    if (confirm('هل أنت متأكد من حذف هذه الرسالة؟')) {
+        fetch('/delete-message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('token')
+            },
+            body: JSON.stringify({ messageId: messageId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                messageElement.innerHTML = '<em>تم حذف هذه الرسالة</em>';
+                messageElement.classList.add('deleted-message');
+            } else {
+                alert('فشل في حذف الرسالة: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('خطأ في حذف الرسالة:', error);
+        });
+    }
+}
+
+// وظائف الطرد والكتم
+function kickUser(userId, userName) {
+    if (confirm(`هل تريد طرد ${userName} من الغرفة؟`)) {
+        socket.emit('kickUser', {
+            userId: userId,
+            roomId: currentRoomId
+        });
+    }
+}
+
+function muteUser(userId, userName) {
+    const duration = prompt(`كم دقيقة تريد كتم ${userName}؟ (اترك فارغاً للكتم الدائم)`, '10');
+    
+    if (duration !== null) {
+        const muteMinutes = duration === '' ? null : parseInt(duration);
+        
+        socket.emit('muteUser', {
+            userId: userId,
+            roomId: currentRoomId,
+            duration: muteMinutes
+        });
+    }
+}
+
+function unmuteUser(userId, userName) {
+    if (confirm(`هل تريد إلغاء كتم ${userName}؟`)) {
+        socket.emit('unmuteUser', {
+            userId: userId,
+            roomId: currentRoomId
+        });
+    }
+}
+
+// وظائف إنشاء الغرف
+function openCreateRoomModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.id = 'createRoomModal';
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close" onclick="closeCreateRoomModal()">&times;</span>
+            <h2>🏠 إنشاء غرفة جديدة</h2>
+            
+            <div class="room-form">
+                <div class="form-group">
+                    <label>اسم الغرفة:</label>
+                    <input type="text" id="roomName" placeholder="ادخل اسم الغرفة">
+                </div>
+                
+                <div class="form-group">
+                    <label>وصف الغرفة:</label>
+                    <textarea id="roomDescription" placeholder="ادخل وصف للغرفة"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>نوع الغرفة:</label>
+                    <select id="roomType">
+                        <option value="public">عامة</option>
+                        <option value="private">خاصة</option>
+                        <option value="contest">مسابقات</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>الحد الأقصى للمستخدمين:</label>
+                    <input type="number" id="maxUsers" value="50" min="2" max="200">
+                </div>
+                
+                <div class="room-actions">
+                    <button onclick="createRoom()" class="btn save-btn">إنشاء الغرفة</button>
+                    <button onclick="closeCreateRoomModal()" class="btn cancel-btn">إلغاء</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+function closeCreateRoomModal() {
+    const modal = document.getElementById('createRoomModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function createRoom() {
+    const roomName = document.getElementById('roomName').value.trim();
+    const roomDescription = document.getElementById('roomDescription').value.trim();
+    const roomType = document.getElementById('roomType').value;
+    const maxUsers = parseInt(document.getElementById('maxUsers').value);
+    
+    if (!roomName) {
+        alert('يرجى إدخال اسم الغرفة');
+        return;
+    }
+    
+    socket.emit('createRoom', {
+        name: roomName,
+        description: roomDescription,
+        type: roomType,
+        maxUsers: maxUsers
+    });
+    
+    closeCreateRoomModal();
+}
+
+// ==================== وظائف الإشعارات ====================
+
+// فتح مودال إرسال إشعار
+function openSendNotificationModal() {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
+        showNotification('غير مسموح - للإداريين فقط', 'error');
+        return;
+    }
+    
+    openModal('sendNotificationModal');
+    loadUsersForNotification();
+    closeMainMenu();
+}
+
+// إغلاق مودال إرسال إشعار
+function closeSendNotificationModal() {
+    closeModal('sendNotificationModal');
+    document.getElementById('notificationMessage').value = '';
+    document.getElementById('notificationRecipient').value = '';
+}
+
+// تحميل المستخدمين لقائمة الإشعارات
+async function loadUsersForNotification() {
+    try {
+        const response = await fetch('/api/all-users-list', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            }
+        });
+        
+        if (response.ok) {
+            const users = await response.json();
+            const select = document.getElementById('notificationRecipient');
+            select.innerHTML = '<option value="">اختر مستخدم...</option>';
+            
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.display_name} (${RANKS[user.rank]?.name || 'زائر'})`;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل المستخدمين:', error);
+    }
+}
+
+// إرسال إشعار للمستخدم
+async function sendNotificationToUser() {
+    const recipientId = document.getElementById('notificationRecipient').value;
+    const message = document.getElementById('notificationMessage').value.trim();
+    const type = document.getElementById('notificationType').value;
+    
+    if (!recipientId) {
+        showNotification('يرجى اختيار مستخدم', 'warning');
+        return;
+    }
+    
+    if (!message) {
+        showNotification('يرجى كتابة رسالة الإشعار', 'warning');
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        
+        const response = await fetch('/api/send-notification', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({
+                recipientId: parseInt(recipientId),
+                message,
+                type
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showNotification('تم إرسال الإشعار بنجاح', 'success');
+            closeSendNotificationModal();
+        } else {
+            showNotification(data.error || 'فشل في إرسال الإشعار', 'error');
+        }
+    } catch (error) {
+        showNotification('حدث خطأ في إرسال الإشعار', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// ==================== قائمة المتصلين حالياً ====================
+
+// فتح مودال المتصلين حالياً
+function openOnlineUsersModal() {
+    openModal('onlineUsersModal');
+    displayOnlineUsers();
+    closeMainMenu();
+}
+
+// إغلاق مودال المتصلين حالياً
+function closeOnlineUsersModal() {
+    closeModal('onlineUsersModal');
+}
+
+// عرض المتصلين حالياً
+function displayOnlineUsers() {
+    const container = document.getElementById('onlineUsersList');
+    
+    if (onlineUsersList.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">لا يوجد مستخدمين متصلين حالياً</p>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    onlineUsersList.forEach(user => {
+        if (user.userId === currentUser?.id) return; // لا نعرض المستخدم الحالي
+        
+        const userDiv = document.createElement('div');
+        userDiv.className = 'online-user-item';
+        
+        const rank = RANKS[user.rank] || RANKS.visitor;
+        
+        userDiv.innerHTML = `
+            <div class="online-user-info">
+                <div class="online-status-indicator"></div>
+                <div class="user-details">
+                    <span class="user-name">${escapeHtml(user.displayName)}</span>
+                    <span class="user-rank">${rank.emoji} ${rank.name}</span>
+                </div>
+            </div>
+            <div class="online-user-actions">
+                <button onclick="startPrivateChat(${user.userId}, '${escapeHtml(user.displayName)}')" class="btn btn-sm btn-primary" title="دردشة خاصة">
+                    <i class="fas fa-comment"></i>
+                </button>
+                ${currentUser?.role === 'admin' || currentUser?.role === 'owner' ? `
+                    <button onclick="openNotificationModalForUser(${user.userId}, '${escapeHtml(user.displayName)}')" class="btn btn-sm btn-info" title="إرسال إشعار">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                ` : ''}
+            </div>
+        `;
+        
+        container.appendChild(userDiv);
+    });
+}
+
+// بدء دردشة خاصة
+function startPrivateChat(userId, userName) {
+    currentPrivateChatUser = { id: userId, name: userName };
+    openPrivateChatBox();
+    closeOnlineUsersModal();
+    
+    // تحديث قائمة المستخدمين في صندوق الدردشة الخاصة
+    const select = document.getElementById('privateChatUserSelect');
+    select.value = userId;
+    
+    // تحديث عنوان صندوق الدردشة
+    const titleSpan = document.querySelector('.chat-box-title span');
+    titleSpan.textContent = `دردشة خاصة مع ${userName}`;
+    
+    // تحميل الرسائل الخاصة
+    loadPrivateMessages(userId);
+}
+
+// ==================== صندوق الدردشة الخاصة ====================
+
+// فتح صندوق الدردشة الخاصة
+function openPrivateChatBox() {
+    const chatBox = document.getElementById('privateChatBox');
+    chatBox.style.display = 'block';
+    privateChatMinimized = false;
+    
+    // تحميل المستخدمين في القائمة
+    loadUsersForPrivateChat();
+    closeMainMenu();
+}
+
+// إغلاق صندوق الدردشة الخاصة
+function closePrivateChatBox() {
+    const chatBox = document.getElementById('privateChatBox');
+    chatBox.style.display = 'none';
+    currentPrivateChatUser = null;
+}
+
+// تصغير صندوق الدردشة الخاصة
+function minimizePrivateChatBox() {
+    const chatBox = document.getElementById('privateChatBox');
+    const body = chatBox.querySelector('.chat-box-body');
+    
+    if (privateChatMinimized) {
+        body.style.display = 'block';
+        privateChatMinimized = false;
+    } else {
+        body.style.display = 'none';
+        privateChatMinimized = true;
+    }
+}
+
+// تحميل المستخدمين للدردشة الخاصة
+async function loadUsersForPrivateChat() {
+    try {
+        const response = await fetch('/api/all-users-list', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            }
+        });
+        
+        if (response.ok) {
+            const users = await response.json();
+            const select = document.getElementById('privateChatUserSelect');
+            select.innerHTML = '<option value="">اختر مستخدم...</option>';
+            
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.display_name} ${user.is_online ? '🟢' : '🔴'}`;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل المستخدمين:', error);
+    }
+}
+
+// إرسال رسالة خاصة
+function sendPrivateChatMessage() {
+    const input = document.getElementById('privateChatInput');
+    const userSelect = document.getElementById('privateChatUserSelect');
+    const message = input.value.trim();
+    const receiverId = userSelect.value;
+    
+    if (!message) {
+        showNotification('يرجى كتابة رسالة', 'warning');
+        return;
+    }
+    
+    if (!receiverId) {
+        showNotification('يرجى اختيار مستخدم', 'warning');
+        return;
+    }
+    
+    if (socket) {
+        socket.emit('sendPrivateMessage', {
+            message: message,
+            receiverId: parseInt(receiverId)
+        });
+        
+        input.value = '';
+    }
+}
+
+// عرض رسالة خاصة في صندوق الدردشة
+function displayPrivateMessage(message) {
+    const container = document.getElementById('privateChatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `private-message ${message.user_id === currentUser?.id ? 'own' : ''}`;
+    
+    const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    messageDiv.innerHTML = `
+        <div class="private-message-content">
+            <div class="private-message-header">
+                <span class="private-message-author">${escapeHtml(message.display_name)}</span>
+                <span class="private-message-time">${time}</span>
+            </div>
+            <div class="private-message-text">${escapeHtml(message.message)}</div>
+        </div>
+    `;
+    
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+// تحميل الرسائل الخاصة
+async function loadPrivateMessages(userId) {
+    try {
+        const response = await fetch(`/api/private-messages/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            }
+        });
+        
+        if (response.ok) {
+            const messages = await response.json();
+            const container = document.getElementById('privateChatMessages');
+            container.innerHTML = '';
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">لا توجد رسائل بعد، ابدأ المحادثة!</p>';
+            } else {
+                messages.forEach(message => {
+                    displayPrivateMessage(message);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل الرسائل الخاصة:', error);
+    }
+}
+
+// تشغيل الأغنية تلقائياً في البروفايل
+function autoPlayProfileMusic(musicUrl) {
+    if (musicUrl) {
+        const audio = new Audio(musicUrl);
+        audio.volume = 0.3;
+        audio.loop = false;
+        
+        // محاولة تشغيل الأغنية
+        audio.play().catch(error => {
+            console.log('لا يمكن تشغيل الأغنية تلقائياً:', error);
+            // إضافة زر تشغيل إذا فشل التشغيل التلقائي
+            addManualPlayButton(audio);
+        });
+        
+        return audio;
+    }
+}
+
+function addManualPlayButton(audio) {
+    const playButton = document.createElement('button');
+    playButton.innerHTML = '🎵 تشغيل الأغنية';
+    playButton.className = 'play-music-btn';
+    playButton.onclick = () => {
+        audio.play();
+        playButton.style.display = 'none';
+    };
+    
+    const profileModal = document.querySelector('.modal.active .modal-content');
+    if (profileModal) {
+        profileModal.appendChild(playButton);
+    }
+}
