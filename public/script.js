@@ -4,12 +4,10 @@ let currentUser = null;
 let currentRoom = 1;
 let isRecording = false;
 let mediaRecorder;
-let recordedChunks = [];
-let notifications = [];
-let quizTimer;
-let currentQuestion = null;
-let userCoins = 2000;
-let userRank = 'visitor';
+let audioChunks = [];
+let chatMode = 'public'; // public or private
+let selectedUserId = null;
+let quotedMessage = null;
 
 // الرتب المتاحة
 const RANKS = {
@@ -19,42 +17,37 @@ const RANKS = {
     gold: { name: 'عضو ذهبي', emoji: '🥇', level: 3, color: '#ffd700' },
     trophy: { name: 'كأس', emoji: '🏆', level: 4, color: '#ff6b35' },
     diamond: { name: 'عضو الماس', emoji: '💎', level: 5, color: '#b9f2ff' },
-    prince: { name: 'برنس', emoji: '👑', level: 6, color: '#ffd700' },
-    admin: { name: 'إداري', emoji: '⚡', level: 7, color: '#ff6b35' },
-    owner: { name: 'المالك', emoji: '👨‍💼', level: 8, color: '#667eea' }
+    prince: { name: 'برنس', emoji: '👑', level: 6, color: 'linear-gradient(45deg, #ffd700, #ff6b35)' },
+    admin: { name: 'إداري', emoji: '⚡', level: 7, color: 'linear-gradient(45deg, #ff6b35, #f093fb)' },
+    owner: { name: 'المالك', emoji: '🦂', level: 8, color: 'linear-gradient(45deg, #667eea, #764ba2)' }
 };
 
 // أسئلة المسابقات
 const QUIZ_QUESTIONS = [
     {
         question: "ما هي عاصمة فرنسا؟",
-        options: ["لندن", "باريس", "روما", "برلين"],
-        correct: 1,
-        points: 10
+        options: ["لندن", "برلين", "باريس", "روما"],
+        correct: 2
     },
     {
         question: "كم عدد قارات العالم؟",
         options: ["5", "6", "7", "8"],
-        correct: 2,
-        points: 10
+        correct: 2
     },
     {
         question: "ما هو أكبر محيط في العالم؟",
-        options: ["الأطلسي", "الهندي", "الهادئ", "المتجمد الشمالي"],
-        correct: 2,
-        points: 15
+        options: ["الأطلسي", "الهندي", "المتجمد الشمالي", "الهادئ"],
+        correct: 3
     },
     {
-        question: "في أي سنة انتهت الحرب العالمية الثانية؟",
-        options: ["1944", "1945", "1946", "1947"],
-        correct: 1,
-        points: 20
+        question: "في أي عام تم اختراع الإنترنت؟",
+        options: ["1969", "1975", "1983", "1991"],
+        correct: 0
     },
     {
         question: "ما هو أطول نهر في العالم؟",
         options: ["النيل", "الأمازون", "اليانغتسي", "المسيسيبي"],
-        correct: 0,
-        points: 15
+        correct: 0
     }
 ];
 
@@ -67,41 +60,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // تهيئة التطبيق
 function initializeApp() {
-    // تحقق من حالة المصادقة
-    const token = localStorage.getItem('token');
-    if (token) {
-        // التحقق من صحة التوكن
-        fetch('/api/user/profile', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        })
-        .then(response => {
-            if (response.ok) {
-                return response.json();
-            } else {
-                throw new Error('Invalid token');
-            }
-        })
-        .then(user => {
-            currentUser = user;
-            showMainScreen();
-            initializeSocket();
-            loadUserData();
-        })
-        .catch(error => {
-            console.error('Auth error:', error);
-            localStorage.removeItem('token');
-            showLoginScreen();
-        });
-    } else {
-        showLoginScreen();
-    }
+    // إخفاء جميع الشاشات
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+    });
+    
+    // عرض شاشة تسجيل الدخول
+    document.getElementById('loginScreen').classList.add('active');
+    
+    // تهيئة الأصوات
+    initializeAudio();
 }
 
 // إعداد مستمعي الأحداث
 function setupEventListeners() {
-    // نماذج تسجيل الدخول
+    // تسجيل الدخول
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
     document.getElementById('registerForm').addEventListener('submit', handleRegister);
     document.getElementById('guestForm').addEventListener('submit', handleGuestLogin);
@@ -117,106 +90,174 @@ function setupEventListeners() {
     // رفع الصور
     document.getElementById('imageInput').addEventListener('change', handleImageUpload);
     
-    // إعدادات الملف الشخصي
-    document.getElementById('profileFile1').addEventListener('change', function() {
-        previewProfileImage(1, this);
-    });
-    document.getElementById('profileFile2').addEventListener('change', function() {
-        previewProfileImage(2, this);
-    });
-    document.getElementById('coverInput').addEventListener('change', previewCoverImage);
+    // تغيير الغرفة
+    document.getElementById('roomSelect').addEventListener('change', changeRoom);
     
-    // التحكم في الصوت
-    document.getElementById('volumeSlider').addEventListener('input', function() {
-        adjustVolume(this.value);
+    // إغلاق المودالات عند النقر خارجها
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal')) {
+            closeAllModals();
+        }
     });
 }
 
 // التحقق من حالة المصادقة
 function checkAuthStatus() {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    const token = localStorage.getItem('chatToken');
+    if (token) {
+        // التحقق من صحة التوكن
+        fetch('/api/user/profile', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+            throw new Error('Invalid token');
+        })
+        .then(user => {
+            currentUser = user;
+            showMainScreen();
+            initializeSocket();
+        })
+        .catch(() => {
+            localStorage.removeItem('chatToken');
+            showLoginScreen();
+        });
+    } else {
         showLoginScreen();
-        return;
     }
-    
-    // التحقق من الحظر
-    checkBanStatus();
-}
-
-// التحقق من حالة الحظر
-function checkBanStatus() {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    
-    fetch('/api/user/ban-status', {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.banned) {
-            showBanScreen(data.reason, data.duration);
-        }
-    })
-    .catch(error => {
-        console.error('Error checking ban status:', error);
-    });
-}
-
-// عرض شاشة الحظر
-function showBanScreen(reason, duration) {
-    hideAllScreens();
-    document.getElementById('banScreen').classList.add('active');
-    document.getElementById('banReason').textContent = reason || 'لم يتم تحديد سبب';
 }
 
 // عرض شاشة تسجيل الدخول
 function showLoginScreen() {
-    hideAllScreens();
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+    });
     document.getElementById('loginScreen').classList.add('active');
 }
 
 // عرض الشاشة الرئيسية
 function showMainScreen() {
-    hideAllScreens();
-    document.getElementById('mainScreen').classList.add('active');
-    updateUserInterface();
-}
-
-// إخفاء جميع الشاشات
-function hideAllScreens() {
     document.querySelectorAll('.screen').forEach(screen => {
         screen.classList.remove('active');
     });
+    document.getElementById('mainScreen').classList.add('active');
+    
+    // تحديث معلومات المستخدم في الواجهة
+    updateUserInterface();
+    
+    // تحميل الغرف
+    loadRooms();
+    
+    // تحميل الرسائل
+    loadMessages();
 }
 
-// تبديل تبويبات تسجيل الدخول
-function showLoginTab(tab) {
-    // إخفاء جميع النماذج
-    document.querySelectorAll('.auth-form').forEach(form => {
-        form.classList.remove('active');
-    });
+// تحديث واجهة المستخدم
+function updateUserInterface() {
+    if (!currentUser) return;
     
-    // إخفاء جميع الأزرار النشطة
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
+    // تحديث معلومات المستخدم في الشريط العلوي
+    document.getElementById('headerUserName').textContent = currentUser.display_name || currentUser.email;
+    document.getElementById('headerUserRank').textContent = RANKS[currentUser.rank]?.name || 'زائر';
     
-    // عرض النموذج المحدد
-    document.getElementById(tab + 'Form').classList.add('active');
-    event.target.classList.add('active');
+    // تحديث صورة المستخدم
+    const avatarImg = document.getElementById('headerUserAvatar');
+    if (currentUser.profile_image1) {
+        avatarImg.src = currentUser.profile_image1;
+    }
+    
+    // إظهار أزرار الإدارة حسب الدور
+    const adminBtn = document.getElementById('adminPanelBtn');
+    const roomsBtn = document.getElementById('roomsManagerBtn');
+    const clearBtn = document.getElementById('clearChatBtn');
+    
+    if (currentUser.role === 'admin' || currentUser.role === 'owner') {
+        if (adminBtn) adminBtn.style.display = 'block';
+        if (roomsBtn) roomsBtn.style.display = 'block';
+        if (clearBtn) clearBtn.style.display = 'block';
+    }
+    
+    // تعيين دور المستخدم في الجسم
+    document.body.setAttribute('data-user-role', currentUser.role);
 }
 
-// معالجة تسجيل الدخول
+// تهيئة Socket.IO
+function initializeSocket() {
+    socket = io();
+    
+    // الاتصال
+    socket.on('connect', () => {
+        console.log('متصل بالخادم');
+        socket.emit('join', {
+            userId: currentUser.id,
+            displayName: currentUser.display_name,
+            rank: currentUser.rank,
+            email: currentUser.email,
+            roomId: currentRoom
+        });
+    });
+    
+    // رسالة جديدة
+    socket.on('newMessage', (message) => {
+        displayMessage(message);
+        playNotificationSound();
+    });
+    
+    // رسالة خاصة جديدة
+    socket.on('newPrivateMessage', (message) => {
+        if (chatMode === 'private' && 
+            (message.user_id === selectedUserId || message.receiver_id === currentUser.id)) {
+            displayPrivateMessage(message);
+        }
+        playNotificationSound();
+        updateNotificationCount();
+    });
+    
+    // تحديث قائمة المستخدمين
+    socket.on('roomUsersList', (users) => {
+        updateUsersList(users);
+    });
+    
+    // حذف رسالة
+    socket.on('messageDeleted', (messageId) => {
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageElement) {
+            messageElement.remove();
+        }
+    });
+    
+    // إشعار جديد
+    socket.on('newNotification', (notification) => {
+        showNotification(notification.message, notification.type || 'info');
+        updateNotificationCount();
+    });
+    
+    // قطع الاتصال
+    socket.on('disconnect', () => {
+        console.log('انقطع الاتصال بالخادم');
+        showNotification('انقطع الاتصال بالخادم', 'error');
+    });
+}
+
+// تسجيل الدخول
 async function handleLogin(e) {
     e.preventDefault();
     
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
     
+    if (!email || !password) {
+        showError('يرجى ملء جميع الحقول');
+        return;
+    }
+    
     try {
+        showLoading(true);
+        
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: {
@@ -228,33 +269,26 @@ async function handleLogin(e) {
         const data = await response.json();
         
         if (response.ok) {
-            localStorage.setItem('token', data.token);
+            localStorage.setItem('chatToken', data.token);
             currentUser = data.user;
-            userCoins = data.user.coins || 2000;
-            userRank = data.user.rank || 'visitor';
-            
-            // التحقق من الحظر
-            if (data.user.banned) {
-                showBanScreen(data.user.ban_reason, data.user.ban_duration);
-                return;
-            }
-            
             showMainScreen();
             initializeSocket();
-            loadUserData();
-            
-            // إشعار ترحيب
-            showWelcomeNotification();
+            showNotification('تم تسجيل الدخول بنجاح', 'success');
         } else {
-            showError(data.error);
+            if (data.error.includes('محظور')) {
+                showBanScreen(data.banReason || 'لم يتم تحديد سبب الحظر');
+            } else {
+                showError(data.error);
+            }
         }
     } catch (error) {
-        console.error('Login error:', error);
-        showError('حدث خطأ في تسجيل الدخول');
+        showError('حدث خطأ في الاتصال');
+    } finally {
+        showLoading(false);
     }
 }
 
-// معالجة إنشاء حساب
+// إنشاء حساب جديد
 async function handleRegister(e) {
     e.preventDefault();
     
@@ -262,40 +296,46 @@ async function handleRegister(e) {
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
     
+    if (!email || !password) {
+        showError('يرجى ملء جميع الحقول المطلوبة');
+        return;
+    }
+    
+    if (password.length < 6) {
+        showError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+        return;
+    }
+    
     try {
+        showLoading(true);
+        
         const response = await fetch('/api/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ display_name: displayName, email, password })
+            body: JSON.stringify({ email, password, display_name: displayName })
         });
         
         const data = await response.json();
         
         if (response.ok) {
-            localStorage.setItem('token', data.token);
+            localStorage.setItem('chatToken', data.token);
             currentUser = data.user;
-            userCoins = 2000; // النقاط الافتراضية للمستخدم الجديد
-            userRank = 'visitor';
-            
             showMainScreen();
             initializeSocket();
-            loadUserData();
-            
-            // إشعار ترحيب للمستخدم الجديد
-            showWelcomeNotification();
-            showToast('مرحباً بك! حصلت على 2000 نقطة كهدية ترحيب', 'success');
+            showNotification('تم إنشاء الحساب بنجاح', 'success');
         } else {
             showError(data.error);
         }
     } catch (error) {
-        console.error('Register error:', error);
-        showError('حدث خطأ في إنشاء الحساب');
+        showError('حدث خطأ في الاتصال');
+    } finally {
+        showLoading(false);
     }
 }
 
-// معالجة دخول الزائر
+// دخول كزائر
 async function handleGuestLogin(e) {
     e.preventDefault();
     
@@ -303,122 +343,198 @@ async function handleGuestLogin(e) {
     const age = document.getElementById('guestAge').value;
     const gender = document.getElementById('guestGender').value;
     
-    // إنشاء بيانات زائر مؤقتة
+    if (!name || !age || !gender) {
+        showError('يرجى ملء جميع الحقول');
+        return;
+    }
+    
+    if (age < 13 || age > 99) {
+        showError('العمر يجب أن يكون بين 13 و 99 سنة');
+        return;
+    }
+    
+    // إنشاء مستخدم زائر مؤقت
     currentUser = {
         id: Date.now(),
         display_name: name,
+        email: `guest_${Date.now()}@temp.com`,
+        role: 'user',
         rank: 'visitor',
-        role: 'guest',
         age: parseInt(age),
         gender: gender,
-        coins: 0
+        isGuest: true
     };
-    
-    userCoins = 0;
-    userRank = 'visitor';
     
     showMainScreen();
     initializeSocket();
-    loadUserData();
-    
-    showToast('مرحباً بك كزائر!', 'info');
+    showNotification('مرحباً بك كزائر', 'success');
 }
 
-// تهيئة Socket.IO
-function initializeSocket() {
-    socket = io();
-    
-    // الانضمام للشات
-    socket.emit('join', {
-        userId: currentUser.id,
-        displayName: currentUser.display_name,
-        rank: currentUser.rank,
-        email: currentUser.email,
-        roomId: currentRoom
+// عرض شاشة الحظر
+function showBanScreen(reason) {
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
     });
-    
-    // استقبال الرسائل
-    socket.on('newMessage', handleNewMessage);
-    socket.on('newPrivateMessage', handleNewPrivateMessage);
-    socket.on('userList', updateUsersList);
-    socket.on('roomUsersList', updateRoomUsersList);
-    socket.on('userJoined', handleUserJoined);
-    socket.on('userLeft', handleUserLeft);
-    socket.on('notification', handleNotification);
-    socket.on('rankUpdated', handleRankUpdate);
-    socket.on('userBanned', handleUserBanned);
-    socket.on('messageDeleted', handleMessageDeleted);
-    
-    // أحداث المسابقات
-    socket.on('quizQuestion', handleQuizQuestion);
-    socket.on('quizResult', handleQuizResult);
-    socket.on('quizLeaderboard', updateQuizLeaderboard);
+    document.getElementById('banScreen').classList.add('active');
+    document.getElementById('banReason').innerHTML = `<p>${reason}</p>`;
 }
 
-// تحميل بيانات المستخدم
-function loadUserData() {
-    updateUserInterface();
-    loadRooms();
-    loadOnlineUsers();
-    loadNotifications();
-    
-    // تحديث النقاط والرتبة
-    updateCoinsDisplay();
-    updateRankDisplay();
-}
-
-// تحديث واجهة المستخدم
-function updateUserInterface() {
-    if (!currentUser) return;
-    
-    // تحديث معلومات المستخدم في الشريط العلوي
-    document.getElementById('headerUserName').textContent = currentUser.display_name;
-    document.getElementById('headerUserRank').textContent = RANKS[currentUser.rank]?.emoji + ' ' + RANKS[currentUser.rank]?.name;
-    
-    // تحديث الصورة الشخصية
-    const avatar = document.getElementById('headerUserAvatar');
-    if (currentUser.profile_image1) {
-        avatar.src = currentUser.profile_image1;
-    } else {
-        avatar.src = generateDefaultAvatar(currentUser.display_name);
+// التحقق من حالة الحظر
+async function checkBanStatus() {
+    const token = localStorage.getItem('chatToken');
+    if (!token) {
+        showLoginScreen();
+        return;
     }
     
-    // إظهار/إخفاء عناصر الإدارة
-    const userRole = currentUser.role || 'user';
-    document.body.setAttribute('data-user-role', userRole);
-    
-    if (userRole === 'admin' || userRole === 'owner') {
-        document.querySelectorAll('.admin-only').forEach(el => {
-            el.style.display = 'block';
+    try {
+        const response = await fetch('/api/user/profile', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
         });
-    }
-    
-    if (userRole === 'owner') {
-        document.querySelectorAll('.owner-only').forEach(el => {
-            el.style.display = 'block';
-        });
-    }
-}
-
-// تحديث عرض النقاط
-function updateCoinsDisplay() {
-    const coinsElements = document.querySelectorAll('#profileCoins, #userQuizPoints');
-    coinsElements.forEach(el => {
-        if (el) el.textContent = userCoins;
-    });
-}
-
-// تحديث عرض الرتبة
-function updateRankDisplay() {
-    const rankElements = document.querySelectorAll('#currentRank, #headerUserRank');
-    const rankInfo = RANKS[userRank];
-    
-    rankElements.forEach(el => {
-        if (el) {
-            el.textContent = rankInfo.emoji + ' ' + rankInfo.name;
-            el.className = `rank-${userRank}`;
+        
+        if (response.ok) {
+            const user = await response.json();
+            currentUser = user;
+            showMainScreen();
+            initializeSocket();
+            showNotification('تم رفع الحظر', 'success');
+        } else {
+            showNotification('لا يزال الحظر ساري المفعول', 'error');
         }
+    } catch (error) {
+        showError('حدث خطأ في التحقق من حالة الحظر');
+    }
+}
+
+// تحميل الغرف
+async function loadRooms() {
+    try {
+        const token = localStorage.getItem('chatToken');
+        const response = await fetch('/api/rooms', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            const rooms = await response.json();
+            updateRoomsSelect(rooms);
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل الغرف:', error);
+    }
+}
+
+// تحديث قائمة الغرف
+function updateRoomsSelect(rooms) {
+    const select = document.getElementById('roomSelect');
+    select.innerHTML = '';
+    
+    rooms.forEach(room => {
+        const option = document.createElement('option');
+        option.value = room.id;
+        option.textContent = room.name;
+        if (room.id === currentRoom) {
+            option.selected = true;
+        }
+        select.appendChild(option);
     });
+}
+
+// تغيير الغرفة
+function changeRoom() {
+    const newRoomId = parseInt(document.getElementById('roomSelect').value);
+    if (newRoomId !== currentRoom) {
+        currentRoom = newRoomId;
+        
+        // إشعار الخادم بتغيير الغرفة
+        if (socket) {
+            socket.emit('changeRoom', newRoomId);
+        }
+        
+        // تحديث اسم الغرفة
+        const roomName = document.getElementById('roomSelect').selectedOptions[0].textContent;
+        document.getElementById('currentRoomName').textContent = roomName;
+        
+        // مسح الرسائل وتحميل رسائل الغرفة الجديدة
+        document.getElementById('messagesContainer').innerHTML = '';
+        loadMessages();
+    }
+}
+
+// تحميل الرسائل
+async function loadMessages() {
+    try {
+        const token = localStorage.getItem('chatToken');
+        if (!token && !currentUser?.isGuest) return;
+        
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(`/api/messages/${currentRoom}`, { headers });
+        
+        if (response.ok) {
+            const messages = await response.json();
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '';
+            
+            messages.forEach(message => {
+                displayMessage(message);
+            });
+            
+            scrollToBottom();
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل الرسائل:', error);
+    }
+}
+
+// عرض رسالة
+function displayMessage(message) {
+    const container = document.getElementById('messagesContainer');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${message.user_id === currentUser?.id ? 'own' : ''}`;
+    messageDiv.setAttribute('data-message-id', message.id);
+    
+    const rank = RANKS[message.rank] || RANKS.visitor;
+    const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    let messageContent = '';
+    
+    // محتوى الرسالة
+    if (message.message) {
+        messageContent = `<div class="message-text">${escapeHtml(message.message)}</div>`;
+    } else if (message.voice_url) {
+        messageContent = `<audio class="message-audio" controls>
+            <source src="${message.voice_url}" type="audio/webm">
+            متصفحك لا يدعم تشغيل الصوت
+        </audio>`;
+    } else if (message.image_url) {
+        messageContent = `<img class="message-image" src="${message.image_url}" alt="صورة" onclick="openImageModal('${message.image_url}')">`;
+    }
+    
+    messageDiv.innerHTML = `
+        <img class="message-avatar" src="${message.profile_image1 || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'}" 
+             alt="صورة ${message.display_name}" onclick="openUserProfile(${message.user_id})">
+        <div class="message-content" style="${message.message_background ? `background-image: url(${message.message_background})` : ''}">
+            <div class="message-header">
+                <span class="message-author rank-${message.rank}" onclick="openUserProfile(${message.user_id})">${escapeHtml(message.display_name)}</span>
+                <span class="message-rank">${rank.emoji} ${rank.name}</span>
+                <span class="message-time">${time}</span>
+            </div>
+            ${messageContent}
+        </div>
+    `;
+    
+    container.appendChild(messageDiv);
+    scrollToBottom();
 }
 
 // إرسال رسالة
@@ -428,1234 +544,75 @@ function sendMessage() {
     
     if (!message) return;
     
-    socket.emit('sendMessage', {
-        message: message,
-        roomId: currentRoom
-    });
-    
-    input.value = '';
-}
-
-// معالجة الرسالة الجديدة
-function handleNewMessage(data) {
-    const messagesContainer = document.getElementById('messagesContainer');
-    const messageElement = createMessageElement(data);
-    messagesContainer.appendChild(messageElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    
-    // تشغيل صوت الإشعار
-    playNotificationSound();
-}
-
-// إنشاء عنصر الرسالة
-function createMessageElement(data) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${data.user_id === currentUser.id ? 'own' : ''}`;
-    messageDiv.setAttribute('data-message-id', data.id);
-    
-    const avatar = document.createElement('img');
-    avatar.className = 'message-avatar';
-    avatar.src = data.profile_image1 || generateDefaultAvatar(data.display_name);
-    avatar.onclick = () => openUserProfile(data.user_id);
-    
-    const content = document.createElement('div');
-    content.className = 'message-content';
-    
-    // تطبيق خلفية الرسالة المخصصة
-    if (data.message_background) {
-        content.style.backgroundImage = `url(${data.message_background})`;
-        content.style.backgroundSize = 'cover';
-        content.style.backgroundPosition = 'center';
-    }
-    
-    const header = document.createElement('div');
-    header.className = 'message-header';
-    
-    const author = document.createElement('span');
-    author.className = 'message-author';
-    author.textContent = data.display_name;
-    author.onclick = () => openUserProfile(data.user_id);
-    
-    // تطبيق زخرفة الاسم
-    if (data.name_decoration) {
-        author.classList.add(`name-decoration-${data.name_decoration}`);
-    }
-    
-    // تطبيق لون الاسم المخصص
-    if (data.name_color) {
-        author.style.color = data.name_color;
-    }
-    
-    const rank = document.createElement('span');
-    rank.className = `message-rank rank-${data.rank}`;
-    rank.textContent = RANKS[data.rank]?.emoji;
-    
-    const time = document.createElement('span');
-    time.className = 'message-time';
-    time.textContent = formatTime(data.timestamp);
-    
-    header.appendChild(author);
-    header.appendChild(rank);
-    header.appendChild(time);
-    
-    const messageText = document.createElement('div');
-    messageText.className = 'message-text';
-    
-    if (data.message) {
-        messageText.textContent = data.message;
-        // تطبيق لون الخط المخصص
-        if (data.font_color) {
-            messageText.style.color = data.font_color;
-        }
-    }
-    
-    content.appendChild(header);
-    content.appendChild(messageText);
-    
-    // إضافة الوسائط
-    if (data.image_url) {
-        const img = document.createElement('img');
-        img.className = 'message-image';
-        img.src = data.image_url;
-        img.onclick = () => openImageModal(data.image_url);
-        content.appendChild(img);
-    }
-    
-    if (data.voice_url) {
-        const audio = document.createElement('audio');
-        audio.className = 'message-audio';
-        audio.controls = true;
-        audio.src = data.voice_url;
-        content.appendChild(audio);
-    }
-    
-    messageDiv.appendChild(avatar);
-    messageDiv.appendChild(content);
-    
-    return messageDiv;
-}
-
-// فتح القائمة الرئيسية
-function openMainMenu() {
-    document.getElementById('mainMenuModal').classList.add('show');
-}
-
-// إغلاق القائمة الرئيسية
-function closeMainMenu() {
-    document.getElementById('mainMenuModal').classList.remove('show');
-}
-
-// فتح قسم الأخبار
-function openNewsSection() {
-    closeMainMenu();
-    document.getElementById('newsModal').classList.add('show');
-    loadNews();
-}
-
-// إغلاق قسم الأخبار
-function closeNewsModal() {
-    document.getElementById('newsModal').classList.remove('show');
-}
-
-// نشر خبر
-async function postNews() {
-    const content = document.getElementById('newsContentInput').value.trim();
-    const fileInput = document.getElementById('newsFileInput');
-    
-    if (!content && !fileInput.files[0]) {
-        showToast('يرجى كتابة محتوى أو اختيار ملف', 'warning');
+    if (message.length > 1000) {
+        showError('الرسالة طويلة جداً (الحد الأقصى 1000 حرف)');
         return;
     }
     
-    const formData = new FormData();
-    formData.append('content', content);
-    
-    if (fileInput.files[0]) {
-        formData.append('media', fileInput.files[0]);
-    }
-    
-    try {
-        const response = await fetch('/api/news', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: formData
-        });
-        
-        if (response.ok) {
-            document.getElementById('newsContentInput').value = '';
-            fileInput.value = '';
-            loadNews();
-            showToast('تم نشر الخبر بنجاح', 'success');
-        } else {
-            const error = await response.json();
-            showToast(error.error || 'حدث خطأ في نشر الخبر', 'error');
-        }
-    } catch (error) {
-        console.error('Error posting news:', error);
-        showToast('حدث خطأ في نشر الخبر', 'error');
-    }
-}
-
-// تحميل الأخبار
-async function loadNews() {
-    try {
-        const response = await fetch('/api/news', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-        
-        if (response.ok) {
-            const news = await response.json();
-            displayNews(news);
-        }
-    } catch (error) {
-        console.error('Error loading news:', error);
-    }
-}
-
-// عرض الأخبار
-function displayNews(news) {
-    const newsFeed = document.getElementById('newsFeed');
-    newsFeed.innerHTML = '';
-    
-    news.forEach(item => {
-        const newsElement = createNewsElement(item);
-        newsFeed.appendChild(newsElement);
-    });
-}
-
-// إنشاء عنصر الخبر
-function createNewsElement(item) {
-    const newsDiv = document.createElement('div');
-    newsDiv.className = 'news-item';
-    
-    const header = document.createElement('div');
-    header.className = 'news-header-info';
-    
-    const avatar = document.createElement('img');
-    avatar.className = 'news-author-avatar';
-    avatar.src = generateDefaultAvatar(item.display_name);
-    
-    const authorInfo = document.createElement('div');
-    authorInfo.className = 'news-author-info';
-    
-    const authorName = document.createElement('h4');
-    authorName.textContent = item.display_name;
-    
-    const time = document.createElement('span');
-    time.className = 'news-time';
-    time.textContent = formatTime(item.timestamp);
-    
-    authorInfo.appendChild(authorName);
-    authorInfo.appendChild(time);
-    
-    header.appendChild(avatar);
-    header.appendChild(authorInfo);
-    
-    const content = document.createElement('div');
-    content.className = 'news-content';
-    content.textContent = item.content;
-    
-    newsDiv.appendChild(header);
-    newsDiv.appendChild(content);
-    
-    if (item.media) {
-        const media = document.createElement('div');
-        media.className = 'news-media';
-        
-        if (item.media.includes('.mp4') || item.media.includes('.webm')) {
-            const video = document.createElement('video');
-            video.controls = true;
-            video.src = item.media;
-            media.appendChild(video);
-        } else {
-            const img = document.createElement('img');
-            img.src = item.media;
-            img.onclick = () => openImageModal(item.media);
-            media.appendChild(img);
-        }
-        
-        newsDiv.appendChild(media);
-    }
-    
-    return newsDiv;
-}
-
-// فتح قسم القصص
-function openStoriesSection() {
-    closeMainMenu();
-    document.getElementById('storiesModal').classList.add('show');
-    loadStories();
-}
-
-// إغلاق قسم القصص
-function closeStoriesModal() {
-    document.getElementById('storiesModal').classList.remove('show');
-}
-
-// فتح مودال إضافة قصة
-function openAddStoryModal() {
-    document.getElementById('addStoryModal').classList.add('show');
-}
-
-// إغلاق مودال إضافة قصة
-function closeAddStoryModal() {
-    document.getElementById('addStoryModal').classList.remove('show');
-}
-
-// إضافة قصة
-async function addStory() {
-    const mediaInput = document.getElementById('storyMediaInput');
-    const textInput = document.getElementById('storyTextInput');
-    
-    if (!mediaInput.files[0]) {
-        showToast('يرجى اختيار صورة أو فيديو', 'warning');
-        return;
-    }
-    
-    const formData = new FormData();
-    formData.append('media', mediaInput.files[0]);
-    formData.append('text', textInput.value);
-    
-    try {
-        const response = await fetch('/api/stories', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: formData
-        });
-        
-        if (response.ok) {
-            closeAddStoryModal();
-            loadStories();
-            showToast('تم إضافة القصة بنجاح', 'success');
-            
-            // مسح النموذج
-            mediaInput.value = '';
-            textInput.value = '';
-        } else {
-            const error = await response.json();
-            showToast(error.error || 'حدث خطأ في إضافة القصة', 'error');
-        }
-    } catch (error) {
-        console.error('Error adding story:', error);
-        showToast('حدث خطأ في إضافة القصة', 'error');
-    }
-}
-
-// تحميل القصص
-async function loadStories() {
-    try {
-        const response = await fetch('/api/stories', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-        
-        if (response.ok) {
-            const stories = await response.json();
-            displayStories(stories);
-        }
-    } catch (error) {
-        console.error('Error loading stories:', error);
-    }
-}
-
-// عرض القصص
-function displayStories(stories) {
-    const storiesContainer = document.getElementById('storiesContainer');
-    storiesContainer.innerHTML = '';
-    
-    stories.forEach(story => {
-        const storyElement = createStoryElement(story);
-        storiesContainer.appendChild(storyElement);
-    });
-}
-
-// إنشاء عنصر القصة
-function createStoryElement(story) {
-    const storyDiv = document.createElement('div');
-    storyDiv.className = 'story-item';
-    storyDiv.onclick = () => viewStory(story);
-    
-    if (story.image) {
-        const img = document.createElement('img');
-        img.src = story.image;
-        storyDiv.appendChild(img);
-    }
-    
-    const overlay = document.createElement('div');
-    overlay.className = 'story-overlay';
-    
-    const author = document.createElement('div');
-    author.className = 'story-author';
-    author.textContent = story.display_name;
-    
-    const time = document.createElement('div');
-    time.className = 'story-time';
-    time.textContent = formatTime(story.timestamp);
-    
-    overlay.appendChild(author);
-    overlay.appendChild(time);
-    storyDiv.appendChild(overlay);
-    
-    return storyDiv;
-}
-
-// فتح غرفة المسابقات
-function openQuizRoom() {
-    closeMainMenu();
-    document.getElementById('quizRoomModal').classList.add('show');
-    startQuiz();
-}
-
-// إغلاق غرفة المسابقات
-function closeQuizRoom() {
-    document.getElementById('quizRoomModal').classList.remove('show');
-    if (quizTimer) {
-        clearInterval(quizTimer);
-    }
-}
-
-// بدء المسابقة
-function startQuiz() {
-    // اختيار سؤال عشوائي
-    currentQuestion = QUIZ_QUESTIONS[Math.floor(Math.random() * QUIZ_QUESTIONS.length)];
-    displayQuestion(currentQuestion);
-    startQuizTimer();
-}
-
-// عرض السؤال
-function displayQuestion(question) {
-    document.getElementById('questionText').textContent = question.question;
-    
-    const optionsContainer = document.getElementById('questionOptions');
-    optionsContainer.innerHTML = '';
-    
-    question.options.forEach((option, index) => {
-        const button = document.createElement('button');
-        button.className = 'option-btn';
-        button.textContent = option;
-        button.onclick = () => selectAnswer(index);
-        optionsContainer.appendChild(button);
-    });
-}
-
-// اختيار الإجابة
-function selectAnswer(selectedIndex) {
-    if (!currentQuestion) return;
-    
-    const isCorrect = selectedIndex === currentQuestion.correct;
-    
-    if (isCorrect) {
-        userCoins += currentQuestion.points;
-        updateCoinsDisplay();
-        showToast(`إجابة صحيحة! حصلت على ${currentQuestion.points} نقطة`, 'success');
-        
-        // التحقق من ترقية الرتبة
-        checkRankUpgrade();
-    } else {
-        showToast('إجابة خاطئة!', 'error');
-    }
-    
-    // عرض الإجابة الصحيحة
-    const options = document.querySelectorAll('.option-btn');
-    options.forEach((btn, index) => {
-        if (index === currentQuestion.correct) {
-            btn.style.background = '#4CAF50';
-        } else if (index === selectedIndex && !isCorrect) {
-            btn.style.background = '#f44336';
-        }
-        btn.disabled = true;
-    });
-    
-    // سؤال جديد بعد 3 ثوان
-    setTimeout(() => {
-        startQuiz();
-    }, 3000);
-}
-
-// بدء مؤقت المسابقة
-function startQuizTimer() {
-    let timeLeft = 30;
-    document.getElementById('quizTimer').textContent = timeLeft;
-    
-    quizTimer = setInterval(() => {
-        timeLeft--;
-        document.getElementById('quizTimer').textContent = timeLeft;
-        
-        if (timeLeft <= 0) {
-            clearInterval(quizTimer);
-            showToast('انتهى الوقت!', 'warning');
-            
-            // إظهار الإجابة الصحيحة
-            const options = document.querySelectorAll('.option-btn');
-            options[currentQuestion.correct].style.background = '#4CAF50';
-            options.forEach(btn => btn.disabled = true);
-            
-            // سؤال جديد بعد 3 ثوان
-            setTimeout(() => {
-                startQuiz();
-            }, 3000);
-        }
-    }, 1000);
-}
-
-// التحقق من ترقية الرتبة
-function checkRankUpgrade() {
-    const currentRankLevel = RANKS[userRank].level;
-    let newRank = userRank;
-    
-    // منطق ترقية الرتب بناءً على النقاط
-    if (userCoins >= 3000 && currentRankLevel < 1) {
-        newRank = 'bronze';
-    } else if (userCoins >= 5000 && currentRankLevel < 2) {
-        newRank = 'silver';
-    } else if (userCoins >= 8000 && currentRankLevel < 3) {
-        newRank = 'gold';
-    } else if (userCoins >= 12000 && currentRankLevel < 4) {
-        newRank = 'trophy';
-    } else if (userCoins >= 20000 && currentRankLevel < 5) {
-        newRank = 'diamond';
-    }
-    
-    if (newRank !== userRank) {
-        userRank = newRank;
-        updateRankDisplay();
-        showRankUpgradeNotification(newRank);
-        
-        // تحديث الرتبة في الخادم
-        updateUserRank(newRank);
-    }
-}
-
-// إشعار ترقية الرتبة
-function showRankUpgradeNotification(rank) {
-    const rankInfo = RANKS[rank];
-    showToast(`🎉 Congratulations! You have earned the ${rankInfo.name} rank!`, 'success');
-    
-    // إشعار للجميع
     if (socket) {
-        socket.emit('rankUpgrade', {
-            userId: currentUser.id,
-            displayName: currentUser.display_name,
-            newRank: rank
-        });
-    }
-}
-
-// فتح مودال الملف الشخصي
-function openProfileModal() {
-    document.getElementById('profileModal').classList.add('show');
-    loadProfileData();
-}
-
-// إغلاق مودال الملف الشخصي
-function closeProfileModal() {
-    document.getElementById('profileModal').classList.remove('show');
-}
-
-// تحميل بيانات الملف الشخصي
-function loadProfileData() {
-    if (!currentUser) return;
-    
-    // تحميل الصور
-    if (currentUser.profile_image1) {
-        document.getElementById('profileImg1').src = currentUser.profile_image1;
-    }
-    if (currentUser.profile_image2) {
-        document.getElementById('profileImg2').src = currentUser.profile_image2;
-    }
-    if (currentUser.background_image) {
-        document.getElementById('profileCover').src = currentUser.background_image;
-    }
-    
-    // تحميل المعلومات
-    document.getElementById('displayNameInput').value = currentUser.display_name || '';
-    document.getElementById('emailInput').value = currentUser.email || '';
-    document.getElementById('ageInput').value = currentUser.age || '';
-    document.getElementById('genderInput').value = currentUser.gender || '';
-    document.getElementById('aboutMeInput').value = currentUser.about_me || '';
-    
-    // تحديث الإحصائيات
-    document.getElementById('profileLikes').textContent = currentUser.likes || 0;
-    document.getElementById('profileCoins').textContent = userCoins;
-}
-
-// تبديل تبويبات الملف الشخصي
-function showProfileTab(tab) {
-    // إخفاء جميع التبويبات
-    document.querySelectorAll('.profile-tab').forEach(tabContent => {
-        tabContent.classList.remove('active');
-    });
-    
-    // إخفاء جميع الأزرار النشطة
-    document.querySelectorAll('.profile-tabs .tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // عرض التبويب المحدد
-    document.getElementById('profile' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Tab').classList.add('active');
-    event.target.classList.add('active');
-}
-
-// تحديث الملف الشخصي
-async function updateProfile() {
-    const formData = new FormData();
-    
-    // جمع البيانات
-    const displayName = document.getElementById('displayNameInput').value;
-    const email = document.getElementById('emailInput').value;
-    const newPassword = document.getElementById('newPasswordInput').value;
-    const age = document.getElementById('ageInput').value;
-    const gender = document.getElementById('genderInput').value;
-    const aboutMe = document.getElementById('aboutMeInput').value;
-    
-    formData.append('display_name', displayName);
-    formData.append('email', email);
-    if (newPassword) formData.append('password', newPassword);
-    formData.append('age', age);
-    formData.append('gender', gender);
-    formData.append('about_me', aboutMe);
-    
-    // إضافة الصور
-    const profileFile1 = document.getElementById('profileFile1').files[0];
-    const profileFile2 = document.getElementById('profileFile2').files[0];
-    const coverFile = document.getElementById('coverInput').files[0];
-    
-    if (profileFile1) formData.append('profileImage1', profileFile1);
-    if (profileFile2) formData.append('profileImage2', profileFile2);
-    if (coverFile) formData.append('coverImage', coverFile);
-    
-    try {
-        const response = await fetch('/api/user/profile', {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: formData
-        });
+        const messageData = {
+            message: message,
+            roomId: currentRoom
+        };
         
-        if (response.ok) {
-            const updatedUser = await response.json();
-            currentUser = { ...currentUser, ...updatedUser };
-            updateUserInterface();
-            showToast('تم تحديث الملف الشخصي بنجاح', 'success');
-        } else {
-            const error = await response.json();
-            showToast(error.error || 'حدث خطأ في تحديث الملف الشخصي', 'error');
+        // إضافة الاقتباس إذا كان موجوداً
+        if (quotedMessage) {
+            messageData.quoted_message_id = quotedMessage.id;
+            messageData.quoted_author = quotedMessage.author;
+            messageData.quoted_content = quotedMessage.content;
         }
-    } catch (error) {
-        console.error('Error updating profile:', error);
-        showToast('حدث خطأ في تحديث الملف الشخصي', 'error');
+        
+        socket.emit('sendMessage', messageData);
+        input.value = '';
+        cancelQuote();
     }
 }
 
-// معاينة الصورة الشخصية
-function previewProfileImage(slot, input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById(`profileImg${slot}`).src = e.target.result;
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-}
-
-// معاينة صورة الغلاف
-function previewCoverImage(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('profileCover').src = e.target.result;
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-}
-
-// تحديث لون الاسم
-function updateNameColor() {
-    const color = document.getElementById('nameColorPicker').value;
-    currentUser.name_color = color;
+// رفع صورة
+function handleImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
     
-    // تطبيق اللون فوراً
-    document.querySelectorAll('.message-author').forEach(el => {
-        if (el.textContent === currentUser.display_name) {
-            el.style.color = color;
-        }
-    });
-    
-    showToast('تم تحديث لون الاسم', 'success');
-}
-
-// تحديث لون الخط
-function updateFontColor() {
-    const color = document.getElementById('fontColorPicker').value;
-    currentUser.font_color = color;
-    showToast('تم تحديث لون الخط', 'success');
-}
-
-// تحديث زخرفة الاسم
-function updateNameDecoration() {
-    const decoration = document.getElementById('nameDecorationSelect').value;
-    
-    // التحقق من الصلاحيات
-    const userRankLevel = RANKS[userRank].level;
-    const requiredLevel = {
-        'fire': 3,
-        'star': 4,
-        'crown': 5,
-        'diamond': 6,
-        'rainbow': 7
-    };
-    
-    if (decoration && requiredLevel[decoration] && userRankLevel < requiredLevel[decoration]) {
-        showToast('هذه الزخرفة متاحة للرتب العالية فقط', 'warning');
+    if (!file.type.startsWith('image/')) {
+        showError('يرجى اختيار صورة صحيحة');
         return;
     }
     
-    currentUser.name_decoration = decoration;
-    showToast('تم تحديث زخرفة الاسم', 'success');
-}
-
-// رفع موسيقى البروفايل
-async function uploadProfileMusic() {
-    const fileInput = document.getElementById('profileMusicInput');
-    
-    if (!fileInput.files[0]) {
-        showToast('يرجى اختيار ملف صوتي', 'warning');
-        return;
-    }
-    
-    // التحقق من الصلاحيات
-    const userRankLevel = RANKS[userRank].level;
-    if (userRankLevel < 4) {
-        showToast('موسيقى البروفايل متاحة للرتب العالية فقط', 'warning');
+    if (file.size > 5 * 1024 * 1024) {
+        showError('حجم الصورة كبير جداً (الحد الأقصى 5 ميجابايت)');
         return;
     }
     
     const formData = new FormData();
-    formData.append('music', fileInput.files[0]);
+    formData.append('image', file);
     
-    try {
-        const response = await fetch('/api/user/profile-music', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: formData
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            currentUser.profile_music = data.music_url;
-            
-            // عرض مشغل الموسيقى
-            const audio = document.getElementById('profileAudio');
-            audio.src = data.music_url;
-            audio.style.display = 'block';
-            
-            showToast('تم رفع موسيقى البروفايل بنجاح', 'success');
+    showLoading(true);
+    
+    fetch('/api/upload-image', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.image_url && socket) {
+            socket.emit('sendMessage', {
+                image_url: data.image_url,
+                roomId: currentRoom
+            });
         } else {
-            const error = await response.json();
-            showToast(error.error || 'حدث خطأ في رفع الموسيقى', 'error');
+            showError('فشل في رفع الصورة');
         }
-    } catch (error) {
-        console.error('Error uploading music:', error);
-        showToast('حدث خطأ في رفع الموسيقى', 'error');
-    }
-}
-
-// إزالة موسيقى البروفايل
-function removeProfileMusic() {
-    currentUser.profile_music = null;
-    document.getElementById('profileAudio').style.display = 'none';
-    document.getElementById('profileMusicInput').value = '';
-    showToast('تم إزالة موسيقى البروفايل', 'success');
-}
-
-// فتح ملف شخصي لمستخدم آخر
-async function openUserProfile(userId) {
-    if (userId === currentUser.id) {
-        openProfileModal();
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/api/user-info/${userId}`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-        
-        if (response.ok) {
-            const user = await response.json();
-            displayUserProfile(user);
-        } else {
-            showToast('لا يمكن عرض الملف الشخصي', 'error');
-        }
-    } catch (error) {
-        console.error('Error loading user profile:', error);
-        showToast('حدث خطأ في تحميل الملف الشخصي', 'error');
-    }
-}
-
-// عرض ملف شخصي لمستخدم آخر
-function displayUserProfile(user) {
-    document.getElementById('viewProfileModal').classList.add('show');
-    
-    // تحديث المعلومات
-    document.getElementById('viewProfileName').textContent = user.display_name;
-    
-    if (user.profile_image1) {
-        document.getElementById('viewProfileImg1').src = user.profile_image1;
-    }
-    if (user.profile_image2) {
-        document.getElementById('viewProfileImg2').src = user.profile_image2;
-    }
-    if (user.background_image) {
-        document.getElementById('viewProfileCover').src = user.background_image;
-    }
-    
-    document.getElementById('viewProfileLikes').textContent = user.likes || 0;
-    document.getElementById('viewProfileCoins').textContent = user.coins || 0;
-    
-    // عرض المعلومات الشخصية
-    const infoDiv = document.getElementById('viewProfileInfo');
-    infoDiv.innerHTML = `
-        <div class="info-item">
-            <strong>العمر:</strong> ${user.age || 'غير محدد'}
-        </div>
-        <div class="info-item">
-            <strong>الجنس:</strong> ${user.gender || 'غير محدد'}
-        </div>
-        <div class="info-item">
-            <strong>الحالة الاجتماعية:</strong> ${user.marital_status || 'غير محدد'}
-        </div>
-        <div class="info-item">
-            <strong>نبذة:</strong> ${user.about_me || 'لا توجد معلومات'}
-        </div>
-        <div class="info-item">
-            <strong>الرتبة:</strong> ${RANKS[user.rank]?.emoji} ${RANKS[user.rank]?.name}
-        </div>
-    `;
-    
-    // عرض موسيقى البروفايل
-    const musicDiv = document.getElementById('viewProfileMusic');
-    if (user.profile_music) {
-        musicDiv.innerHTML = `
-            <h4>موسيقى البروفايل</h4>
-            <audio controls>
-                <source src="${user.profile_music}" type="audio/mpeg">
-            </audio>
-        `;
-    } else {
-        musicDiv.innerHTML = '';
-    }
-    
-    // حفظ معرف المستخدم للإجراءات
-    window.viewingUserId = user.id;
-}
-
-// إغلاق مودال عرض الملف الشخصي
-function closeViewProfileModal() {
-    document.getElementById('viewProfileModal').classList.remove('show');
-}
-
-// إعجاب بالملف الشخصي
-async function likeProfile() {
-    if (!window.viewingUserId) return;
-    
-    try {
-        const response = await fetch('/api/user/like', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({ userId: window.viewingUserId })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            document.getElementById('viewProfileLikes').textContent = data.likes;
-            showToast('تم الإعجاب بالملف الشخصي', 'success');
-        } else {
-            const error = await response.json();
-            showToast(error.error || 'حدث خطأ', 'error');
-        }
-    } catch (error) {
-        console.error('Error liking profile:', error);
-        showToast('حدث خطأ في الإعجاب', 'error');
-    }
-}
-
-// فتح لوحة الإدارة
-function openAdminPanel() {
-    if (currentUser.role !== 'admin' && currentUser.role !== 'owner') {
-        showToast('غير مسموح - للإداريين فقط', 'error');
-        return;
-    }
-    
-    document.getElementById('adminModal').classList.add('show');
-    loadAdminData();
-}
-
-// إغلاق لوحة الإدارة
-function closeAdminModal() {
-    document.getElementById('adminModal').classList.remove('show');
-}
-
-// تبديل تبويبات الإدارة
-function showAdminTab(tab) {
-    // إخفاء جميع التبويبات
-    document.querySelectorAll('.admin-tab').forEach(tabContent => {
-        tabContent.classList.remove('active');
+    })
+    .catch(error => {
+        showError('حدث خطأ في رفع الصورة');
+    })
+    .finally(() => {
+        showLoading(false);
+        e.target.value = '';
     });
-    
-    // إخفاء جميع الأزرار النشطة
-    document.querySelectorAll('.admin-tabs .tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // عرض التبويب المحدد
-    document.getElementById('admin' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Tab').classList.add('active');
-    event.target.classList.add('active');
-    
-    // تحميل البيانات حسب التبويب
-    switch(tab) {
-        case 'users':
-            loadAdminUsers();
-            break;
-        case 'ranks':
-            loadRanksManagement();
-            break;
-        case 'rooms':
-            loadRoomsManagement();
-            break;
-        case 'bans':
-            loadBansManagement();
-            break;
-        case 'coins':
-            loadCoinsManagement();
-            break;
-        case 'notifications':
-            loadNotificationsManagement();
-            break;
-    }
-}
-
-// تحميل بيانات الإدارة
-function loadAdminData() {
-    loadAdminUsers();
-    loadRanksManagement();
-}
-
-// تحميل المستخدمين للإدارة
-async function loadAdminUsers() {
-    try {
-        const response = await fetch('/api/all-users', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-        
-        if (response.ok) {
-            const users = await response.json();
-            displayAdminUsers(users);
-        }
-    } catch (error) {
-        console.error('Error loading admin users:', error);
-    }
-}
-
-// عرض المستخدمين في لوحة الإدارة
-function displayAdminUsers(users) {
-    const usersList = document.getElementById('adminUsersList');
-    usersList.innerHTML = '';
-    
-    users.forEach(user => {
-        const userElement = createAdminUserElement(user);
-        usersList.appendChild(userElement);
-    });
-}
-
-// إنشاء عنصر المستخدم في لوحة الإدارة
-function createAdminUserElement(user) {
-    const userDiv = document.createElement('div');
-    userDiv.className = 'admin-user-item';
-    
-    const userInfo = document.createElement('div');
-    userInfo.className = 'admin-user-info';
-    
-    const avatar = document.createElement('img');
-    avatar.className = 'admin-user-avatar';
-    avatar.src = user.profile_image1 || generateDefaultAvatar(user.display_name);
-    
-    const details = document.createElement('div');
-    details.className = 'admin-user-details';
-    
-    const name = document.createElement('h4');
-    name.textContent = user.display_name;
-    
-    const rank = document.createElement('span');
-    rank.className = 'admin-user-rank';
-    rank.textContent = RANKS[user.rank]?.emoji + ' ' + RANKS[user.rank]?.name;
-    
-    const email = document.createElement('span');
-    email.textContent = user.email;
-    email.style.fontSize = '0.8rem';
-    email.style.color = '#888';
-    
-    details.appendChild(name);
-    details.appendChild(rank);
-    details.appendChild(email);
-    
-    userInfo.appendChild(avatar);
-    userInfo.appendChild(details);
-    
-    const actions = document.createElement('div');
-    actions.className = 'admin-user-actions';
-    
-    // أزرار الإجراءات
-    const viewBtn = document.createElement('button');
-    viewBtn.className = 'admin-action-btn profile-btn';
-    viewBtn.textContent = 'عرض';
-    viewBtn.onclick = () => openUserProfile(user.id);
-    
-    const banBtn = document.createElement('button');
-    banBtn.className = 'admin-action-btn ban-btn';
-    banBtn.textContent = 'حظر';
-    banBtn.onclick = () => openBanUserModal(user);
-    
-    const rankBtn = document.createElement('button');
-    rankBtn.className = 'admin-action-btn rank-btn';
-    rankBtn.textContent = 'رتبة';
-    rankBtn.onclick = () => openAssignRankModal(user);
-    
-    const coinsBtn = document.createElement('button');
-    coinsBtn.className = 'admin-action-btn';
-    coinsBtn.style.background = '#4CAF50';
-    coinsBtn.textContent = 'نقاط';
-    coinsBtn.onclick = () => openGiveCoinsModal(user);
-    
-    actions.appendChild(viewBtn);
-    actions.appendChild(banBtn);
-    actions.appendChild(rankBtn);
-    actions.appendChild(coinsBtn);
-    
-    userDiv.appendChild(userInfo);
-    userDiv.appendChild(actions);
-    
-    return userDiv;
-}
-
-// فتح مودال حظر المستخدم
-function openBanUserModal(user) {
-    document.getElementById('banUserModal').classList.add('show');
-    window.banTargetUser = user;
-}
-
-// إغلاق مودال حظر المستخدم
-function closeBanUserModal() {
-    document.getElementById('banUserModal').classList.remove('show');
-}
-
-// تأكيد حظر المستخدم
-async function confirmBanUser() {
-    if (!window.banTargetUser) return;
-    
-    const reason = document.getElementById('banReason').value.trim();
-    const duration = document.getElementById('banDuration').value;
-    
-    if (!reason) {
-        showToast('يرجى كتابة سبب الحظر', 'warning');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/ban', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
-                userId: window.banTargetUser.id,
-                reason: reason,
-                duration: duration
-            })
-        });
-        
-        if (response.ok) {
-            closeBanUserModal();
-            showToast('تم حظر المستخدم بنجاح', 'success');
-            
-            // مسح النموذج
-            document.getElementById('banReason').value = '';
-            
-            // تحديث قائمة المستخدمين
-            loadAdminUsers();
-        } else {
-            const error = await response.json();
-            showToast(error.error || 'حدث خطأ في حظر المستخدم', 'error');
-        }
-    } catch (error) {
-        console.error('Error banning user:', error);
-        showToast('حدث خطأ في حظر المستخدم', 'error');
-    }
-}
-
-// فتح مودال تعيين الرتبة
-function openAssignRankModal(user) {
-    document.getElementById('assignRankModal').classList.add('show');
-    document.getElementById('rankTargetUser').textContent = user.display_name;
-    window.rankTargetUser = user;
-}
-
-// إغلاق مودال تعيين الرتبة
-function closeAssignRankModal() {
-    document.getElementById('assignRankModal').classList.remove('show');
-}
-
-// تأكيد تعيين الرتبة
-async function confirmAssignRank() {
-    if (!window.rankTargetUser) return;
-    
-    const newRank = document.getElementById('newRankSelect').value;
-    const reason = document.getElementById('rankChangeReason').value;
-    
-    if (!newRank) {
-        showToast('يرجى اختيار الرتبة', 'warning');
-        return;
-    }
-    
-    // التحقق من الصلاحيات
-    if (newRank === 'owner' && currentUser.role !== 'owner') {
-        showToast('لا يمكن تعيين رتبة المالك', 'error');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/assign-rank', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
-                userId: window.rankTargetUser.id,
-                rank: newRank,
-                reason: reason
-            })
-        });
-        
-        if (response.ok) {
-            closeAssignRankModal();
-            showToast('تم تعيين الرتبة بنجاح', 'success');
-            
-            // مسح النموذج
-            document.getElementById('rankChangeReason').value = '';
-            
-            // تحديث قائمة المستخدمين
-            loadAdminUsers();
-        } else {
-            const error = await response.json();
-            showToast(error.error || 'حدث خطأ في تعيين الرتبة', 'error');
-        }
-    } catch (error) {
-        console.error('Error assigning rank:', error);
-        showToast('حدث خطأ في تعيين الرتبة', 'error');
-    }
-}
-
-// تحميل إدارة الرتب
-function loadRanksManagement() {
-    const ranksList = document.getElementById('ranksList');
-    ranksList.innerHTML = '';
-    
-    Object.entries(RANKS).forEach(([key, rank]) => {
-        const rankElement = createRankElement(key, rank);
-        ranksList.appendChild(rankElement);
-    });
-}
-
-// إنشاء عنصر الرتبة
-function createRankElement(key, rank) {
-    const rankDiv = document.createElement('div');
-    rankDiv.className = 'rank-item';
-    
-    const emoji = document.createElement('div');
-    emoji.className = 'rank-emoji';
-    emoji.textContent = rank.emoji;
-    
-    const name = document.createElement('div');
-    name.className = 'rank-name';
-    name.textContent = rank.name;
-    name.style.color = rank.color;
-    
-    const level = document.createElement('div');
-    level.className = 'rank-level';
-    level.textContent = `المستوى: ${rank.level}`;
-    
-    rankDiv.appendChild(emoji);
-    rankDiv.appendChild(name);
-    rankDiv.appendChild(level);
-    
-    return rankDiv;
-}
-
-// إرسال إشعار
-async function sendNotification() {
-    const target = document.getElementById('notificationTarget').value;
-    const message = document.getElementById('notificationMessage').value.trim();
-    const specificUser = document.getElementById('specificUserSelect').value;
-    
-    if (!message) {
-        showToast('يرجى كتابة نص الإشعار', 'warning');
-        return;
-    }
-    
-    if (target === 'specific' && !specificUser) {
-        showToast('يرجى اختيار المستخدم', 'warning');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/send-notification', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
-                target: target,
-                userId: target === 'specific' ? specificUser : null,
-                message: message
-            })
-        });
-        
-        if (response.ok) {
-            document.getElementById('notificationMessage').value = '';
-            showToast('تم إرسال الإشعار بنجاح', 'success');
-        } else {
-            const error = await response.json();
-            showToast(error.error || 'حدث خطأ في إرسال الإشعار', 'error');
-        }
-    } catch (error) {
-        console.error('Error sending notification:', error);
-        showToast('حدث خطأ في إرسال الإشعار', 'error');
-    }
-}
-
-// تبديل وضع الدردشة
-function toggleChatMode() {
-    // منطق تبديل بين الدردشة العامة والخاصة
-    showToast('تم تبديل وضع الدردشة', 'info');
 }
 
 // تسجيل صوتي
@@ -1672,17 +629,16 @@ async function startRecording() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
-        recordedChunks = [];
+        audioChunks = [];
         
-        mediaRecorder.ondataavailable = function(event) {
-            if (event.data.size > 0) {
-                recordedChunks.push(event.data);
-            }
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
         };
         
-        mediaRecorder.onstop = function() {
-            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-            sendVoiceMessage(blob);
+        mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            uploadVoiceMessage(audioBlob);
+            stream.getTracks().forEach(track => track.stop());
         };
         
         mediaRecorder.start();
@@ -1692,10 +648,9 @@ async function startRecording() {
         voiceBtn.classList.add('recording');
         voiceBtn.innerHTML = '<i class="fas fa-stop"></i>';
         
-        showToast('بدء التسجيل...', 'info');
+        showNotification('بدأ التسجيل...', 'info');
     } catch (error) {
-        console.error('Error starting recording:', error);
-        showToast('حدث خطأ في بدء التسجيل', 'error');
+        showError('لا يمكن الوصول للميكروفون');
     }
 }
 
@@ -1709,178 +664,871 @@ function stopRecording() {
         voiceBtn.classList.remove('recording');
         voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
         
-        // إيقاف الميكروفون
-        mediaRecorder.stream.getTracks().forEach(track => track.stop());
-        
-        showToast('تم إيقاف التسجيل', 'info');
+        showNotification('تم إيقاف التسجيل', 'success');
     }
 }
 
-// إرسال رسالة صوتية
-async function sendVoiceMessage(blob) {
+// رفع رسالة صوتية
+function uploadVoiceMessage(audioBlob) {
     const formData = new FormData();
-    formData.append('voice', blob, 'voice.webm');
-    formData.append('roomId', currentRoom);
+    formData.append('voice', audioBlob, 'voice.webm');
     
-    try {
-        const response = await fetch('/api/upload-voice', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: formData
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            socket.emit('sendMessage', {
-                voice_url: data.voice_url,
-                roomId: currentRoom
-            });
-        } else {
-            showToast('حدث خطأ في إرسال الرسالة الصوتية', 'error');
-        }
-    } catch (error) {
-        console.error('Error sending voice message:', error);
-        showToast('حدث خطأ في إرسال الرسالة الصوتية', 'error');
-    }
-}
-
-// معالجة رفع الصور
-function handleImageUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+    showLoading(true);
     
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('roomId', currentRoom);
-    
-    fetch('/api/upload-image', {
+    fetch('/api/upload-voice', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
         },
         body: formData
     })
     .then(response => response.json())
     .then(data => {
-        if (data.image_url) {
+        if (data.voice_url && socket) {
             socket.emit('sendMessage', {
-                image_url: data.image_url,
+                voice_url: data.voice_url,
                 roomId: currentRoom
             });
         } else {
-            showToast('حدث خطأ في رفع الصورة', 'error');
+            showError('فشل في رفع التسجيل الصوتي');
         }
     })
     .catch(error => {
-        console.error('Error uploading image:', error);
-        showToast('حدث خطأ في رفع الصورة', 'error');
+        showError('حدث خطأ في رفع التسجيل الصوتي');
+    })
+    .finally(() => {
+        showLoading(false);
     });
 }
 
-// فتح مشغل الراديو
-function openRadioPlayer() {
-    document.getElementById('radioPlayerModal').classList.add('show');
-}
-
-// إغلاق مشغل الراديو
-function closeRadioPlayer() {
-    document.getElementById('radioPlayerModal').classList.remove('show');
-}
-
-// تشغيل محطة راديو
-function playRadioStation(station) {
-    // منطق تشغيل محطات الراديو
-    showToast(`تم تشغيل ${station}`, 'success');
-}
-
-// تبديل الراديو
-function toggleRadio() {
-    const playBtn = document.getElementById('radioPlayBtn');
-    const isPlaying = playBtn.innerHTML.includes('pause');
+// تحديث قائمة المستخدمين
+function updateUsersList(users) {
+    const container = document.getElementById('onlineUsersList');
+    const countElement = document.getElementById('onlineCount');
     
-    if (isPlaying) {
-        playBtn.innerHTML = '<i class="fas fa-play"></i>';
-        showToast('تم إيقاف الراديو', 'info');
-    } else {
-        playBtn.innerHTML = '<i class="fas fa-pause"></i>';
-        showToast('تم تشغيل الراديو', 'info');
+    container.innerHTML = '';
+    countElement.textContent = users.length;
+    
+    // ترتيب المستخدمين حسب الرتبة
+    users.sort((a, b) => {
+        const rankA = RANKS[a.rank] || RANKS.visitor;
+        const rankB = RANKS[b.rank] || RANKS.visitor;
+        return rankB.level - rankA.level;
+    });
+    
+    users.forEach(user => {
+        if (user.userId === currentUser?.id) return; // لا نعرض المستخدم الحالي
+        
+        const userDiv = document.createElement('div');
+        userDiv.className = 'user-item';
+        userDiv.onclick = () => openUserActions(user);
+        
+        const rank = RANKS[user.rank] || RANKS.visitor;
+        
+        userDiv.innerHTML = `
+            <img class="user-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${user.displayName}">
+            <div class="user-details">
+                <div class="user-display-name rank-${user.rank}">${escapeHtml(user.displayName)}</div>
+                <div class="user-status">${rank.emoji} ${rank.name}</div>
+            </div>
+        `;
+        
+        container.appendChild(userDiv);
+    });
+}
+
+// فتح إجراءات المستخدم
+function openUserActions(user) {
+    selectedUserId = user.userId;
+    
+    document.getElementById('actionUserName').textContent = user.displayName;
+    document.getElementById('actionUserAvatar').src = 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop';
+    
+    openModal('userActionsModal');
+}
+
+// بدء دردشة خاصة
+function startPrivateChat() {
+    if (!selectedUserId) return;
+    
+    chatMode = 'private';
+    document.getElementById('chatModeText').textContent = 'خاص';
+    
+    // تحديث واجهة الدردشة الخاصة
+    loadPrivateMessages();
+    closeAllModals();
+    
+    showNotification('تم التبديل للدردشة الخاصة', 'info');
+}
+
+// تحميل الرسائل الخاصة
+async function loadPrivateMessages() {
+    if (!selectedUserId) return;
+    
+    try {
+        const token = localStorage.getItem('chatToken');
+        const response = await fetch(`/api/private-messages/${selectedUserId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            const messages = await response.json();
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '';
+            
+            messages.forEach(message => {
+                displayPrivateMessage(message);
+            });
+            
+            scrollToBottom();
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل الرسائل الخاصة:', error);
     }
 }
 
-// رفع موسيقى مخصصة
-function uploadCustomMusic() {
-    const fileInput = document.getElementById('customMusicInput');
-    if (!fileInput.files.length) {
-        showToast('يرجى اختيار ملفات صوتية', 'warning');
+// عرض رسالة خاصة
+function displayPrivateMessage(message) {
+    const container = document.getElementById('messagesContainer');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${message.user_id === currentUser?.id ? 'own' : ''}`;
+    messageDiv.setAttribute('data-message-id', message.id);
+    
+    const rank = RANKS[message.rank] || RANKS.visitor;
+    const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    let messageContent = '';
+    
+    if (message.message) {
+        messageContent = `<div class="message-text">${escapeHtml(message.message)}</div>`;
+    } else if (message.voice_url) {
+        messageContent = `<audio class="message-audio" controls>
+            <source src="${message.voice_url}" type="audio/webm">
+        </audio>`;
+    } else if (message.image_url) {
+        messageContent = `<img class="message-image" src="${message.image_url}" alt="صورة" onclick="openImageModal('${message.image_url}')">`;
+    }
+    
+    messageDiv.innerHTML = `
+        <img class="message-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${message.display_name}">
+        <div class="message-content">
+            <div class="message-header">
+                <span class="message-author rank-${message.rank}">${escapeHtml(message.display_name)}</span>
+                <span class="message-rank">${rank.emoji} ${rank.name}</span>
+                <span class="message-time">${time}</span>
+            </div>
+            ${messageContent}
+        </div>
+    `;
+    
+    container.appendChild(messageDiv);
+    scrollToBottom();
+}
+
+// تبديل وضع الدردشة
+function toggleChatMode() {
+    if (chatMode === 'public') {
+        // التبديل للخاص يتطلب اختيار مستخدم
+        showNotification('اختر مستخدماً لبدء دردشة خاصة', 'info');
+    } else {
+        // العودة للعام
+        chatMode = 'public';
+        selectedUserId = null;
+        document.getElementById('chatModeText').textContent = 'عام';
+        loadMessages();
+        showNotification('تم التبديل للدردشة العامة', 'info');
+    }
+}
+
+// فتح القائمة الرئيسية
+function openMainMenu() {
+    openModal('mainMenuModal');
+}
+
+// إغلاق القائمة الرئيسية
+function closeMainMenu() {
+    closeModal('mainMenuModal');
+}
+
+// فتح قسم الأخبار
+function openNewsSection() {
+    openModal('newsModal');
+    loadNews();
+    closeMainMenu();
+}
+
+// تحميل الأخبار
+async function loadNews() {
+    try {
+        const response = await fetch('/api/news');
+        if (response.ok) {
+            const news = await response.json();
+            displayNews(news);
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل الأخبار:', error);
+    }
+}
+
+// عرض الأخبار
+function displayNews(news) {
+    const container = document.getElementById('newsFeed');
+    container.innerHTML = '';
+    
+    if (news.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد أخبار حالياً</p>';
         return;
     }
     
-    // منطق رفع الملفات الصوتية
-    showToast('تم رفع الأغاني بنجاح', 'success');
+    news.forEach(item => {
+        const newsDiv = document.createElement('div');
+        newsDiv.className = 'news-item';
+        
+        const time = new Date(item.timestamp).toLocaleString('ar-SA');
+        
+        newsDiv.innerHTML = `
+            <div class="news-header-info">
+                <img class="news-author-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${item.display_name}">
+                <div class="news-author-info">
+                    <h4>${escapeHtml(item.display_name)}</h4>
+                    <span class="news-time">${time}</span>
+                </div>
+            </div>
+            <div class="news-content">${escapeHtml(item.content)}</div>
+            ${item.media ? `<div class="news-media"><img src="${item.media}" alt="صورة الخبر"></div>` : ''}
+        `;
+        
+        container.appendChild(newsDiv);
+    });
 }
 
-// تحديث مستوى الصوت
-function adjustVolume(value) {
-    // منطق تعديل مستوى الصوت
-    console.log('Volume adjusted to:', value);
+// نشر خبر
+async function postNews() {
+    const content = document.getElementById('newsContentInput').value.trim();
+    const fileInput = document.getElementById('newsFileInput');
+    
+    if (!content && !fileInput.files[0]) {
+        showError('يرجى كتابة محتوى أو اختيار ملف');
+        return;
+    }
+    
+    const formData = new FormData();
+    if (content) formData.append('content', content);
+    if (fileInput.files[0]) formData.append('newsFile', fileInput.files[0]);
+    
+    try {
+        showLoading(true);
+        
+        const response = await fetch('/api/news', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: formData
+        });
+        
+        if (response.ok) {
+            document.getElementById('newsContentInput').value = '';
+            fileInput.value = '';
+            loadNews();
+            showNotification('تم نشر الخبر بنجاح', 'success');
+        } else {
+            const data = await response.json();
+            showError(data.error || 'فشل في نشر الخبر');
+        }
+    } catch (error) {
+        showError('حدث خطأ في نشر الخبر');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// إغلاق مودال الأخبار
+function closeNewsModal() {
+    closeModal('newsModal');
+}
+
+// فتح قسم القصص
+function openStoriesSection() {
+    openModal('storiesModal');
+    loadStories();
+    closeMainMenu();
+}
+
+// تحميل القصص
+async function loadStories() {
+    try {
+        const response = await fetch('/api/stories');
+        if (response.ok) {
+            const stories = await response.json();
+            displayStories(stories);
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل القصص:', error);
+    }
+}
+
+// عرض القصص
+function displayStories(stories) {
+    const container = document.getElementById('storiesContainer');
+    container.innerHTML = '';
+    
+    if (stories.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد قصص حالياً</p>';
+        return;
+    }
+    
+    stories.forEach(story => {
+        const storyDiv = document.createElement('div');
+        storyDiv.className = 'story-item';
+        storyDiv.onclick = () => viewStory(story);
+        
+        storyDiv.innerHTML = `<img src="${story.image}" alt="قصة ${story.display_name}">`;
+        container.appendChild(storyDiv);
+    });
+}
+
+// فتح مودال إضافة قصة
+function openAddStoryModal() {
+    openModal('addStoryModal');
+}
+
+// إغلاق مودال إضافة قصة
+function closeAddStoryModal() {
+    closeModal('addStoryModal');
+}
+
+// إضافة قصة
+async function addStory() {
+    const fileInput = document.getElementById('storyMediaInput');
+    const text = document.getElementById('storyTextInput').value.trim();
+    
+    if (!fileInput.files[0]) {
+        showError('يرجى اختيار صورة أو فيديو');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('storyImage', fileInput.files[0]);
+    if (text) formData.append('text', text);
+    
+    try {
+        showLoading(true);
+        
+        const response = await fetch('/api/stories', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: formData
+        });
+        
+        if (response.ok) {
+            closeAddStoryModal();
+            loadStories();
+            showNotification('تم إضافة القصة بنجاح', 'success');
+        } else {
+            const data = await response.json();
+            showError(data.error || 'فشل في إضافة القصة');
+        }
+    } catch (error) {
+        showError('حدث خطأ في إضافة القصة');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// إغلاق مودال القصص
+function closeStoriesModal() {
+    closeModal('storiesModal');
+}
+
+// فتح قسم الألعاب
+function openGamesSection() {
+    showNotification('الألعاب قيد التطوير', 'info');
+    closeMainMenu();
+}
+
+// فتح غرفة المسابقات
+function openQuizRoom() {
+    openModal('quizRoomModal');
+    startQuiz();
+    closeMainMenu();
+}
+
+// بدء المسابقة
+function startQuiz() {
+    const randomQuestion = QUIZ_QUESTIONS[Math.floor(Math.random() * QUIZ_QUESTIONS.length)];
+    displayQuizQuestion(randomQuestion);
+    startQuizTimer();
+}
+
+// عرض سؤال المسابقة
+function displayQuizQuestion(question) {
+    document.getElementById('questionText').textContent = question.question;
+    
+    const optionsContainer = document.getElementById('questionOptions');
+    optionsContainer.innerHTML = '';
+    
+    question.options.forEach((option, index) => {
+        const button = document.createElement('button');
+        button.className = 'option-btn';
+        button.textContent = option;
+        button.onclick = () => selectQuizAnswer(index, question.correct);
+        optionsContainer.appendChild(button);
+    });
+}
+
+// اختيار إجابة
+function selectQuizAnswer(selected, correct) {
+    const buttons = document.querySelectorAll('.option-btn');
+    buttons.forEach((btn, index) => {
+        btn.disabled = true;
+        if (index === correct) {
+            btn.style.background = 'var(--success-color)';
+        } else if (index === selected && selected !== correct) {
+            btn.style.background = 'var(--error-color)';
+        }
+    });
+    
+    if (selected === correct) {
+        showNotification('إجابة صحيحة! +10 نقاط', 'success');
+        updateUserCoins(10);
+    } else {
+        showNotification('إجابة خاطئة', 'error');
+    }
+    
+    setTimeout(() => {
+        startQuiz(); // سؤال جديد
+    }, 3000);
+}
+
+// بدء مؤقت المسابقة
+function startQuizTimer() {
+    let timeLeft = 30;
+    const timerElement = document.getElementById('quizTimer');
+    
+    const timer = setInterval(() => {
+        timeLeft--;
+        timerElement.textContent = timeLeft;
+        
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            showNotification('انتهى الوقت!', 'warning');
+            setTimeout(() => {
+                startQuiz();
+            }, 2000);
+        }
+    }, 1000);
+}
+
+// إغلاق غرفة المسابقات
+function closeQuizRoom() {
+    closeModal('quizRoomModal');
+}
+
+// فتح إدارة الغرف
+function openRoomsManager() {
+    showNotification('إدارة الغرف متاحة في لوحة الإدارة', 'info');
+    closeMainMenu();
+}
+
+// فتح متجر النقاط
+function openCoinsShop() {
+    showNotification('متجر النقاط قيد التطوير', 'info');
+    closeMainMenu();
+}
+
+// فتح لوحة الإدارة
+function openAdminPanel() {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
+        showError('غير مسموح - للإداريين فقط');
+        return;
+    }
+    
+    openModal('adminModal');
+    loadAdminData();
+    closeMainMenu();
+}
+
+// تحميل بيانات الإدارة
+async function loadAdminData() {
+    await loadAllUsers();
+    loadRanks();
+}
+
+// تحميل جميع المستخدمين
+async function loadAllUsers() {
+    try {
+        const response = await fetch('/api/all-users', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            }
+        });
+        
+        if (response.ok) {
+            const users = await response.json();
+            displayAdminUsers(users);
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل المستخدمين:', error);
+    }
+}
+
+// عرض المستخدمين في لوحة الإدارة
+function displayAdminUsers(users) {
+    const container = document.getElementById('adminUsersList');
+    container.innerHTML = '';
+    
+    users.forEach(user => {
+        const userDiv = document.createElement('div');
+        userDiv.className = 'admin-user-item';
+        
+        const rank = RANKS[user.rank] || RANKS.visitor;
+        const joinDate = new Date(user.created_at).toLocaleDateString('ar-SA');
+        
+        userDiv.innerHTML = `
+            <div class="admin-user-info">
+                <img class="admin-user-avatar" src="${user.profile_image1 || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'}" alt="${user.display_name}">
+                <div class="admin-user-details">
+                    <h4>${escapeHtml(user.display_name)}</h4>
+                    <div class="admin-user-rank">${rank.emoji} ${rank.name} • انضم في ${joinDate}</div>
+                </div>
+            </div>
+            <div class="admin-user-actions">
+                <button class="admin-action-btn btn-info" onclick="openAssignRankModal(${user.id}, '${user.display_name}')">
+                    <i class="fas fa-crown"></i> رتبة
+                </button>
+                <button class="admin-action-btn btn-warning" onclick="openBanUserModal(${user.id}, '${user.display_name}')">
+                    <i class="fas fa-ban"></i> حظر
+                </button>
+                <button class="admin-action-btn btn-success" onclick="openGiveCoinsModal(${user.id}, '${user.display_name}')">
+                    <i class="fas fa-coins"></i> نقاط
+                </button>
+            </div>
+        `;
+        
+        container.appendChild(userDiv);
+    });
+}
+
+// تحميل الرتب
+function loadRanks() {
+    const container = document.getElementById('ranksList');
+    container.innerHTML = '';
+    
+    Object.entries(RANKS).forEach(([key, rank]) => {
+        const rankDiv = document.createElement('div');
+        rankDiv.className = 'rank-item';
+        
+        rankDiv.innerHTML = `
+            <div class="rank-emoji">${rank.emoji}</div>
+            <div class="rank-name">${rank.name}</div>
+            <div class="rank-level">المستوى ${rank.level}</div>
+        `;
+        
+        container.appendChild(rankDiv);
+    });
+}
+
+// فتح مودال تعيين الرتبة
+function openAssignRankModal(userId, userName) {
+    document.getElementById('rankTargetUser').textContent = userName;
+    document.getElementById('rankTargetUser').setAttribute('data-user-id', userId);
+    
+    // ملء قائمة الرتب
+    const select = document.getElementById('newRankSelect');
+    select.innerHTML = '';
+    
+    Object.entries(RANKS).forEach(([key, rank]) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = `${rank.emoji} ${rank.name}`;
+        select.appendChild(option);
+    });
+    
+    openModal('assignRankModal');
+}
+
+// تأكيد تعيين الرتبة
+async function confirmAssignRank() {
+    const userId = document.getElementById('rankTargetUser').getAttribute('data-user-id');
+    const newRank = document.getElementById('newRankSelect').value;
+    const reason = document.getElementById('rankChangeReason').value.trim();
+    
+    if (!newRank) {
+        showError('يرجى اختيار رتبة');
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        
+        const response = await fetch('/api/assign-rank', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({
+                userId: parseInt(userId),
+                newRank,
+                reason
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            closeAssignRankModal();
+            loadAllUsers();
+            showNotification(data.message, 'success');
+        } else {
+            showError(data.error);
+        }
+    } catch (error) {
+        showError('حدث خطأ في تعيين الرتبة');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// إغلاق مودال تعيين الرتبة
+function closeAssignRankModal() {
+    closeModal('assignRankModal');
+    document.getElementById('rankChangeReason').value = '';
+}
+
+// فتح مودال حظر المستخدم
+function openBanUserModal(userId, userName) {
+    document.getElementById('banTargetUser').textContent = userName;
+    document.getElementById('banTargetUser').setAttribute('data-user-id', userId);
+    openModal('banUserModal');
+}
+
+// تأكيد حظر المستخدم
+async function confirmBanUser() {
+    const userId = document.getElementById('banTargetUser').getAttribute('data-user-id');
+    const reason = document.getElementById('banReason').value.trim();
+    const duration = document.getElementById('banDuration').value;
+    
+    if (!reason) {
+        showError('يرجى كتابة سبب الحظر');
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        
+        const response = await fetch('/api/ban', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({
+                userId: parseInt(userId),
+                reason,
+                duration
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            closeBanUserModal();
+            loadAllUsers();
+            showNotification(data.message, 'success');
+        } else {
+            showError(data.error);
+        }
+    } catch (error) {
+        showError('حدث خطأ في حظر المستخدم');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// إغلاق مودال حظر المستخدم
+function closeBanUserModal() {
+    closeModal('banUserModal');
+    document.getElementById('banReason').value = '';
+}
+
+// إغلاق لوحة الإدارة
+function closeAdminModal() {
+    closeModal('adminModal');
+}
+
+// عرض تبويب الإدارة
+function showAdminTab(tabName) {
+    // إخفاء جميع التبويبات
+    document.querySelectorAll('.admin-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // إزالة الفئة النشطة من جميع الأزرار
+    document.querySelectorAll('.admin-tabs .tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // عرض التبويب المحدد
+    document.getElementById(`admin${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Tab`).classList.add('active');
+    
+    // تفعيل الزر المحدد
+    event.target.classList.add('active');
+}
+
+// فتح الملف الشخصي
+function openProfileModal() {
+    if (!currentUser) return;
+    
+    // ملء البيانات الحالية
+    document.getElementById('displayNameInput').value = currentUser.display_name || '';
+    document.getElementById('emailInput').value = currentUser.email || '';
+    document.getElementById('ageInput').value = currentUser.age || '';
+    document.getElementById('genderInput').value = currentUser.gender || '';
+    document.getElementById('maritalStatusInput').value = currentUser.marital_status || '';
+    document.getElementById('aboutMeInput').value = currentUser.about_me || '';
+    
+    // عرض الصور الحالية
+    if (currentUser.profile_image1) {
+        document.getElementById('profileImg1').src = currentUser.profile_image1;
+    }
+    if (currentUser.profile_image2) {
+        document.getElementById('profileImg2').src = currentUser.profile_image2;
+    }
+    
+    // عرض الإحصائيات
+    document.getElementById('profileCoins').textContent = currentUser.coins || 2000;
+    document.getElementById('profileRank').textContent = RANKS[currentUser.rank]?.name || 'زائر';
+    
+    openModal('profileModal');
+}
+
+// إغلاق الملف الشخصي
+function closeProfileModal() {
+    closeModal('profileModal');
+}
+
+// عرض تبويب الملف الشخصي
+function showProfileTab(tabName) {
+    // إخفاء جميع التبويبات
+    document.querySelectorAll('.profile-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // إزالة الفئة النشطة من جميع الأزرار
+    document.querySelectorAll('.profile-tabs .tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // عرض التبويب المحدد
+    document.getElementById(`profile${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Tab`).classList.add('active');
+    
+    // تفعيل الزر المحدد
+    event.target.classList.add('active');
+}
+
+// تحديث الملف الشخصي
+async function updateProfile() {
+    const formData = new FormData();
+    
+    const displayName = document.getElementById('displayNameInput').value.trim();
+    const email = document.getElementById('emailInput').value.trim();
+    const newPassword = document.getElementById('newPasswordInput').value;
+    const age = document.getElementById('ageInput').value;
+    const gender = document.getElementById('genderInput').value;
+    const maritalStatus = document.getElementById('maritalStatusInput').value;
+    const aboutMe = document.getElementById('aboutMeInput').value.trim();
+    
+    if (displayName) formData.append('display_name', displayName);
+    if (email) formData.append('email', email);
+    if (newPassword) formData.append('password', newPassword);
+    if (age) formData.append('age', age);
+    if (gender) formData.append('gender', gender);
+    if (maritalStatus) formData.append('marital_status', maritalStatus);
+    if (aboutMe) formData.append('about_me', aboutMe);
+    
+    // إضافة الصور إذا تم اختيارها
+    const profileFile1 = document.getElementById('profileFile1').files[0];
+    const profileFile2 = document.getElementById('profileFile2').files[0];
+    
+    if (profileFile1) formData.append('profileImage1', profileFile1);
+    if (profileFile2) formData.append('profileImage2', profileFile2);
+    
+    try {
+        showLoading(true);
+        
+        const response = await fetch('/api/user/profile', {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: formData
+        });
+        
+        if (response.ok) {
+            const updatedUser = await response.json();
+            currentUser = { ...currentUser, ...updatedUser };
+            updateUserInterface();
+            showNotification('تم تحديث الملف الشخصي بنجاح', 'success');
+        } else {
+            const data = await response.json();
+            showError(data.error || 'فشل في تحديث الملف الشخصي');
+        }
+    } catch (error) {
+        showError('حدث خطأ في تحديث الملف الشخصي');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// فتح ملف شخصي لمستخدم آخر
+function openUserProfile(userId) {
+    // هذه الوظيفة ستكون متاحة لاحقاً
+    showNotification('عرض الملف الشخصي قيد التطوير', 'info');
 }
 
 // فتح الإشعارات
 function openNotifications() {
-    document.getElementById('notificationsModal').classList.add('show');
+    openModal('notificationsModal');
     loadNotifications();
-}
-
-// إغلاق الإشعارات
-function closeNotificationsModal() {
-    document.getElementById('notificationsModal').classList.remove('show');
 }
 
 // تحميل الإشعارات
 function loadNotifications() {
-    const notificationsList = document.getElementById('notificationsList');
-    notificationsList.innerHTML = '';
-    
-    if (notifications.length === 0) {
-        notificationsList.innerHTML = '<p>لا توجد إشعارات</p>';
-        return;
-    }
-    
-    notifications.forEach(notification => {
-        const notificationElement = createNotificationElement(notification);
-        notificationsList.appendChild(notificationElement);
-    });
+    const container = document.getElementById('notificationsList');
+    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد إشعارات جديدة</p>';
 }
 
-// إنشاء عنصر الإشعار
-function createNotificationElement(notification) {
-    const notificationDiv = document.createElement('div');
-    notificationDiv.className = 'notification-item';
-    
-    const content = document.createElement('div');
-    content.className = 'notification-content';
-    content.textContent = notification.message;
-    
-    const time = document.createElement('div');
-    time.className = 'notification-time';
-    time.textContent = formatTime(notification.timestamp);
-    
-    notificationDiv.appendChild(content);
-    notificationDiv.appendChild(time);
-    
-    return notificationDiv;
+// إغلاق الإشعارات
+function closeNotificationsModal() {
+    closeModal('notificationsModal');
+}
+
+// تحديث عدد الإشعارات
+function updateNotificationCount() {
+    const badge = document.getElementById('notificationCount');
+    let count = parseInt(badge.textContent) || 0;
+    count++;
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'block' : 'none';
 }
 
 // فتح الإعدادات
 function openSettings() {
-    document.getElementById('settingsModal').classList.add('show');
+    openModal('settingsModal');
 }
 
 // إغلاق الإعدادات
 function closeSettingsModal() {
-    document.getElementById('settingsModal').classList.remove('show');
+    closeModal('settingsModal');
 }
 
 // حفظ الإعدادات
@@ -1888,404 +1536,399 @@ function saveSettings() {
     const soundNotifications = document.getElementById('soundNotifications').checked;
     const saveChatHistory = document.getElementById('saveChatHistory').checked;
     
-    // حفظ الإعدادات في localStorage
     localStorage.setItem('soundNotifications', soundNotifications);
     localStorage.setItem('saveChatHistory', saveChatHistory);
     
-    showToast('تم حفظ الإعدادات', 'success');
+    showNotification('تم حفظ الإعدادات', 'success');
+    closeSettingsModal();
 }
 
 // الخروج من الدردشة
 function exitChat() {
-    if (confirm('هل أنت متأكد من الخروج من الدردشة؟')) {
+    if (confirm('هل أنت متأكد من الخروج؟')) {
         logout();
     }
 }
 
 // الخروج من الغرفة
 function exitRoom() {
-    if (confirm('هل أنت متأكد من الخروج من الغرفة؟')) {
-        currentRoom = 1; // العودة للغرفة الرئيسية
-        socket.emit('changeRoom', 1);
-        showToast('تم الخروج من الغرفة', 'info');
+    currentRoom = 1;
+    document.getElementById('roomSelect').value = 1;
+    changeRoom();
+    closeSettingsModal();
+    showNotification('تم الخروج من الغرفة', 'info');
+}
+
+// فتح المساعدة
+function openHelpModal() {
+    showNotification('المساعدة قيد التطوير', 'info');
+}
+
+// عرض الرتب
+function showRanks() {
+    let ranksText = 'الرتب المتاحة:\n\n';
+    Object.values(RANKS).forEach(rank => {
+        ranksText += `${rank.emoji} ${rank.name} (المستوى ${rank.level})\n`;
+    });
+    
+    alert(ranksText);
+}
+
+// تنظيف الغرف
+async function cleanRooms() {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
+        showError('غير مسموح - للإداريين فقط');
+        return;
+    }
+    
+    if (confirm('هل أنت متأكد من تنظيف جميع الرسائل؟')) {
+        try {
+            const response = await fetch('/api/clean-rooms', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+                }
+            });
+            
+            if (response.ok) {
+                document.getElementById('messagesContainer').innerHTML = '';
+                showNotification('تم تنظيف الغرفة بنجاح', 'success');
+            } else {
+                showError('فشل في تنظيف الغرفة');
+            }
+        } catch (error) {
+            showError('حدث خطأ في تنظيف الغرفة');
+        }
+    }
+}
+
+// فتح مشغل الراديو
+function openRadioPlayer() {
+    openModal('radioPlayerModal');
+}
+
+// إغلاق مشغل الراديو
+function closeRadioPlayer() {
+    closeModal('radioPlayerModal');
+}
+
+// تشغيل محطة راديو
+function playRadioStation(station) {
+    showNotification(`تم تشغيل ${station}`, 'success');
+    // هنا يمكن إضافة كود تشغيل الراديو الفعلي
+}
+
+// تبديل الراديو
+function toggleRadio() {
+    const btn = document.getElementById('radioPlayBtn');
+    const icon = btn.querySelector('i');
+    
+    if (icon.classList.contains('fa-play')) {
+        icon.classList.remove('fa-play');
+        icon.classList.add('fa-pause');
+        showNotification('تم تشغيل الراديو', 'success');
+    } else {
+        icon.classList.remove('fa-pause');
+        icon.classList.add('fa-play');
+        showNotification('تم إيقاف الراديو', 'info');
+    }
+}
+
+// رفع موسيقى مخصصة
+function uploadCustomMusic() {
+    const fileInput = document.getElementById('customMusicInput');
+    if (fileInput.files.length === 0) {
+        showError('يرجى اختيار ملفات صوتية');
+        return;
+    }
+    
+    showNotification('تم رفع الأغاني بنجاح', 'success');
+    fileInput.value = '';
+}
+
+// تبديل مشغل الموسيقى
+function toggleMusicPlayer() {
+    const btn = document.getElementById('musicToggle');
+    const nowPlaying = document.getElementById('nowPlaying');
+    
+    if (nowPlaying.style.display === 'none') {
+        nowPlaying.style.display = 'block';
+        nowPlaying.querySelector('.song-title').textContent = 'تشغيل الموسيقى...';
+        showNotification('تم تشغيل الموسيقى', 'success');
+    } else {
+        nowPlaying.style.display = 'none';
+        showNotification('تم إيقاف الموسيقى', 'info');
     }
 }
 
 // تسجيل الخروج
 function logout() {
-    localStorage.removeItem('token');
+    localStorage.removeItem('chatToken');
+    currentUser = null;
+    
     if (socket) {
         socket.disconnect();
+        socket = null;
     }
-    location.reload();
+    
+    showLoginScreen();
+    showNotification('تم تسجيل الخروج', 'info');
 }
 
-// تحديث الصفحة
+// إعادة تحميل الصفحة
 function reloadPage() {
     location.reload();
 }
 
-// تحميل الغرف
-async function loadRooms() {
-    try {
-        const response = await fetch('/api/rooms', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-        
-        if (response.ok) {
-            const rooms = await response.json();
-            displayRooms(rooms);
-        }
-    } catch (error) {
-        console.error('Error loading rooms:', error);
+// تحديث نقاط المستخدم
+function updateUserCoins(amount) {
+    if (currentUser) {
+        currentUser.coins = (currentUser.coins || 2000) + amount;
+        document.getElementById('profileCoins').textContent = currentUser.coins;
     }
 }
 
-// عرض الغرف
-function displayRooms(rooms) {
-    // منطق عرض الغرف
-    console.log('Rooms loaded:', rooms);
-}
-
-// تحميل المستخدمين المتصلين
-async function loadOnlineUsers() {
-    try {
-        const response = await fetch('/api/users', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-        
-        if (response.ok) {
-            const users = await response.json();
-            displayOnlineUsers(users);
-        }
-    } catch (error) {
-        console.error('Error loading online users:', error);
-    }
-}
-
-// عرض المستخدمين المتصلين
-function displayOnlineUsers(users) {
-    const usersList = document.getElementById('onlineUsersList');
-    const onlineCount = document.getElementById('onlineCount');
+// فتح منتقي الرموز التعبيرية
+function openEmojiPicker() {
+    const emojis = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😢', '😡', '👍', '👎', '❤️', '🔥', '💯', '🎉', '🦂'];
+    const input = document.getElementById('messageInput');
     
-    usersList.innerHTML = '';
-    onlineCount.textContent = users.length;
+    let emojiHtml = '<div style="background: white; border: 1px solid #ccc; border-radius: 8px; padding: 10px; position: absolute; z-index: 1000; display: flex; flex-wrap: wrap; gap: 5px; max-width: 200px;">';
     
-    // ترتيب المستخدمين حسب الرتبة
-    users.sort((a, b) => {
-        const rankA = RANKS[a.rank]?.level || 0;
-        const rankB = RANKS[b.rank]?.level || 0;
-        return rankB - rankA;
+    emojis.forEach(emoji => {
+        emojiHtml += `<span style="cursor: pointer; padding: 5px; border-radius: 4px; hover: background: #f0f0f0;" onclick="addEmoji('${emoji}')">${emoji}</span>`;
     });
     
-    users.forEach(user => {
-        const userElement = createOnlineUserElement(user);
-        usersList.appendChild(userElement);
-    });
-}
-
-// إنشاء عنصر المستخدم المتصل
-function createOnlineUserElement(user) {
-    const userDiv = document.createElement('div');
-    userDiv.className = 'user-item';
-    userDiv.onclick = () => openUserActionsModal(user);
+    emojiHtml += '</div>';
     
-    const avatar = document.createElement('img');
-    avatar.className = 'user-avatar';
-    avatar.src = user.profile_image1 || generateDefaultAvatar(user.display_name);
+    // إضافة منتقي الرموز بجانب حقل الإدخال
+    const picker = document.createElement('div');
+    picker.innerHTML = emojiHtml;
+    picker.style.position = 'relative';
     
-    const details = document.createElement('div');
-    details.className = 'user-details';
+    input.parentNode.appendChild(picker);
     
-    const name = document.createElement('div');
-    name.className = `user-display-name rank-${user.rank}`;
-    name.textContent = user.display_name;
-    
-    const status = document.createElement('div');
-    status.className = 'user-status';
-    status.textContent = RANKS[user.rank]?.emoji + ' ' + RANKS[user.rank]?.name;
-    
-    details.appendChild(name);
-    details.appendChild(status);
-    
-    userDiv.appendChild(avatar);
-    userDiv.appendChild(details);
-    
-    return userDiv;
-}
-
-// فتح مودال إجراءات المستخدم
-function openUserActionsModal(user) {
-    document.getElementById('userActionsModal').classList.add('show');
-    
-    document.getElementById('actionUserAvatar').src = user.profile_image1 || generateDefaultAvatar(user.display_name);
-    document.getElementById('actionUserName').textContent = user.display_name;
-    
-    window.actionTargetUser = user;
-}
-
-// إغلاق مودال إجراءات المستخدم
-function closeUserActionsModal() {
-    document.getElementById('userActionsModal').classList.remove('show');
-}
-
-// إرسال رسالة خاصة
-function sendPrivateMessage() {
-    if (!window.actionTargetUser && !window.viewingUserId) return;
-    
-    const userId = window.actionTargetUser?.id || window.viewingUserId;
-    // منطق فتح نافذة الدردشة الخاصة
-    showToast('فتح الدردشة الخاصة...', 'info');
-}
-
-// معالجة الأحداث
-function handleNewPrivateMessage(data) {
-    // منطق معالجة الرسائل الخاصة
-    console.log('New private message:', data);
-}
-
-function updateUsersList(users) {
-    displayOnlineUsers(users);
-}
-
-function updateRoomUsersList(users) {
-    // منطق تحديث مستخدمي الغرفة
-    console.log('Room users updated:', users);
-}
-
-function handleUserJoined(data) {
-    showToast(`${data.displayName} انضم للدردشة - الرتبة: ${RANKS[data.rank]?.name}`, 'info');
-    addNotification({
-        message: `👋 Welcome ${data.displayName} — Rank: ${RANKS[data.rank]?.name}`,
-        timestamp: new Date(),
-        type: 'welcome'
-    });
-}
-
-function handleUserLeft(data) {
-    showToast(`${data.displayName} غادر الدردشة`, 'info');
-}
-
-function handleNotification(data) {
-    addNotification(data);
-    showToast(data.message, data.type || 'info');
-}
-
-function handleRankUpdate(data) {
-    if (data.userId === currentUser.id) {
-        userRank = data.newRank;
-        updateRankDisplay();
-        showRankUpgradeNotification(data.newRank);
-    }
-}
-
-function handleUserBanned(data) {
-    if (data.userId === currentUser.id) {
-        showBanScreen(data.reason, data.duration);
-    }
-}
-
-function handleMessageDeleted(messageId) {
-    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-    if (messageElement) {
-        messageElement.remove();
-    }
-}
-
-function handleQuizQuestion(data) {
-    currentQuestion = data;
-    displayQuestion(data);
-}
-
-function handleQuizResult(data) {
-    if (data.correct) {
-        userCoins += data.points;
-        updateCoinsDisplay();
-        checkRankUpgrade();
-    }
-}
-
-function updateQuizLeaderboard(data) {
-    const leaderboard = document.getElementById('leaderboardList');
-    leaderboard.innerHTML = '';
-    
-    data.forEach((user, index) => {
-        const item = document.createElement('div');
-        item.textContent = `${index + 1}. ${user.name} - ${user.points} نقطة`;
-        leaderboard.appendChild(item);
-    });
-}
-
-// إضافة إشعار
-function addNotification(notification) {
-    notifications.unshift(notification);
-    
-    // الحد الأقصى للإشعارات
-    if (notifications.length > 50) {
-        notifications = notifications.slice(0, 50);
-    }
-    
-    // تحديث عداد الإشعارات
-    const count = document.getElementById('notificationCount');
-    count.textContent = notifications.length;
-    count.style.display = notifications.length > 0 ? 'block' : 'none';
-}
-
-// إظهار إشعار الترحيب
-function showWelcomeNotification() {
-    const welcomeMessage = `👋 Welcome ${currentUser.display_name} — Rank: ${RANKS[userRank]?.name}`;
-    
-    addNotification({
-        message: welcomeMessage,
-        timestamp: new Date(),
-        type: 'welcome'
-    });
-    
-    // إشعار للجميع
-    if (socket) {
-        socket.emit('userJoined', {
-            displayName: currentUser.display_name,
-            rank: userRank
-        });
-    }
-}
-
-// تشغيل صوت الإشعار
-function playNotificationSound() {
-    const soundEnabled = localStorage.getItem('soundNotifications') !== 'false';
-    if (soundEnabled) {
-        // إنشاء صوت إشعار بسيط
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = 800;
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.5);
-    }
-}
-
-// إظهار رسالة Toast
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    
-    const container = document.getElementById('toastContainer');
-    container.appendChild(toast);
-    
-    // إزالة التوست بعد 3 ثوان
+    // إزالة المنتقي بعد 5 ثوان
     setTimeout(() => {
-        toast.remove();
-    }, 3000);
+        picker.remove();
+    }, 5000);
+}
+
+// إضافة رمز تعبيري
+function addEmoji(emoji) {
+    const input = document.getElementById('messageInput');
+    input.value += emoji;
+    input.focus();
+    
+    // إزالة منتقي الرموز
+    const picker = input.parentNode.querySelector('div');
+    if (picker) picker.remove();
+}
+
+// فتح منتقي الصور المتحركة
+function openGifPicker() {
+    showNotification('منتقي الصور المتحركة قيد التطوير', 'info');
+}
+
+// اقتباس رسالة
+function quoteMessage(messageId, author, content) {
+    quotedMessage = { id: messageId, author, content };
+    
+    const quotedDiv = document.getElementById('quotedMessage');
+    quotedDiv.style.display = 'flex';
+    quotedDiv.querySelector('.quoted-author').textContent = author;
+    quotedDiv.querySelector('.quoted-text').textContent = content.substring(0, 50) + (content.length > 50 ? '...' : '');
+    
+    document.getElementById('messageInput').focus();
+}
+
+// إلغاء الاقتباس
+function cancelQuote() {
+    quotedMessage = null;
+    document.getElementById('quotedMessage').style.display = 'none';
+}
+
+// فتح صورة في مودال
+function openImageModal(imageUrl) {
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 90vw; max-height: 90vh; padding: 0; background: transparent; border: none; box-shadow: none;">
+            <img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 12px;" onclick="this.parentElement.parentElement.remove()">
+        </div>
+    `;
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    };
+    
+    document.body.appendChild(modal);
+}
+
+// مسح الدردشة
+async function clearChat() {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
+        showError('غير مسموح - للإداريين فقط');
+        return;
+    }
+    
+    if (confirm('هل أنت متأكد من مسح جميع الرسائل في هذه الغرفة؟')) {
+        try {
+            const response = await fetch(`/api/rooms/${currentRoom}/clear`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+                }
+            });
+            
+            if (response.ok) {
+                document.getElementById('messagesContainer').innerHTML = '';
+                showNotification('تم مسح الدردشة بنجاح', 'success');
+            } else {
+                showError('فشل في مسح الدردشة');
+            }
+        } catch (error) {
+            showError('حدث خطأ في مسح الدردشة');
+        }
+    }
+}
+
+// إظهار تبويبات تسجيل الدخول
+function showLoginTab(tabName) {
+    // إخفاء جميع النماذج
+    document.querySelectorAll('.auth-form').forEach(form => {
+        form.classList.remove('active');
+    });
+    
+    // إزالة الفئة النشطة من جميع الأزرار
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // عرض النموذج المحدد
+    document.getElementById(`${tabName}Form`).classList.add('active');
+    
+    // تفعيل الزر المحدد
+    event.target.classList.add('active');
+}
+
+// التمرير لأسفل
+function scrollToBottom() {
+    const container = document.getElementById('messagesContainer');
+    container.scrollTop = container.scrollHeight;
 }
 
 // إظهار رسالة خطأ
 function showError(message) {
     const errorDiv = document.getElementById('loginError');
-    errorDiv.textContent = message;
-    errorDiv.classList.add('show');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.classList.add('show');
+        
+        setTimeout(() => {
+            errorDiv.classList.remove('show');
+        }, 5000);
+    } else {
+        showNotification(message, 'error');
+    }
+}
+
+// إظهار حالة التحميل
+function showLoading(show) {
+    const spinner = document.getElementById('loadingSpinner');
+    if (spinner) {
+        spinner.style.display = show ? 'flex' : 'none';
+    }
+}
+
+// إظهار إشعار
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
     
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    
+    container.appendChild(toast);
+    
+    // إزالة الإشعار بعد 5 ثوان
     setTimeout(() => {
-        errorDiv.classList.remove('show');
+        toast.remove();
     }, 5000);
 }
 
-// تنسيق الوقت
-function formatTime(timestamp) {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now - date;
-    
-    if (diff < 60000) { // أقل من دقيقة
-        return 'الآن';
-    } else if (diff < 3600000) { // أقل من ساعة
-        return Math.floor(diff / 60000) + ' د';
-    } else if (diff < 86400000) { // أقل من يوم
-        return Math.floor(diff / 3600000) + ' س';
-    } else {
-        return date.toLocaleDateString('ar');
+// فتح مودال
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
     }
 }
 
-// إنشاء صورة افتراضية
-function generateDefaultAvatar(name) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 40;
-    canvas.height = 40;
-    const ctx = canvas.getContext('2d');
-    
-    // خلفية ملونة
-    const colors = ['#667eea', '#764ba2', '#f093fb', '#4CAF50', '#ff9800', '#f44336'];
-    const color = colors[name.length % colors.length];
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 40, 40);
-    
-    // النص
-    ctx.fillStyle = 'white';
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(name.charAt(0).toUpperCase(), 20, 20);
-    
-    return canvas.toDataURL();
-}
-
-// فتح صورة في مودال
-function openImageModal(imageUrl) {
-    // منطق فتح الصورة في مودال
-    window.open(imageUrl, '_blank');
-}
-
-// تحديث رتبة المستخدم في الخادم
-async function updateUserRank(rank) {
-    try {
-        await fetch('/api/user/rank', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({ rank })
-        });
-    } catch (error) {
-        console.error('Error updating user rank:', error);
+// إغلاق مودال
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+        document.body.style.overflow = 'auto';
     }
 }
 
-// تبديل المظهر
-function toggleTheme() {
-    const body = document.body;
-    const isDark = body.getAttribute('data-theme') === 'dark';
-    
-    if (isDark) {
-        body.removeAttribute('data-theme');
-        localStorage.setItem('theme', 'light');
-    } else {
-        body.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
+// إغلاق جميع المودالات
+function closeAllModals() {
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.classList.remove('show');
+    });
+    document.body.style.overflow = 'auto';
+}
+
+// إغلاق إجراءات المستخدم
+function closeUserActionsModal() {
+    closeModal('userActionsModal');
+    selectedUserId = null;
+}
+
+// تهيئة الأصوات
+function initializeAudio() {
+    // تحميل الأصوات المحفوظة
+    const soundEnabled = localStorage.getItem('soundNotifications');
+    if (soundEnabled !== null) {
+        document.getElementById('soundNotifications').checked = soundEnabled === 'true';
     }
 }
 
-// تحميل المظهر المحفوظ
-function loadSavedTheme() {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-        document.body.setAttribute('data-theme', 'dark');
+// تشغيل صوت الإشعار
+function playNotificationSound() {
+    const soundEnabled = document.getElementById('soundNotifications')?.checked;
+    if (soundEnabled !== false) {
+        const audio = document.getElementById('notificationSound');
+        if (audio) {
+            audio.play().catch(() => {
+                // تجاهل الأخطاء إذا لم يتمكن من تشغيل الصوت
+            });
+        }
     }
 }
 
-// تهيئة المظهر عند التحميل
-document.addEventListener('DOMContentLoaded', loadSavedTheme);
+// تنظيف HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// معالج الأخطاء العامة
+window.addEventListener('error', function(e) {
+    console.error('خطأ في التطبيق:', e.error);
+    showNotification('حدث خطأ غير متوقع', 'error');
+});
+
+// معالج الأخطاء غير المعالجة
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('خطأ غير معالج:', e.reason);
+    showNotification('حدث خطأ في الشبكة', 'error');
+});
