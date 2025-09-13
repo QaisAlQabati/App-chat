@@ -2685,3 +2685,54 @@ function addManualPlayButton(audio) {
         profileModal.appendChild(playButton);
     }
 }
+// ✅ نظام الأخبار والستوري مع الإعجاب والتعليق
+async function postNews() {
+    const content = document.getElementById('newsContentInput').value.trim();
+    if (!content) return alert('اكتب شيئاً');
+
+    const response = await fetch('/api/news', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('chatToken')}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content })
+    });
+
+    const data = await response.json();
+    if (data.success) {
+        displayNewsPost({
+            id: data.id,
+            content,
+            display_name: currentUser.display_name,
+            timestamp: new Date(),
+            likes: 0,
+            dislikes: 0
+        });
+    }
+}
+
+function displayNewsPost(post) {
+    const feed = document.getElementById('newsFeed');
+    const postDiv = document.createElement('div');
+    postDiv.className = 'news-post';
+    postDiv.innerHTML = `
+        <div class="news-content">${post.content}</div>
+        <div class="news-actions">
+            <button onclick="likePost(${post.id})">❤️ <span>${post.likes}</span></button>
+            <button onclick="dislikePost(${post.id})">👎 <span>${post.dislikes}</span></button>
+        </div>
+    `;
+    feed.prepend(postDiv); // يظهر فوراً
+}
+
+function likePost(id) {
+    fetch('/api/news/like', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('chatToken')}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id })
+    });
+}
