@@ -1,25 +1,87 @@
+
+```html
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🦂 شات وتين العقرب</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css ">
+
+    <!-- ========== دمج كامل لملف style.css بدون حذف أي سطر ========= -->
     <style>
-        /* ========== الأنماط الأساسية (من ملفك الأصلي) ========= */
+        /* إعادة تعيين الأنماط الأساسية */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+        :root {
+            /* الألوان الأساسية - تدرج وردي أنيق */
+            --primary-color: #e91e63;
+            --primary-light: #f8bbd9;
+            --primary-dark: #ad1457;
+            --secondary-color: #9c27b0;
+            --accent-color: #ff4081;
+            --success-color: #4CAF50;
+            --warning-color: #ff9800;
+            --error-color: #f44336;
+            --info-color: #2196F3;
+            /* ألوان الخلفية */
+            --bg-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --bg-secondary: rgba(255, 255, 255, 0.95);
+            --bg-tertiary: rgba(255, 255, 255, 0.1);
+            --bg-card: rgba(255, 255, 255, 0.9);
+            --bg-modal: rgba(0, 0, 0, 0.8);
+            --bg-sidebar: rgba(255, 255, 255, 0.98);
+            /* ألوان النص */
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --text-muted: #bdc3c7;
+            --text-white: #ffffff;
+            /* الحدود والظلال */
+            --border-color: rgba(0, 0, 0, 0.1);
+            --border-light: rgba(255, 255, 255, 0.2);
+            --shadow-light: 0 2px 10px rgba(0, 0, 0, 0.1);
+            --shadow-medium: 0 4px 20px rgba(0, 0, 0, 0.15);
+            --shadow-heavy: 0 8px 30px rgba(0, 0, 0, 0.25);
+            --shadow-glow: 0 0 20px rgba(233, 30, 99, 0.3);
+            /* المسافات */
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            --spacing-xxl: 3rem;
+            /* الخطوط */
+            --font-family: 'Segoe UI', 'Cairo', Tahoma, Geneva, Verdana, sans-serif;
+            --font-size-xs: 0.75rem;
+            --font-size-sm: 0.875rem;
+            --font-size-md: 1rem;
+            --font-size-lg: 1.125rem;
+            --font-size-xl: 1.25rem;
+            --font-size-xxl: 1.5rem;
+            /* الانتقالات */
+            --transition-fast: 0.2s ease;
+            --transition-medium: 0.3s ease;
+            --transition-slow: 0.5s ease;
+            /* نصف القطر */
+            --radius-sm: 6px;
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --radius-xl: 24px;
+            --radius-full: 50%;
+        }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #2c3e50;
+            font-family: var(--font-family);
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
             overflow-x: hidden;
             direction: rtl;
+            line-height: 1.6;
         }
+        /* الشاشات */
         .screen {
             display: none;
             min-height: 100vh;
@@ -27,402 +89,4790 @@
         .screen.active {
             display: block;
         }
+        /* شاشة تسجيل الدخول */
         #loginScreen {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--bg-primary);
+            position: relative;
+            overflow: hidden;
+        }
+        #loginScreen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('https://images.pexels.com/photos/1323550/pexels-photo-1323550.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop ') center/cover;
+            opacity: 0.1;
+            z-index: 0;
         }
         .login-container {
-            background: rgba(255, 255, 255, 0.95);
+            background: var(--bg-card);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 24px;
-            padding: 40px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xxl);
             width: 100%;
             max-width: 420px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            box-shadow: var(--shadow-heavy);
+            position: relative;
+            z-index: 1;
+            animation: slideInUp 0.6s ease;
+        }
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: var(--spacing-xl);
+        }
+        .logo h1 {
+            font-size: var(--font-size-xxl);
+            margin-bottom: var(--spacing-sm);
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+        .logo p {
+            color: var(--text-secondary);
+            font-size: var(--font-size-sm);
+        }
+        .login-tabs {
+            display: flex;
+            margin-bottom: var(--spacing-lg);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-xs);
+            gap: var(--spacing-xs);
+        }
+        .tab-btn {
+            flex: 1;
+            padding: var(--spacing-md);
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+        }
+        .tab-btn.active {
+            background: var(--primary-color);
+            color: var(--text-white);
+            box-shadow: var(--shadow-light);
+            transform: translateY(-1px);
         }
         .auth-form {
             display: none;
         }
         .auth-form.active {
             display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         .input-group {
             position: relative;
-            margin-bottom: 20px;
+            margin-bottom: var(--spacing-lg);
+        }
+        .input-group i {
+            position: absolute;
+            right: var(--spacing-md);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            z-index: 1;
         }
         .input-group input,
         .input-group select {
             width: 100%;
-            padding: 15px 45px 15px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            background: #ffffff;
-            font-size: 16px;
-            transition: all 0.3s ease;
+            padding: var(--spacing-md) var(--spacing-xl);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: var(--font-size-md);
+            transition: var(--transition-fast);
+            font-family: var(--font-family);
         }
         .input-group input:focus,
         .input-group select:focus {
             outline: none;
-            border-color: #e91e63;
+            border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.1);
-        }
-        .input-group i {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #999;
+            transform: translateY(-1px);
         }
         .auth-btn {
             width: 100%;
-            padding: 15px;
+            padding: var(--spacing-lg);
             border: none;
-            border-radius: 12px;
-            background: linear-gradient(45deg, #e91e63, #9c27b0);
-            color: white;
-            font-size: 16px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            color: var(--text-white);
+            font-size: var(--font-size-md);
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(233, 30, 99, 0.3);
+            transition: var(--transition-fast);
+            box-shadow: var(--shadow-medium);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
         }
         .auth-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(233, 30, 99, 0.4);
+            box-shadow: var(--shadow-heavy);
         }
+        .auth-btn:active {
+            transform: translateY(0);
+        }
+        /* شاشة الحظر */
+        #banScreen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--error-color) 0%, #d32f2f 100%);
+        }
+        .ban-container {
+            text-align: center;
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xxl);
+            max-width: 500px;
+            box-shadow: var(--shadow-heavy);
+            animation: slideInUp 0.6s ease;
+        }
+        .ban-icon {
+            font-size: 4rem;
+            margin-bottom: var(--spacing-lg);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .ban-reason {
+            font-size: var(--font-size-lg);
+            margin: var(--spacing-lg) 0;
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-md);
+            border-right: 4px solid var(--error-color);
+        }
+        .contact-info {
+            margin: var(--spacing-lg) 0;
+            padding: var(--spacing-lg);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+        }
+        .contact-info a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition-fast);
+        }
+        .contact-info a:hover {
+            text-decoration: underline;
+        }
+        /* الشاشة الرئيسية */
         #mainScreen {
             display: flex;
             flex-direction: column;
             height: 100vh;
-            background: #f5f5f5;
+            background: var(--bg-secondary);
         }
+        /* الشريط العلوي */
         .main-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 15px 20px;
-            background: white;
-            border-bottom: 1px solid #e0e0e0;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: var(--shadow-light);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
         }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+        .hamburger-btn {
+            padding: var(--spacing-sm);
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .hamburger-btn:hover {
+            background: var(--primary-color);
+            color: var(--text-white);
+            transform: translateY(-1px);
+        }
+        .app-logo h1 {
+            font-size: var(--font-size-xl);
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0;
+            font-weight: 700;
+        }
+        .header-center {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            max-width: 300px;
+            margin: 0 var(--spacing-lg);
+        }
+        .room-selector select {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: var(--font-size-sm);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            min-width: 200px;
+        }
+        .room-selector select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        .header-btn {
+            position: relative;
+            padding: var(--spacing-sm);
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .header-btn:hover {
+            background: var(--primary-color);
+            color: var(--text-white);
+            transform: translateY(-1px);
+        }
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            background: var(--error-color);
+            color: white;
+            border-radius: var(--radius-full);
+            padding: 2px 6px;
+            font-size: var(--font-size-xs);
+            min-width: 18px;
+            text-align: center;
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-5px); }
+            60% { transform: translateY(-3px); }
+        }
+        .user-profile-mini {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: var(--spacing-sm);
+            border-radius: var(--radius-md);
+            transition: var(--transition-fast);
+            margin-right: var(--spacing-md);
+            background: var(--bg-tertiary);
+        }
+        .user-profile-mini:hover {
+            background: var(--primary-light);
+            transform: translateY(-1px);
+        }
+        .user-avatar-mini {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            margin-left: var(--spacing-md);
+            border: 2px solid var(--primary-color);
+            object-fit: cover;
+        }
+        .user-info-mini {
+            display: flex;
+            flex-direction: column;
+        }
+        .user-name {
+            font-weight: 600;
+            font-size: var(--font-size-md);
+            color: var(--text-primary);
+        }
+        .user-rank {
+            font-size: var(--font-size-xs);
+            color: var(--text-secondary);
+        }
+        /* المحتوى الرئيسي */
         .main-content {
             display: flex;
             flex: 1;
             overflow: hidden;
         }
+        /* منطقة الدردشة */
         .chat-area {
             flex: 1;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            margin: 10px;
+            background: var(--bg-secondary);
+        }
+        .chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-lg);
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .chat-header h2 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: var(--font-size-xl);
+        }
+        .chat-controls {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+        .control-btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            font-size: var(--font-size-sm);
+        }
+        .control-btn:hover {
+            background: var(--primary-color);
+            color: var(--text-white);
+            transform: translateY(-1px);
         }
         .messages-container {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
-            background: #fafafa;
+            padding: var(--spacing-lg);
+            background: var(--bg-secondary);
+            scroll-behavior: smooth;
         }
-        .message-input-container {
-            padding: 15px;
-            background: white;
-            border-top: 1px solid #e0e0e0;
+        .welcome-message {
+            text-align: center;
+            padding: var(--spacing-xxl);
+            margin: var(--spacing-xl) 0;
         }
-        #messageInput {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 25px;
-            font-size: 14px;
+        .welcome-content {
+            background: var(--bg-card);
+            padding: var(--spacing-xl);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-light);
+            border: 1px solid var(--border-color);
         }
-        .users-sidebar {
-            width: 300px;
-            background: white;
-            border-left: 1px solid #e0e0e0;
-            overflow-y: auto;
+        .welcome-content h3 {
+            color: var(--primary-color);
+            margin-bottom: var(--spacing-md);
+            font-size: var(--font-size-xl);
         }
-        .user-item {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-        .user-item:hover {
-            background: #f5f5f5;
+        .welcome-content p {
+            color: var(--text-secondary);
         }
         .message {
             display: flex;
-            margin-bottom: 15px;
+            margin-bottom: var(--spacing-lg);
+            animation: messageSlideIn 0.4s ease;
             align-items: flex-start;
+        }
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         .message.own {
             flex-direction: row-reverse;
         }
         .message-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin: 0 10px;
+            width: 45px;
+            height: 45px;
+            border-radius: var(--radius-full);
+            margin: 0 var(--spacing-md);
+            border: 2px solid var(--primary-color);
+            cursor: pointer;
+            object-fit: cover;
+            transition: var(--transition-fast);
+        }
+        .message-avatar:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-glow);
         }
         .message-content {
             max-width: 70%;
-            background: white;
-            padding: 10px 15px;
-            border-radius: 15px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-md);
+            position: relative;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-light);
+            transition: var(--transition-fast);
+        }
+        .message-content:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-medium);
         }
         .message.own .message-content {
-            background: linear-gradient(45deg, #e91e63, #9c27b0);
+            background: linear-gradient(45deg, var(--primary-color), var(--primary-light));
+            color: var(--text-white);
+        }
+        .message-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: var(--spacing-sm);
+            flex-wrap: wrap;
+            gap: var(--spacing-sm);
+        }
+        .message-author {
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+        .message-author:hover {
+            color: var(--primary-color);
+        }
+        .message-rank {
+            font-size: var(--font-size-xs);
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+            background: var(--accent-color);
+            color: white;
+            font-weight: 500;
+        }
+        .message-time {
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+            margin-right: auto;
+        }
+        .message-text {
+            line-height: 1.6;
+            word-wrap: break-word;
+            font-size: var(--font-size-md);
+        }
+        .message-media {
+            margin-top: var(--spacing-sm);
+        }
+        .message-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+        .message-image:hover {
+            transform: scale(1.02);
+        }
+        .message-audio {
+            width: 100%;
+            margin-top: var(--spacing-sm);
+            border-radius: var(--radius-md);
+        }
+        .quoted-message {
+            background: var(--bg-tertiary);
+            border-right: 3px solid var(--primary-color);
+            padding: var(--spacing-sm) var(--spacing-md);
+            margin-bottom: var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .quoted-content {
+            flex: 1;
+        }
+        .quoted-author {
+            font-weight: 600;
+            color: var(--primary-color);
+            font-size: var(--font-size-sm);
+        }
+        .quoted-text {
+            color: var(--text-secondary);
+            font-size: var(--font-size-sm);
+            margin-right: var(--spacing-sm);
+        }
+        .cancel-quote {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: var(--spacing-xs);
+            border-radius: var(--radius-sm);
+            transition: var(--transition-fast);
+        }
+        .cancel-quote:hover {
+            background: var(--error-color);
             color: white;
         }
+        .message-input-container {
+            padding: var(--spacing-lg);
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+        .input-tools {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+            flex-wrap: wrap;
+        }
+        .tool-btn {
+            padding: var(--spacing-sm);
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tool-btn:hover {
+            background: var(--primary-color);
+            color: var(--text-white);
+            transform: translateY(-1px);
+        }
+        .tool-btn.recording {
+            background: var(--error-color);
+            color: white;
+            animation: pulse 1s infinite;
+        }
+        .message-input-wrapper {
+            display: flex;
+            gap: var(--spacing-sm);
+            align-items: flex-end;
+        }
+        #messageInput {
+            flex: 1;
+            padding: var(--spacing-md);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: var(--font-size-md);
+            resize: none;
+            min-height: 50px;
+            max-height: 120px;
+            font-family: var(--font-family);
+            transition: var(--transition-fast);
+        }
+        #messageInput:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.1);
+        }
+        .send-btn {
+            padding: var(--spacing-md);
+            border: none;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            color: var(--text-white);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            min-width: 60px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-light);
+        }
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+        }
+        /* الشريط الجانبي للمستخدمين */
+        .users-sidebar {
+            width: 320px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+        }
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-lg);
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-card);
+        }
+        .sidebar-header h3 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+        }
+        .online-count {
+            background: var(--success-color);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+        .users-list {
+            flex: 1;
+            padding: var(--spacing-md);
+        }
+        .user-item {
+            display: flex;
+            align-items: center;
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            border: 1px solid transparent;
+            margin-bottom: var(--spacing-sm);
+            background: var(--bg-card);
+        }
+        .user-item:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-light);
+        }
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: var(--radius-full);
+            margin-left: var(--spacing-md);
+            border: 2px solid var(--success-color);
+            object-fit: cover;
+        }
+        .user-details {
+            flex: 1;
+        }
+        .user-display-name {
+            font-weight: 600;
+            margin-bottom: 2px;
+            color: var(--text-primary);
+        }
+        .user-status {
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+        }
+        /* شريط التحكم السفلي */
+        .bottom-control-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+        }
+        .music-controls {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        .volume-control i {
+            color: var(--text-secondary);
+        }
+        #volumeSlider {
+            width: 100px;
+            height: 4px;
+            border-radius: var(--radius-sm);
+            background: var(--bg-tertiary);
+            outline: none;
+            cursor: pointer;
+        }
+        #volumeSlider::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: var(--radius-full);
+            background: var(--primary-color);
+            cursor: pointer;
+        }
+        .now-playing {
+            flex: 1;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: var(--font-size-sm);
+            padding: var(--spacing-sm);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+        }
+        .song-title {
+            font-weight: 500;
+        }
+        /* المودالات */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-modal);
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.show {
+            display: flex;
+        }
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: var(--radius-xl);
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-heavy);
+            border: 1px solid var(--border-color);
+            position: relative;
+            animation: modalSlideIn 0.3s ease;
+        }
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-lg);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            background: var(--bg-card);
+            z-index: 1;
+            backdrop-filter: blur(10px);
+        }
+        .modal-header h2 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: var(--font-size-xl);
+            font-weight: 600;
+        }
+        .close-btn {
+            padding: var(--spacing-sm);
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .close-btn:hover {
+            background: var(--error-color);
+            color: white;
+            transform: rotate(90deg);
+        }
+        /* القائمة الرئيسية */
+        .main-menu {
+            width: 700px;
+        }
+        .menu-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--spacing-lg);
+            padding: var(--spacing-xl);
+        }
+        .menu-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: var(--spacing-xl);
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            border: 1px solid var(--border-color);
+            text-align: center;
+            box-shadow: var(--shadow-light);
+        }
+        .menu-item:hover {
+            background: var(--primary-light);
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-medium);
+            border-color: var(--primary-color);
+        }
+        .menu-item i {
+            font-size: 2.5rem;
+            margin-bottom: var(--spacing-md);
+            color: var(--primary-color);
+        }
+        .menu-item span {
+            font-weight: 600;
+            margin-bottom: var(--spacing-sm);
+            font-size: var(--font-size-lg);
+            color: var(--text-primary);
+        }
+        .menu-item p {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        /* مودال الملف الشخصي */
+        .profile-modal {
+            width: 900px;
+        }
+        .profile-content {
+            padding: 0;
+        }
+        .profile-cover {
+            position: relative;
+            height: 250px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            overflow: hidden;
+        }
+        .profile-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .change-cover-btn {
+            position: absolute;
+            bottom: var(--spacing-md);
+            left: var(--spacing-md);
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: none;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            font-size: var(--font-size-sm);
+        }
+        .change-cover-btn:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-1px);
+        }
+        .profile-info {
+            padding: var(--spacing-xl);
+        }
+        .profile-avatar-section {
+            margin-bottom: var(--spacing-xl);
+        }
+        .profile-avatars {
+            display: flex;
+            gap: var(--spacing-xl);
+            justify-content: center;
+            margin-top: -60px;
+            margin-bottom: var(--spacing-xl);
+        }
+        .avatar-slot {
+            position: relative;
+            text-align: center;
+        }
+        .avatar-slot img {
+            width: 120px;
+            height: 120px;
+            border-radius: var(--radius-full);
+            border: 4px solid var(--bg-card);
+            object-fit: cover;
+            box-shadow: var(--shadow-medium);
+            transition: var(--transition-fast);
+        }
+        .avatar-slot img:hover {
+            transform: scale(1.05);
+            box-shadow: var(--shadow-glow);
+        }
+        .avatar-slot button {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: var(--primary-color);
+            color: var(--text-white);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-light);
+        }
+        .avatar-slot button:hover {
+            background: var(--secondary-color);
+            transform: scale(1.1);
+        }
+        .profile-stats {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-xxl);
+            margin: var(--spacing-xl) 0;
+        }
+        .stat-item {
+            text-align: center;
+            padding: var(--spacing-md);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            min-width: 100px;
+        }
+        .stat-number {
+            display: block;
+            font-size: var(--font-size-xxl);
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: var(--spacing-xs);
+        }
+        .stat-label {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .profile-actions {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+        }
+        .profile-details {
+            margin-top: var(--spacing-xl);
+        }
+        .profile-tabs {
+            display: flex;
+            margin-bottom: var(--spacing-lg);
+            border-bottom: 1px solid var(--border-color);
+            gap: var(--spacing-sm);
+        }
+        .profile-tabs .tab-btn {
+            padding: var(--spacing-md) var(--spacing-lg);
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            border-bottom: 3px solid transparent;
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            font-weight: 500;
+        }
+        .profile-tabs .tab-btn.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            background: var(--bg-tertiary);
+        }
+        .profile-tab {
+            display: none;
+            padding: var(--spacing-lg);
+        }
+        .profile-tab.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        .info-section,
+        .settings-section,
+        .music-section,
+        .decorations-section {
+            margin-bottom: var(--spacing-xl);
+        }
+        .info-section label,
+        .settings-section label,
+        .music-section label,
+        .decorations-section label {
+            display: block;
+            margin-bottom: var(--spacing-sm);
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: var(--font-size-md);
+        }
+        .info-section input,
+        .info-section select,
+        .info-section textarea,
+        .settings-section input,
+        .settings-section select,
+        .music-section input,
+        .decorations-section input,
+        .decorations-section select {
+            width: 100%;
+            padding: var(--spacing-md);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: var(--font-size-md);
+            transition: var(--transition-fast);
+            font-family: var(--font-family);
+        }
+        .info-section input:focus,
+        .info-section select:focus,
+        .info-section textarea:focus,
+        .settings-section input:focus,
+        .settings-section select:focus,
+        .music-section input:focus,
+        .decorations-section input:focus,
+        .decorations-section select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.1);
+        }
+        .info-section textarea {
+            resize: vertical;
+            min-height: 100px;
+            line-height: 1.6;
+        }
+        .feature-note {
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+            margin-top: var(--spacing-sm);
+            font-style: italic;
+            padding: var(--spacing-sm);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            border-right: 3px solid var(--warning-color);
+        }
+        /* الأخبار */
+        .news-modal {
+            width: 800px;
+        }
+        .news-post-form {
+            padding: var(--spacing-xl);
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+        }
+        .news-post-form textarea {
+            width: 100%;
+            padding: var(--spacing-md);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            resize: vertical;
+            min-height: 120px;
+            margin-bottom: var(--spacing-md);
+            font-family: var(--font-family);
+            line-height: 1.6;
+        }
+        .news-post-form textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.1);
+        }
+        .news-form-actions {
+            display: flex;
+            gap: var(--spacing-md);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .news-feed {
+            max-height: 500px;
+            overflow-y: auto;
+            padding: var(--spacing-lg);
+        }
+        .news-item {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-light);
+            transition: var(--transition-fast);
+        }
+        .news-item:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+        }
+        .news-header-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+        }
+        .news-author-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: var(--radius-full);
+            margin-left: var(--spacing-md);
+            border: 2px solid var(--primary-color);
+            object-fit: cover;
+        }
+        .news-author-info h4 {
+            margin: 0 0 4px 0;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .news-time {
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+        }
+        .news-content {
+            margin-bottom: var(--spacing-md);
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+        .news-media img,
+        .news-media video {
+            width: 100%;
+            max-height: 400px;
+            border-radius: var(--radius-md);
+            margin-top: var(--spacing-md);
+            object-fit: cover;
+        }
+        /* القصص */
+        .stories-modal {
+            width: 700px;
+        }
+        .add-story-section {
+            padding: var(--spacing-xl);
+            border-bottom: 1px solid var(--border-color);
+            text-align: center;
+            background: var(--bg-tertiary);
+        }
+        .add-story-btn {
+            padding: var(--spacing-md) var(--spacing-xl);
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            color: var(--text-white);
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            box-shadow: var(--shadow-light);
+        }
+        .add-story-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+        }
+        .stories-container {
+            display: flex;
+            gap: var(--spacing-md);
+            padding: var(--spacing-xl);
+            overflow-x: auto;
+            min-height: 300px;
+        }
+        .story-item {
+            position: relative;
+            width: 150px;
+            height: 250px;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            cursor: pointer;
+            transition: var(--transition-fast);
+            border: 3px solid transparent;
+            flex-shrink: 0;
+            box-shadow: var(--shadow-light);
+        }
+        .story-item:hover {
+            transform: scale(1.05);
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-glow);
+        }
+        .story-item img,
+        .story-item video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        /* غرفة المسابقات */
+        .quiz-room-modal {
+            width: 800px;
+        }
+        .quiz-stats {
+            display: flex;
+            justify-content: space-around;
+            padding: var(--spacing-xl);
+            background: var(--bg-tertiary);
+            margin-bottom: var(--spacing-lg);
+        }
+        .quiz-question {
+            padding: var(--spacing-xl);
+            text-align: center;
+        }
+        .quiz-question h3 {
+            margin-bottom: var(--spacing-xl);
+            font-size: var(--font-size-xxl);
+            color: var(--text-primary);
+        }
+        .question-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+        }
+        .option-btn {
+            padding: var(--spacing-lg);
+            border: 2px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            font-size: var(--font-size-md);
+            font-weight: 500;
+        }
+        .option-btn:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+        .quiz-timer {
+            font-size: var(--font-size-xl);
+            color: var(--warning-color);
+            font-weight: 700;
+            background: var(--bg-tertiary);
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            display: inline-block;
+        }
+        .quiz-leaderboard {
+            padding: var(--spacing-xl);
+            background: var(--bg-tertiary);
+            margin-top: var(--spacing-lg);
+        }
+        .quiz-leaderboard h4 {
+            margin-bottom: var(--spacing-lg);
+            color: var(--text-primary);
+            font-size: var(--font-size-xl);
+            text-align: center;
+        }
+        /* لوحة الإدارة */
+        .admin-modal {
+            width: 95vw;
+            max-width: 1400px;
+            height: 85vh;
+        }
+        .admin-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .admin-tabs {
+            display: flex;
+            padding: var(--spacing-lg);
+            border-bottom: 1px solid var(--border-color);
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+            background: var(--bg-tertiary);
+        }
+        .admin-tabs .tab-btn {
+            padding: var(--spacing-md) var(--spacing-lg);
+            border: 2px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            font-weight: 500;
+        }
+        .admin-tabs .tab-btn.active {
+            background: var(--primary-color);
+            color: var(--text-white);
+            border-color: var(--primary-color);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-light);
+        }
+        .admin-tab {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-xl);
+        }
+        .admin-tab.active {
+            display: block;
+        }
+        .admin-user-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-lg);
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-md);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-light);
+            transition: var(--transition-fast);
+        }
+        .admin-user-item:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-medium);
+        }
+        .admin-user-info {
+            display: flex;
+            align-items: center;
+        }
+        .admin-user-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: var(--radius-full);
+            margin-left: var(--spacing-md);
+            border: 2px solid var(--primary-color);
+            object-fit: cover;
+        }
+        .admin-user-details h4 {
+            margin: 0 0 4px 0;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .admin-user-rank {
+            font-size: var(--font-size-sm);
+            color: var(--text-muted);
+        }
+        .admin-user-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+        }
+        .admin-action-btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+        /* إجراءات المستخدم */
+        .user-actions {
+            padding: var(--spacing-xl);
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: var(--spacing-xl);
+            padding: var(--spacing-lg);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+        }
+        .user-info img {
+            width: 60px;
+            height: 60px;
+            border-radius: var(--radius-full);
+            margin-left: var(--spacing-md);
+            border: 2px solid var(--primary-color);
+            object-fit: cover;
+        }
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-md);
+        }
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: var(--spacing-xl);
+            border: 2px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            text-decoration: none;
+            text-align: center;
+        }
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+        }
+        .action-btn i {
+            font-size: 1.8rem;
+            margin-bottom: var(--spacing-sm);
+        }
+        .ban-btn:hover {
+            background: var(--error-color);
+            color: white;
+            border-color: var(--error-color);
+        }
+        .mute-btn:hover {
+            background: var(--warning-color);
+            color: white;
+            border-color: var(--warning-color);
+        }
+        .rank-btn:hover {
+            background: var(--info-color);
+            color: white;
+            border-color: var(--info-color);
+        }
+        .coins-btn:hover {
+            background: var(--success-color);
+            color: white;
+            border-color: var(--success-color);
+        }
+        /* نماذج الإجراءات */
+        .ban-form,
+        .rank-form,
+        .room-form,
+        .story-form {
+            padding: var(--spacing-xl);
+        }
+        .form-group {
+            margin-bottom: var(--spacing-lg);
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: var(--spacing-sm);
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: var(--font-size-md);
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: var(--spacing-md);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: var(--font-size-md);
+            font-family: var(--font-family);
+            transition: var(--transition-fast);
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.1);
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+            line-height: 1.6;
+        }
+        /* الرتب */
+        .ranks-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: var(--spacing-lg);
+        }
+        .rank-item {
+            background: var(--bg-card);
+            padding: var(--spacing-xl);
+            border-radius: var(--radius-lg);
+            text-align: center;
+            border: 2px solid var(--border-color);
+            transition: var(--transition-fast);
+            box-shadow: var(--shadow-light);
+        }
+        .rank-item:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+            border-color: var(--primary-color);
+        }
+        .rank-emoji {
+            font-size: 3rem;
+            margin-bottom: var(--spacing-md);
+        }
+        .rank-name {
+            font-weight: 600;
+            margin-bottom: var(--spacing-sm);
+            font-size: var(--font-size-lg);
+            color: var(--text-primary);
+        }
+        .rank-level {
+            font-size: var(--font-size-sm);
+            color: var(--text-muted);
+        }
+        /* الراديو */
+        .radio-stations {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+        }
+        .station {
+            display: flex;
+            align-items: center;
+            padding: var(--spacing-lg);
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            border: 2px solid var(--border-color);
+        }
+        .station:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+            transform: translateY(-1px);
+        }
+        .station i {
+            margin-left: var(--spacing-md);
+            color: var(--primary-color);
+            font-size: var(--font-size-lg);
+        }
+        .station span {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        .radio-controls {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-lg);
+            margin-bottom: var(--spacing-xl);
+            justify-content: center;
+            padding: var(--spacing-lg);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+        }
+        .custom-music {
+            margin-top: var(--spacing-xl);
+        }
+        .custom-music h4 {
+            margin-bottom: var(--spacing-lg);
+            color: var(--text-primary);
+            font-size: var(--font-size-lg);
+        }
+        .custom-music-list {
+            margin-top: var(--spacing-lg);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        /* الأزرار */
+        .btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            text-decoration: none;
+            border: 2px solid transparent;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-light);
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            color: var(--text-white);
+        }
+        .btn-primary:hover {
+            box-shadow: var(--shadow-glow);
+        }
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+        .btn-secondary:hover {
+            background: var(--bg-card);
+            border-color: var(--primary-color);
+        }
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+        .btn-warning {
+            background: var(--warning-color);
+            color: white;
+        }
+        .btn-danger,
+        .btn-error {
+            background: var(--error-color);
+            color: white;
+        }
+        .btn-info {
+            background: var(--info-color);
+            color: white;
+        }
+        .save-btn {
+            background: var(--success-color);
+            color: white;
+            padding: var(--spacing-md) var(--spacing-xl);
+            font-weight: 600;
+        }
+        .like-btn {
+            background: var(--error-color);
+            color: white;
+        }
+        .message-btn {
+            background: var(--primary-color);
+            color: white;
+        }
+        /* التبديل */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--text-muted);
+            transition: var(--transition-fast);
+            border-radius: 30px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            right: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: var(--transition-fast);
+            border-radius: 50%;
+            box-shadow: var(--shadow-light);
+        }
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+        input:checked + .slider:before {
+            transform: translateX(-30px);
+        }
+        /* Loading Spinner */
+        .loading-spinner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-modal);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-spinner p {
+            margin-top: var(--spacing-lg);
+            color: var(--text-secondary);
+            font-size: var(--font-size-lg);
+        }
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+        }
+        .toast {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-medium);
+            border: 1px solid var(--border-color);
+            min-width: 300px;
+            animation: toastSlideIn 0.4s ease;
+            backdrop-filter: blur(10px);
+        }
+        .toast.success {
+            border-right: 4px solid var(--success-color);
+        }
+        .toast.error {
+            border-right: 4px solid var(--error-color);
+        }
+        .toast.warning {
+            border-right: 4px solid var(--warning-color);
+        }
+        .toast.info {
+            border-right: 4px solid var(--info-color);
+        }
+        @keyframes toastSlideIn {
+            from {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        /* تأثيرات الرتب */
+        .rank-visitor { color: #888; }
+        .rank-bronze { color: #cd7f32; }
+        .rank-silver { color: #c0c0c0; }
+        .rank-gold { color: #ffd700; }
+        .rank-trophy { color: #ff6b35; }
+        .rank-diamond { color: #b9f2ff; }
+        .rank-prince { 
+            background: linear-gradient(45deg, #ffd700, #ff6b35);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+        .rank-admin {
+            background: linear-gradient(45deg, #ff6b35, #f093fb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+        .rank-owner {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+        /* تأثيرات زخرفة الأسماء */
+        .name-decoration-fire {
+            animation: fireEffect 2s infinite;
+        }
+        @keyframes fireEffect {
+            0%, 100% { 
+                text-shadow: 0 0 5px #ff6b35, 0 0 10px #ff6b35, 0 0 15px #ff6b35;
+                color: #ff6b35;
+            }
+            50% { 
+                text-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700, 0 0 30px #ffd700;
+                color: #ffd700;
+            }
+        }
+        .name-decoration-star {
+            animation: starEffect 3s infinite;
+        }
+        @keyframes starEffect {
+            0%, 100% { 
+                text-shadow: 0 0 5px #ffd700;
+                transform: scale(1);
+            }
+            50% { 
+                text-shadow: 0 0 15px #ffd700, 0 0 25px #ffd700;
+                transform: scale(1.05);
+            }
+        }
+        .name-decoration-crown {
+            color: #ffd700;
+            text-shadow: 0 0 10px #ffd700;
+            font-weight: 700;
+        }
+        .name-decoration-diamond {
+            animation: diamondEffect 2s infinite;
+        }
+        @keyframes diamondEffect {
+            0%, 100% { 
+                text-shadow: 0 0 5px #b9f2ff;
+                color: #b9f2ff;
+            }
+            50% { 
+                text-shadow: 0 0 15px #b9f2ff, 0 0 25px #b9f2ff;
+                color: #ffffff;
+            }
+        }
+        .name-decoration-rainbow {
+            animation: rainbowEffect 3s infinite;
+            font-weight: 700;
+        }
+        @keyframes rainbowEffect {
+            0% { color: #ff0000; }
+            16% { color: #ff8000; }
+            33% { color: #ffff00; }
+            50% { color: #00ff00; }
+            66% { color: #0080ff; }
+            83% { color: #8000ff; }
+            100% { color: #ff0000; }
+        }
+        /* إخفاء العناصر المخصصة للأدوار */
+        .admin-only {
+            display: none;
+        }
+        .owner-only {
+            display: none;
+        }
+        .moderator-only {
+            display: none;
+        }
+        /* عرض العناصر حسب الدور */
+        [data-user-role="admin"] .admin-only,
+        [data-user-role="admin"] .moderator-only {
+            display: block;
+        }
+        [data-user-role="owner"] .owner-only,
+        [data-user-role="owner"] .admin-only,
+        [data-user-role="owner"] .moderator-only {
+            display: block;
+        }
+        [data-user-role="moderator"] .moderator-only {
+            display: block;
+        }
+        /* رسائل الخطأ */
+        .error-message {
+            background: var(--error-color);
+            color: white;
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            margin-top: var(--spacing-lg);
+            text-align: center;
+            display: none;
+            animation: shake 0.5s ease;
+        }
+        .error-message.show {
+            display: block;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        /* الاستجابة للشاشات الصغيرة */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            .users-sidebar {
+                width: 100%;
+                height: 200px;
+                order: 2;
+            }
+            .chat-area {
+                order: 1;
+                min-height: 60vh;
+            }
+            .header-right {
+                gap: var(--spacing-xs);
+            }
+            .header-btn {
+                width: 36px;
+                height: 36px;
+            }
+            .modal-content {
+                width: 95vw;
+                height: 90vh;
+                margin: 5vh auto;
+            }
+            .profile-modal {
+                width: 95vw;
+            }
+            .profile-avatars {
+                flex-direction: column;
+                align-items: center;
+                gap: var(--spacing-lg);
+            }
+            .admin-modal {
+                width: 95vw;
+                height: 90vh;
+            }
+            .admin-tabs {
+                flex-wrap: wrap;
+            }
+            .ranks-list {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+            .menu-items {
+                grid-template-columns: 1fr;
+            }
+            .actions-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .profile-stats {
+                gap: var(--spacing-lg);
+            }
+            .stat-item {
+                min-width: 80px;
+            }
+            .header-center {
+                display: none;
+            }
+            .app-logo h1 {
+                font-size: var(--font-size-lg);
+            }
+            .user-profile-mini {
+                padding: var(--spacing-xs);
+            }
+            .user-avatar-mini {
+                width: 32px;
+                height: 32px;
+            }
+            .message-content {
+                max-width: 85%;
+            }
+            .input-tools {
+                flex-wrap: wrap;
+            }
+            .tool-btn {
+                width: 36px;
+                height: 36px;
+            }
+            .bottom-control-bar {
+                flex-wrap: wrap;
+                gap: var(--spacing-sm);
+            }
+            .login-container {
+                margin: var(--spacing-md);
+                padding: var(--spacing-xl);
+            }
+            .ban-container {
+                margin: var(--spacing-md);
+                padding: var(--spacing-xl);
+            }
+        }
+        @media (max-width: 480px) {
+            .profile-tabs {
+                flex-wrap: wrap;
+            }
+            .profile-tabs .tab-btn {
+                flex: 1;
+                min-width: 120px;
+            }
+            .news-form-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .question-options {
+                grid-template-columns: 1fr;
+            }
+            .quiz-stats {
+                flex-direction: column;
+                gap: var(--spacing-md);
+            }
+            .radio-controls {
+                flex-direction: column;
+                gap: var(--spacing-md);
+            }
+        }
+        /* تحسينات إضافية للأداء */
+        * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        video {
+            max-width: 100%;
+            height: auto;
+        }
+        /* تحسينات إمكانية الوصول */
+        button:focus,
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        /* تأثيرات التمرير */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: var(--radius-sm);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+        /* تأثيرات التحديد */
+        ::selection {
+            background: var(--primary-light);
+            color: var(--text-primary);
+        }
+        ::-moz-selection {
+            background: var(--primary-light);
+            color: var(--text-primary);
+        }
+        /* أنماط الميزات الجديدة */
+        /* أنماط صندوق الدردشة الخاصة */
+        .private-chat-box {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 350px;
+            height: 500px;
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-heavy);
+            border: 1px solid var(--border-color);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            animation: slideInLeft 0.3s ease;
+        }
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .chat-box-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-md);
+            background: var(--primary-color);
+            color: var(--text-white);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            backdrop-filter: blur(10px);
+        }
+        .chat-box-title {
+            font-weight: 600;
+            font-size: var(--font-size-md);
+        }
+        .chat-box-controls {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+        .chat-box-btn {
+            padding: var(--spacing-xs);
+            border: none;
+            background: transparent;
+            color: var(--text-white);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chat-box-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+        .chat-box-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-secondary);
+        }
+        .private-chat-users {
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .private-chat-users select {
+            width: 100%;
+            padding: var(--spacing-sm);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: var(--font-size-sm);
+        }
+        .private-chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-md);
+            max-height: 300px;
+        }
+        .private-message {
+            margin-bottom: var(--spacing-md);
+            padding: var(--spacing-sm);
+            border-radius: var(--radius-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+        }
+        .private-message.own {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+            margin-right: var(--spacing-lg);
+        }
+        .private-message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-xs);
+        }
+        .private-message-author {
+            font-weight: 600;
+            color: var(--primary-color);
+            font-size: var(--font-size-sm);
+        }
+        .private-message-time {
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+        }
+        .private-message-text {
+            color: var(--text-primary);
+            font-size: var(--font-size-sm);
+            line-height: 1.4;
+        }
+        .private-chat-input {
+            display: flex;
+            padding: var(--spacing-md);
+            border-top: 1px solid var(--border-color);
+            gap: var(--spacing-sm);
+        }
+        .private-chat-input input {
+            flex: 1;
+            padding: var(--spacing-sm);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: var(--font-size-sm);
+        }
+        .private-chat-input input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(233, 30, 99, 0.1);
+        }
+        .private-chat-send {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: none;
+            background: var(--primary-color);
+            color: var(--text-white);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .private-chat-send:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        /* أنماط رفع الصور */
+        .upload-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .upload-progress-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        .upload-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* أنماط معاينة يوتيوب */
+        .youtube-embed {
+            background: #000;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .youtube-embed iframe {
+            border-radius: 8px;
+        }
+        .youtube-info {
+            color: #fff;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+        /* أنماط الرسائل المحذوفة */
+        .deleted-message {
+            opacity: 0.5;
+            font-style: italic;
+            color: #999;
+            background: rgba(231, 76, 60, 0.1) !important;
+        }
+        /* أنماط مودال إنشاء الغرف */
+        .room-form, .contest-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .form-group label {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .room-actions, .contest-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        /* أزرار رفع الملفات */
+        .file-upload-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .file-upload-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        .file-upload-btn:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+        .emoji-toggle-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        .emoji-toggle-btn:hover {
+            background: #e67e22;
+            transform: translateY(-2px);
+        }
+        /* أنماط الإيموجي المتحركة */
+        .animated-emoji {
+            display: inline-block;
+            font-size: 20px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            padding: 5px;
+            border-radius: 50%;
+        }
+        .animated-emoji:hover {
+            transform: scale(1.3);
+            background: rgba(52, 152, 219, 0.1);
+        }
+        .emoji-panel {
+            position: absolute;
+            bottom: 60px;
+            right: 10px;
+            background: white;
+            border: 2px solid #3498db;
+            border-radius: 15px;
+            padding: 15px;
+            max-width: 300px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+        /* تأثيرات الإيموجي المتحركة */
+        .animated-emoji.laugh {
+            animation: bounce 0.6s ease-in-out infinite alternate;
+        }
+        .animated-emoji.heart-eyes {
+            animation: pulse 1s ease-in-out infinite;
+        }
+        @keyframes bounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-10px); }
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
 
-        /* ✅ تحسينات تصميم الشات (الميزة 2) */
-        .messages-container {
-            max-height: 70vh !important;
-            padding: 5px !important;
+        /* ==================== التحسينات الجديدة التي طلبتها ==================== */
+        /* ✅ تحسينات تصميم الشات (زيادة المساحة، تقليل الحشو، تقليل حدود) */
+        :root {
+            --border-width: 1px;
+            --padding-small: 6px;
+            --padding-medium: 10px;
+            --gap-small: 6px;
+            --gap-medium: 10px;
+            --message-max-height: 120px;
+            --chat-area-height: calc(100vh - 280px);
         }
-        .message {
-            font-size: 13px !important;
-            padding: 6px 10px !important;
-            margin: 3px 0 !important;
+
+        /* تقليل الحشو والحدود */
+        .login-container,
+        .ban-container,
+        .modal-content,
+        .chat-area,
+        .users-sidebar,
+        .bottom-control-bar,
+        .header-left,
+        .header-right,
+        .main-header,
+        .message-input-container,
+        .input-group,
+        .auth-form,
+        .sidebar-header,
+        .messages-container,
+        .profile-cover,
+        .profile-info,
+        .admin-tabs,
+        .notification-form,
+        .room-form {
+            padding: var(--padding-small);
+            border-radius: 8px;
+            border: var(--border-width) solid rgba(0,0,0,0.1);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
         }
+
+        /* تقليل المسافات بين العناصر */
+        .main-content {
+            display: flex;
+            gap: var(--gap-small);
+            height: calc(100vh - 70px);
+        }
+
         .chat-area {
-            border-width: 2px !important;
-        }
-    </style>
-</head>
-<body>
-
-    <!-- شاشة تسجيل الدخول -->
-    <div id="loginScreen" class="screen active">
-        <div class="login-container">
-            <div class="login-header">
-                <div class="logo">
-                    <h1>🦂 شات وتين العقرب</h1>
-                    <p>منصة التواصل الاجتماعي الأولى</p>
-                </div>
-            </div>
-            <form id="loginForm" class="auth-form active">
-                <div class="input-group">
-                    <i class="fas fa-envelope"></i>
-                    <input type="email" id="loginEmail" placeholder="البريد الإلكتروني" required>
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="loginPassword" placeholder="كلمة المرور" required>
-                </div>
-                <button type="submit" class="auth-btn">دخول</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- الشاشة الرئيسية -->
-    <div id="mainScreen" class="screen">
-        <header class="main-header">
-            <div class="header-left">
-                <h1>🦂 شات وتين العقرب</h1>
-            </div>
-            <div class="header-right">
-                <button onclick="logout()">خروج</button>
-            </div>
-        </header>
-
-        <main class="main-content">
-            <div class="chat-area">
-                <div class="messages-container" id="messagesContainer">
-                    <div class="welcome-message">
-                        <h3>مرحباً بك في شات وتين العقرب</h3>
-                        <p>ابدأ محادثة جديدة أو انضم للمحادثات الجارية</p>
-                    </div>
-                </div>
-                <div class="message-input-container">
-                    <input type="text" id="messageInput" placeholder="اكتب رسالتك هنا...">
-                    <button onclick="sendMessage()">إرسال</button>
-                </div>
-            </div>
-
-            <aside class="users-sidebar">
-                <h3>المتصلون الآن</h3>
-                <div id="onlineUsersList"></div>
-            </aside>
-        </main>
-    </div>
-
-    <!-- ========== JavaScript ========== -->
-    <script>
-        // متغيرات عامة
-        let currentUser = null;
-        let userMessageCount = {}; // ✅ لمكافحة الفيضانات
-        let userMuteStatus = {}; // ✅ لمكافحة الفيضانات
-
-        // ✅ مميزات الرتب (الميزة 3)
-        const rankFeatures = {
-            silver: { canAddMusic: true, canAddBackground: true },
-            gold: { canAddMusic: true, canAddBackground: true, canUseDecorations: true },
-            diamond: { canAddMusic: true, canAddBackground: true, canUseDecorations: true, canUseColors: true }
-        };
-
-        // ✅ نظام مكافحة الفيضانات (الميزة 1)
-        function isUserFlooding(userId) {
-            const now = Date.now();
-            if (!userMessageCount[userId]) userMessageCount[userId] = [];
-            userMessageCount[userId] = userMessageCount[userId].filter(t => now - t < 10000);
-            userMessageCount[userId].push(now);
-            return userMessageCount[userId].length > 5;
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            height: var(--chat-area-height);
+            overflow: hidden;
         }
 
-        function isUserMuted(userId) {
-            const now = Date.now();
-            if (userMuteStatus[userId] && now < userMuteStatus[userId]) return true;
-            return false;
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--padding-small);
+            font-size: 14px;
+            line-height: 1.4;
+            scroll-behavior: smooth;
         }
 
-        // ✅ إرسال الرسائل مع مكافحة الفيضانات (الميزة 1 + 2 + 3 + 4)
-        function sendMessage() {
-            const input = document.getElementById('messageInput');
-            const message = input.value.trim();
-            if (!message) return;
-
-            const userId = currentUser?.id || 'guest';
-            const displayName = currentUser?.display_name || 'زائر';
-
-            // ✅ كشف الفيضانات
-            if (isUserFlooding(userId)) {
-                if (!userMuteStatus[userId]) {
-                    userMuteStatus[userId] = Date.now() + 5 * 60 * 1000; // 5 دقائق
-                    displayMessage({
-                        message: `تم كتم ${displayName} بسبب الفيضانات`,
-                        type: 'system'
-                    });
-                }
-                input.value = '';
-                return;
-            }
-
-            // ✅ كشف الكتم
-            if (isUserMuted(userId)) {
-                alert('أنت مكتوم حالياً بسبب الفيضانات. انتظر قليلاً.');
-                input.value = '';
-                return;
-            }
-
-            // ✅ إرسال الرسالة
-            displayMessage({
-                user_id: userId,
-                display_name: displayName,
-                message: message,
-                rank: currentUser?.rank || 'visitor',
-                timestamp: new Date().toISOString()
-            });
-
-            input.value = '';
+        /* تقليل حجم الرسالة وزيادة الكثافة */
+        .message {
+            margin: 4px 0;
+            padding: 6px 10px;
+            max-height: var(--message-max-height);
+            overflow: hidden;
+            word-wrap: break-word;
+            border-radius: 12px;
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
         }
 
-        // ✅ عرض الرسالة
-        function displayMessage(data) {
-            const container = document.getElementById('messagesContainer');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${data.user_id === (currentUser?.id || 'guest') ? 'own' : ''}`;
-
-            messageDiv.innerHTML = `
-                <img class="message-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="">
-                <div class="message-content">
-                    <div class="message-header">
-                        <span class="message-author">${data.display_name}</span>
-                        <span class="message-time">${new Date(data.timestamp).toLocaleTimeString('ar-SA')}</span>
-                    </div>
-                    <div class="message-text">${data.message}</div>
-                </div>
-            `;
-
-            container.appendChild(messageDiv);
-            container.scrollTop = container.scrollHeight;
+        .message .username {
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 2px;
         }
 
-        // ✅ نظام الأخبار / الستوري (الميزة 4)
-        function postNews() {
-            const content = prompt("اكتب خبرك أو منشورك:");
-            if (!content) return;
-
-            const post = {
-                id: Date.now(),
-                content,
-                display_name: currentUser?.display_name || 'زائر',
-                likes: 0,
-                dislikes: 0
-            };
-
-            displayNewsPost(post);
+        .message .text {
+            font-size: 13px;
+            line-height: 1.3;
         }
 
-        function displayNewsPost(post) {
-            const container = document.getElementById('messagesContainer');
-            const postDiv = document.createElement('div');
-            postDiv.className = 'message';
-            postDiv.innerHTML = `
-                <div class="message-content" style="background:#fff3cd;width:100%;">
-                    <div class="message-header">
-                        <span class="message-author">${post.display_name}</span>
-                        <span class="message-time">الآن</span>
-                    </div>
-                    <div class="message-text">${post.content}</div>
-                    <div style="margin-top:8px;">
-                        <button onclick="likePost(${post.id})">❤️ ${post.likes}</button>
-                        <button onclick="dislikePost(${post.id})">👎 ${post.dislikes}</button>
-                    </div>
-                </div>
-            `;
-            container.appendChild(postDiv);
-            container.scrollTop = container.scrollHeight;
+        /* تقليل الحشو في عناصر الواجهة */
+        .input-group input,
+        .input-group select,
+        .auth-btn,
+        .tool-btn,
+        .control-btn,
+        .btn,
+        .tab-btn,
+        .user-name,
+        .user-rank,
+        .sidebar-header h3,
+        .chat-header h2,
+        .modal-header h2,
+        .form-group label {
+            font-size: 13px;
+            padding: 6px 10px;
         }
 
-        function likePost(id) {
-            alert('تم الإعجاب بالمنشور');
+        /* تقليل المسافات في القوائم */
+        .menu-items .menu-item {
+            padding: 8px 12px;
+            gap: 8px;
         }
 
-        function dislikePost(id) {
-            alert('تم عدم الإعجاب بالمنشور');
+        .profile-avatars,
+        .profile-stats,
+        .stat-item {
+            gap: 4px;
         }
 
-        // ✅ تسجيل الدخول
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            currentUser = {
-                id: 1,
-                display_name: 'مستخدم تجريبي',
-                rank: 'silver'
-            };
-            document.querySelector('.screen.active').classList.remove('active');
-            document.getElementById('mainScreen').classList.add('active');
-            checkRankFeatures(); // ✅ تفعيل مميزات الرتبة
-        });
-
-        // ✅ تفعيل مميزات الرتبة (الميزة 3)
-        function checkRankFeatures() {
-            const rank = currentUser?.rank;
-            if (rankFeatures[rank]) {
-                if (rankFeatures[rank].canAddMusic) {
-                    console.log("✅ يمكنك إضافة أغنية");
-                }
-                if (rankFeatures[rank].canAddBackground) {
-                    console.log("✅ يمكنك إضافة خلفية");
-                }
-            }
+        /* تحسين مظهر مساحة الشات */
+        .welcome-message {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            color: #666;
+            font-size: 15px;
         }
 
-        // ✅ تسجيل الخروج
-        function logout() {
-            currentUser = null;
-            document.querySelector('.screen.active').classList.remove('active');
-            document.getElementById('loginScreen').classList.add('active');
+        /* تقليل حجم شريط الإدخال */
+        .message-input-wrapper {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            padding: 6px 10px;
         }
-    </script>
-</body>
-</html>
+
+        #messageInput {
+            flex: 1;
+            padding: 6px 10px;
+            font-size: 13px;
+            border: none;
+            border-radius: 20px;
+            outline: none;
+            background-color: #f8f9fa;
+        }
+
+        /* تقليل حجم الـ badges */
+        .notification-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            min-width: 18px;
+            height: 18px;
+        }
+
+        /* تحسين مظهر الإشعار عند الفيضان */
+        .flood-warning {
+            background-color: #ff4d4d;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+            margin: 10px 0;
+            text-align: center;
+            animation: fadeOut 3s ease-out;
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        /* تقليل حجم الأزرار والقوائم الجانبية */
+        .users-list .user-item {
+            padding: 6px 10px;
+            font-size: 13px;
+            gap: 6px;
+        }
+
+        /* تحسين مظهر لوحة الإدارة */
+        .admin-users-list .user-row,
+        .ranks-list .rank-item,
+        .banned-users-list .banned-user {
+            font-size: 12px;
+            padding: 5px 8px;
+        }
+
+        /* تحسين مظهر الإشعارات */
+        .toast {
+            font-size: 13px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            min-width: 180px;
+        }
+
+        /* تقليل حجم شريط التحكم السفلي */
+        .bottom-control-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 12px;
+            gap: 8px;
+            background-color: #f1f1f1;
+            border-top: var(--border-width) solid #ddd;
+        }
+
+        /* تقليل حجم أزرار المشغل */
+        .volume-control input[type="range"] {
+            width: 60px;
+        }
+
+        /* تقليل حجم النصوص في القوائم */
+        .now-playing,
+        .song-title,
+        .online-count {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم المودالات */
+        .main-menu,
+        .news-modal,
+        .stories-modal,
+        .quiz-room-modal,
+        .admin-modal,
+        .settings-modal,
+        .radio-player-modal,
+        .create-room-modal,
+        .ban-user-modal,
+        .give-coins-modal,
+        .send-notification-modal,
+        .online-users-modal {
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        /* تقليل الحشو في المودالات */
+        .modal-body,
+        .modal-content {
+            padding: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 8px;
+        }
+
+        /* تحسين مظهر الزخارف */
+        .feature-note {
+            font-size: 12px;
+            color: #888;
+            margin: 5px 0;
+        }
+
+        /* تحسين مظهر الرسائل عند الكتم */
+        .muted-message {
+            color: #999;
+            font-style: italic;
+            font-size: 12px;
+        }
+
+        /* تقليل حجم الصور والفيديوهات في القصص والأخبار */
+        .story-item img,
+        .story-item video,
+        .news-media img,
+        .news-media video {
+            max-height: 250px;
+        }
+
+        /* تقليل حجم شريط التحكم السفلي */
+        .bottom-control-bar {
+            padding: 6px 12px;
+            gap: 8px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .message-input-wrapper {
+            padding: 6px 10px;
+        }
+
+        /* تقليل حجم المدخلات */
+        .input-group input,
+        .input-group select {
+            padding: 6px 10px;
+        }
+
+        /* تقليل حجم الأزرار */
+        .btn,
+        .auth-btn,
+        .tool-btn,
+        .control-btn,
+        .tab-btn {
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم الأيقونات */
+        .tool-btn i,
+        .control-btn i,
+        .header-btn i,
+        .hamburger-btn i,
+        .close-btn i,
+        .action-btn i {
+            font-size: 14px;
+        }
+
+        /* تقليل حجم النصوص في المودالات */
+        .modal-header h2,
+        .sidebar-header h3,
+        .chat-header h2 {
+            font-size: 14px;
+        }
+
+        /* تقليل حجم خلفية الرسائل */
+        .message-content {
+            padding: 6px 10px;
+        }
+
+        /* تقليل حجم صندوق الدردشة الخاصة */
+        .private-chat-box {
+            width: 300px;
+            height: 450px;
+        }
+        .private-chat-input input {
+            font-size: 12px;
+        }
+        .private-message-text {
+            font-size: 12px;
+        }
+        .private-chat-users select {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم قائمة المتصلين */
+        .user-display-name,
+        .user-status {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم قائمة المستخدمين في لوحة الإدارة */
+        .admin-user-details h4,
+        .admin-user-rank {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم قائمة الرتب */
+        .rank-name,
+        .rank-level {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم عنوان الغرفة */
+        .chat-header h2 {
+            font-size: 14px;
+        }
+
+        /* تقليل حجم معلومات المستخدم في الشريط العلوي */
+        .user-name,
+        .user-rank {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم الإشعارات */
+        .toast {
+            font-size: 12px;
+            padding: 6px 10px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .messages-container {
+            padding: 6px;
+        }
+
+        /* تقليل حجم مساحة الإدخال */
+        #messageInput {
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .message {
+            margin: 3px 0;
+            padding: 5px 8px;
+            font-size: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .message-content {
+            padding: 5px 8px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .message-header {
+            margin-bottom: 1px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .message-avatar {
+            width: 35px;
+            height: 35px;
+            margin: 0 5px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .message-text {
+            font-size: 12px;
+            line-height: 1.2;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .message-time {
+            font-size: 11px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .message-rank {
+            font-size: 11px;
+            padding: 1px 5px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .message-author {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .quoted-message {
+            margin-bottom: 5px;
+            padding: 4px 8px;
+        }
+
+        .quoted-content {
+            font-size: 11px;
+        }
+
+        .quoted-author {
+            font-size: 11px;
+        }
+
+        .quoted-text {
+            font-size: 11px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .cancel-quote {
+            font-size: 10px;
+            padding: 2px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .message-input-container {
+            padding: 6px 10px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .input-tools {
+            margin-bottom: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .tool-btn {
+            width: 30px;
+            height: 30px;
+            padding: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            padding: 6px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .chat-controls {
+            gap: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .control-btn {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .chat-header {
+            padding: 6px 10px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .chat-area {
+            height: calc(100vh - 260px);
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .main-content {
+            gap: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .sidebar-header {
+            padding: 6px 10px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .users-list {
+            padding: 6px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .user-item {
+            padding: 5px 8px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            margin-left: 5px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .user-details {
+            gap: 2px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .user-display-name {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .user-status {
+            font-size: 11px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .online-count {
+            font-size: 11px;
+            padding: 2px 6px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .bottom-control-bar {
+            padding: 6px 10px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .music-controls {
+            gap: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .volume-control {
+            gap: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .volume-control i {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        #volumeSlider {
+            width: 50px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .now-playing {
+            font-size: 11px;
+            padding: 4px 8px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .song-title {
+            font-size: 11px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .header-right {
+            gap: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .header-btn {
+            width: 32px;
+            height: 32px;
+            padding: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .notification-badge {
+            font-size: 9px;
+            padding: 1px 5px;
+            min-width: 16px;
+            height: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .user-profile-mini {
+            padding: 4px;
+            gap: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .user-avatar-mini {
+            width: 32px;
+            height: 32px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .user-info-mini {
+            gap: 2px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .header-left {
+            gap: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .hamburger-btn {
+            width: 32px;
+            height: 32px;
+            padding: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .app-logo h1 {
+            font-size: 14px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .main-header {
+            padding: 6px 10px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .room-selector select {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .login-container {
+            padding: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .login-header {
+            margin-bottom: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .logo h1 {
+            font-size: 18px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .logo p {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .login-tabs {
+            margin-bottom: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .tab-btn {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .input-group i {
+            right: 8px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .input-group input,
+        .input-group select {
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .auth-btn {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .ban-container {
+            padding: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .ban-icon {
+            font-size: 3rem;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .ban-reason {
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .contact-info {
+            padding: 10px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .contact-info a {
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .btn-primary {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .btn-secondary {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .btn-success {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .btn-warning {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .btn-danger {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .btn-info {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .btn {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .save-btn {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .like-btn {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .message-btn {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .action-btn {
+            padding: 10px 12px;
+            font-size: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .admin-action-btn {
+            padding: 6px 10px;
+            font-size: 11px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .admin-user-item {
+            padding: 10px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .admin-user-avatar {
+            width: 50px;
+            height: 50px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .admin-user-details h4 {
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .admin-user-rank {
+            font-size: 11px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .admin-tabs {
+            padding: 10px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .admin-tabs .tab-btn {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .admin-tab {
+            padding: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .modal-header {
+            padding: 10px 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .modal-header h2 {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .close-btn {
+            width: 30px;
+            height: 30px;
+            padding: 4px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .modal-content {
+            padding: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .modal-body {
+            padding: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .form-group label {
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .form-group textarea {
+            min-height: 80px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .form-actions {
+            gap: 8px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .button {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .checkbox {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .radio {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .select {
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .input {
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .textarea {
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .label {
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .caption {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .subtitle {
+            font-size: 14px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .heading {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .title {
+            font-size: 18px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .description {
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .note {
+            font-size: 12px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .alert {
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .success {
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .warning {
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .error {
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .info {
+            font-size: 13px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .badge {
+            font-size: 12px;
+            padding: 2px 6px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .tag {
+            font-size: 12px;
+            padding: 2px 6px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .chip {
+            font-size: 12px;
+            padding: 2px 6px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .pill {
+            font-size: 12px;
+            padding: 2px 6px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .circle {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .square {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .rectangle {
+            width: 40px;
+            height: 20px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .triangle {
+            width: 0;
+            height: 0;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .star {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .heart {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .smile {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .frown {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .thumbs-up {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .thumbs-down {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .arrow {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .check {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .cross {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .plus {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .minus {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .times {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .search {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .filter {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .sort {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .refresh {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .download {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .upload {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .share {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .copy {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .print {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .email {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .phone {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .location {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .calendar {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .clock {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .lock {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .unlock {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .user {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .group {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .team {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .company {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .organization {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .department {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .project {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .task {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .todo {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .done {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .pending {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .waiting {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .completed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .in-progress {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .on-hold {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .cancelled {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .archived {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .deleted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .restored {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .draft {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .published {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .unpublished {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .scheduled {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .live {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .offline {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .online {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .away {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .busy {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .invisible {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .visible {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .active {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .inactive {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .verified {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .unverified {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .premium {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .free {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .trial {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .expired {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .valid {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .invalid {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .enabled {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .disabled {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .locked {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .unlocked {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .hidden {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .shown {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .opened {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .closed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .expanded {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .collapsed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .selected {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .deselected {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .highlighted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .normal {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .default {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .standard {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .basic {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .advanced {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .professional {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .expert {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .master {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .novice {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .beginner {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .intermediate {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .advanced {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .elite {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .legendary {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .mythical {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .divine {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .godlike {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .superhuman {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .ultimate {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .perfect {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .flawless {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .impeccable {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .excellent {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .outstanding {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .exceptional {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .remarkable {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .notable {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .significant {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .important {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .critical {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .vital {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .essential {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .necessary {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .required {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .mandatory {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .obligatory {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .compulsory {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .required {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .needed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .wanted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .desired {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .preferred {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .recommended {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .suggested {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .proposed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .offered {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .provided {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .supplied {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .given {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .granted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .allowed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .permitted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .authorized {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .approved {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .accepted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .recognized {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .acknowledged {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .confirmed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .verified {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .validated {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .checked {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .examined {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .inspected {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .reviewed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .audited {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .monitored {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .tracked {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .observed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .watched {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .followed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .subscribed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .joined {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .registered {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .enrolled {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .signed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .logged {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .entered {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .inputted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .typed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .written {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .composed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .created {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .generated {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .produced {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .made {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .built {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .constructed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .assembled {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .formed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .shaped {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .designed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .crafted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .engineered {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .developed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .evolved {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .grown {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .expanded {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .extended {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .increased {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .raised {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .boosted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .enhanced {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .improved {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .refined {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .optimized {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .streamlined {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .simplified {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .clarified {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .explained {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .demonstrated {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .illustrated {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .showcased {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .displayed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .presented {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .offered {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .provided {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .supplied {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .delivered {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .sent {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .dispatched {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .transmitted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .broadcast {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .published {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .released {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .issued {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .distributed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .circulated {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .shared {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .spread {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .propagated {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .disseminated {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .promoted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .advertised {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .marketed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .publicized {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .announced {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .declared {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .stated {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .expressed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .voiced {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .uttered {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .spoken {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .said {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .told {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .mentioned {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .noted {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .recorded {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .documented {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .logged {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .archived {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .stored {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .saved {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .retained {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .kept {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .maintained {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .preserved {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .protected {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .secured {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .guarded {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .defended {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .shielded {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .covered {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .concealed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .hidden {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .masked {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .veiled {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .camouflaged {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .disguised {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .deceived {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .tricked {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .fooled {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .misled {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .duped {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .cheated {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .lied {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .deceived {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .frauded {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .scammed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .conned {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .hoodwinked {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .bamboozled {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .taken {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .had {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .possessed {
+            font-size: 16px;
+        }
+
+        /* تقليل حجم مساحة الرسائل */
+        .owned {
+            font-size: 16px;
+        }
