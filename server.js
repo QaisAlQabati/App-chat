@@ -49,6 +49,9 @@ let news = [];
 let stories = [];
 let bans = [];
 let mutes = [];
+let floodProtection = new Map(); // لحماية من الفيضانات
+let competitions = [];
+let comments = [];
 
 // API لتسجيل الدخول
 app.post('/api/login', (req, res) => {
@@ -222,6 +225,57 @@ app.post('/api/stories', upload.single('storyImage'), (req, res) => {
     res.json(newStory);
 });
 
+// API للتعليقات
+app.post('/api/comments', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const user = users.find(u => 'fake-token-' + u.id === token);
+    if (!user) return res.status(401).json({ error: 'غير مصرح له' });
+
+    const { postId, content, targetUserId } = req.body;
+    const newComment = {
+        id: comments.length + 1,
+        postId: parseInt(postId),
+        content,
+        user_id: user.id,
+        display_name: user.display_name,
+        targetUserId: targetUserId ? parseInt(targetUserId) : null,
+        timestamp: new Date()
+    };
+    comments.push(newComment);
+    
+    // إرسال إشعار للمستخدم المستهدف
+    if (targetUserId) {
+        io.emit('newComment', { ...newComment, targetUserId });
+    }
+    
+    res.json(newComment);
+});
+
+// API للحصول على التعليقات
+app.get('/api/comments/:postId', (req, res) => {
+    const postComments = comments.filter(c => c.postId === parseInt(req.params.postId));
+    res.json(postComments);
+});
+
+// API للمسابقات
+app.post('/api/competitions', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const user = users.find(u => 'fake-token-' + u.id === token);
+    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
+
+    const { title, duration } = req.body;
+    const newCompetition = {
+        id: competitions.length + 1,
+        title,
+        duration: parseInt(duration),
+        startTime: new Date(),
+        active: true
+    };
+    competitions.push(newCompetition);
+    io.emit('newCompetition', newCompetition);
+    res.json(newCompetition);
+});
+
 // API لتعيين رتبة
 app.post('/api/assign-rank', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
@@ -308,8 +362,52 @@ io.on('connection', (socket) => {
 
     // إرسال رسالة عامة
     socket.on('sendMessage', (data) => {
+        // فحص الحماية من الفيضانات
+        const userId = socket.user.userId;
+        const now = Date.now();
+        
+        if (!floodProtection.has(userId)) {
+            floodProtection.set(userId, []);
+        }
+        
+        const userMessages = floodProtection.get(userId);
+        // إزالة الرسائل القديمة (أكثر من 10 ثواني)
+        const recentMessages = userMessages.filter(time => now - time < 10000);
+        
+        // إذا أرسل أكثر من 5 رسائل في 10 ثواني
+        if (recentMessages.length >= 5) {
+            const muteEndTime = new Date(now + 5 * 60 * 1000); // 5 دقائق
+            const mute = {
+                id: mutes.length + 1,
+                user_id: userId,
+                reason: 'الفيضانات - رسائل سريعة ومتكررة',
+                duration: '5m',
+                timestamp: new Date(),
+                endTime: muteEndTime
+            };
+            mutes.push(mute);
+            
+            // إرسال رسالة للشات عن الكتم
+            const muteMessage = {
+                id: messages.length + 1,
+                roomId: data.roomId,
+                content: `تم كتم ${socket.user.display_name} بسبب الفيضانات`,
+                type: 'system',
+                timestamp: new Date()
+            };
+            messages.push(muteMessage);
+            io.to(data.roomId).emit('newMessage', muteMessage);
+            
+            socket.emit('error', 'تم كتمك لمدة 5 دقائق بسبب الرسائل السريعة والمتكررة');
+            return;
+        }
+        
+        recentMessages.push(now);
+        floodProtection.set(userId, recentMessages);
+
         const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
-            (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
+            (m.duration === 'permanent' || (m.endTime && new Date() < new Date(m.endTime)) || 
+             new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
         if (isMuted) return socket.emit('error', 'أنت مكتوم ولا يمكنك إرسال الرسائل');
 
         const message = { 
@@ -507,9 +605,61 @@ io.on('connection', (socket) => {
         if (!user) return;
         const post = news.find(n => n.id === parseInt(data.postId));
         if (post) {
-            post.likes = post.likes.filter(l => l.user_id !== user.userId);
-            post.likes.push({ user_id: user.userId, display_name: user.display_name, type: data.type });
+            if (!post.reactions) post.reactions = { likes: [], dislikes: [], hearts: [] };
+            
+            // إزالة التفاعل السابق للمستخدم
+            Object.keys(post.reactions).forEach(reactionType => {
+                post.reactions[reactionType] = post.reactions[reactionType].filter(r => r.user_id !== user.userId);
+            });
+            
+            // إضافة التفاعل الجديد
+            if (data.type === 'like') {
+                post.reactions.likes.push({ user_id: user.userId, display_name: user.display_name });
+            } else if (data.type === 'dislike') {
+                post.reactions.dislikes.push({ user_id: user.userId, display_name: user.display_name });
+            } else if (data.type === 'heart') {
+                post.reactions.hearts.push({ user_id: user.userId, display_name: user.display_name });
+            }
+            
             io.emit('updateNewsPost', post);
+        }
+    });
+    
+    // إضافة تعليق
+    socket.on('addComment', (data) => {
+        const user = socket.user;
+        if (!user) return;
+        
+        const newComment = {
+            id: comments.length + 1,
+            postId: parseInt(data.postId),
+            content: data.content,
+            user_id: user.userId,
+            display_name: user.display_name,
+            targetUserId: data.targetUserId ? parseInt(data.targetUserId) : null,
+            timestamp: new Date()
+        };
+        comments.push(newComment);
+        
+        // إرسال التعليق للجميع
+        io.emit('newComment', newComment);
+        
+        // إرسال إشعار للمستخدم المستهدف
+        if (data.targetUserId) {
+            io.to(data.targetUserId).emit('commentNotification', {
+                from: user.display_name,
+                content: data.content,
+                postId: data.postId
+            });
+        }
+    });
+    
+    // إيقاف المسابقة
+    socket.on('stopCompetition', (competitionId) => {
+        const competition = competitions.find(c => c.id === parseInt(competitionId));
+        if (competition) {
+            competition.active = false;
+            io.emit('competitionStopped', competitionId);
         }
     });
 
@@ -523,6 +673,7 @@ io.on('connection', (socket) => {
 // دالة مساعدة لتحويل مدة الكتم/الطرد إلى ميلي ثانية
 function parseDuration(duration) {
     const map = {
+        '5m': 5 * 60 * 1000,
         '1h': 60 * 60 * 1000,
         '24h': 24 * 60 * 60 * 1000,
         '7d': 7 * 24 * 60 * 60 * 1000,
@@ -530,6 +681,30 @@ function parseDuration(duration) {
     };
     return map[duration] || 0;
 }
+
+// تنظيف الحماية من الفيضانات كل دقيقة
+setInterval(() => {
+    const now = Date.now();
+    for (const [userId, messages] of floodProtection.entries()) {
+        const recentMessages = messages.filter(time => now - time < 60000);
+        if (recentMessages.length === 0) {
+            floodProtection.delete(userId);
+        } else {
+            floodProtection.set(userId, recentMessages);
+        }
+    }
+}, 60000);
+
+// تنظيف الكتم المنتهي
+setInterval(() => {
+    const now = new Date();
+    mutes = mutes.filter(mute => {
+        if (mute.endTime && now > new Date(mute.endTime)) {
+            return false;
+        }
+        return true;
+    });
+}, 30000);
 
 // تشغيل الخادم
 const PORT = process.env.PORT || 3000;
