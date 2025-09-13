@@ -1,4 +1,4 @@
-// متغيرات عامة
+ // متغيرات عامة
 let socket;
 let currentUser = null;
 let currentRoom = 1;
@@ -15,11 +15,10 @@ const RANKS = {
     bronze: { name: 'عضو برونزي', emoji: '🥉', level: 1, color: '#cd7f32' },
     silver: { name: 'عضو فضي', emoji: '🥈', level: 2, color: '#c0c0c0' },
     gold: { name: 'عضو ذهبي', emoji: '🥇', level: 3, color: '#ffd700' },
-    trophy: { name: 'كأس', emoji: '🏆', level: 4, color: '#ff6b35' },
+    trophy: { name: 'مالك الموقع', emoji: '🏆', level: 4, color: '#ff6b35' },
     diamond: { name: 'عضو الماس', emoji: '💎', level: 5, color: '#b9f2ff' },
     prince: { name: 'برنس', emoji: '👑', level: 6, color: 'linear-gradient(45deg, #ffd700, #ff6b35)' },
     admin: { name: 'إداري', emoji: '⚡', level: 7, color: 'linear-gradient(45deg, #ff6b35, #f093fb)' },
-    owner: { name: 'المالك', emoji: '🦂', level: 8, color: 'linear-gradient(45deg, #667eea, #764ba2)' }
 };
 
 // أسئلة المسابقات
