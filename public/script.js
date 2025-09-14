@@ -1,4 +1,4 @@
-ر// متغيرات عامة
+// متغيرات عامة
 let socket;
 let currentUser = null;
 let currentRoom = 1;
