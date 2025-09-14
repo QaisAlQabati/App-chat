@@ -1221,3 +1221,216 @@
                             <option value="error">خطأ</option>
                         </select>
                     </div>
+                    
+                    <div class="form-group">
+                        <label for="notificationMessage">رسالة الإشعار:</label>
+                        <textarea id="notificationMessage" class="form-control" placeholder="اكتب رسالة الإشعار هنا..." rows="4"></textarea>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button onclick="sendNotificationToUser()" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i>
+                            إرسال الإشعار
+                        </button>
+                        <button onclick="closeSendNotificationModal()" class="btn btn-secondary">
+                            إلغاء
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال المتصلين حالياً -->
+    <div id="onlineUsersModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>👥 المتصلين حالياً</h2>
+                <button class="close-btn" onclick="closeOnlineUsersModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="onlineUsersList" class="online-users-list">
+                    <p style="text-align: center; color: var(--text-secondary);">جاري تحميل قائمة المتصلين...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- صندوق الدردشة الخاصة المحسن -->
+    <div id="privateChatBox" class="private-chat-box enhanced-private-chat" style="display: none;">
+        <div class="chat-box-header">
+            <h3 class="chat-box-title">💬 دردشة خاصة</h3>
+            <div class="chat-box-controls">
+                <button class="chat-box-btn" onclick="minimizePrivateChatBox()" title="تصغير">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button class="chat-box-btn" onclick="closePrivateChatBox()" title="إغلاق">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="chat-box-body">
+            <div class="private-chat-users">
+                <select id="privateChatUserSelect" onchange="selectPrivateChatUser()">
+                    <option value="">اختر مستخدم للدردشة...</option>
+                </select>
+            </div>
+            <div id="privateChatMessages" class="private-chat-messages compact-messages">
+                <p style="text-align: center; color: var(--text-secondary); padding: 20px;">
+                    اختر مستخدم لبدء المحادثة
+                </p>
+            </div>
+            <div class="private-chat-input">
+                <input type="text" id="privateChatInput" placeholder="اكتب رسالة..." onkeypress="if(event.key==='Enter') sendPrivateChatMessage()">
+                <button class="private-chat-send" onclick="sendPrivateChatMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال عرض الرتب -->
+    <div id="ranksModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>👑 نظام الرتب والمميزات</h2>
+                <button class="close-btn" onclick="closeRanksModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="ranks-display">
+                <div class="rank-card">
+                    <div class="rank-icon">🥉</div>
+                    <div class="rank-info">
+                        <h3>الرتبة 1 - زائر</h3>
+                        <p>المميزات الأساسية للدردشة</p>
+                        <ul>
+                            <li>إرسال الرسائل</li>
+                            <li>المشاركة في الدردشة العامة</li>
+                            <li>عرض البروفايل الأساسي</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="rank-card">
+                    <div class="rank-icon">🥈</div>
+                    <div class="rank-info">
+                        <h3>الرتبة 2 - عضو برونزي</h3>
+                        <p><strong>يستطيع إضافة أغنية وخلفية</strong></p>
+                        <ul>
+                            <li>جميع مميزات الرتبة السابقة</li>
+                            <li>رفع موسيقى للبروفايل</li>
+                            <li>تخصيص خلفية البروفايل</li>
+                            <li>ألوان خاصة للاسم</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="rank-card">
+                    <div class="rank-icon">🥇</div>
+                    <div class="rank-info">
+                        <h3>الرتبة 3 - عضو فضي</h3>
+                        <p>مميزات إضافية وزخارف</p>
+                        <ul>
+                            <li>جميع مميزات الرتب السابقة</li>
+                            <li>زخارف الاسم المتقدمة</li>
+                            <li>تأثيرات خاصة للرسائل</li>
+                            <li>إمكانيات أكبر للتخصيص</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="rank-card">
+                    <div class="rank-icon">👑</div>
+                    <div class="rank-info">
+                        <h3>الرتب العليا (4+)</h3>
+                        <p>مميزات حصرية ومتقدمة</p>
+                        <ul>
+                            <li>جميع المميزات السابقة</li>
+                            <li>زخارف حصرية (تاج، ماس، قوس قزح)</li>
+                            <li>صلاحيات إضافية</li>
+                            <li>مميزات خاصة حسب الرتبة</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="rank-note">
+                    <p><i class="fas fa-info-circle"></i> <strong>كلما زادت الرتبة، تفتح مميزات أكثر!</strong></p>
+                    <p>يمكن للإدارة ترقية المستخدمين حسب نشاطهم ومساهماتهم.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال المساعدة -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>❓ المساعدة</h2>
+                <button class="close-btn" onclick="closeHelpModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="help-content">
+                <div class="help-section">
+                    <h3>🚨 نظام مكافحة الفيضانات</h3>
+                    <p>إذا أرسلت رسائل سريعة ومتكررة، سيتم كتمك لمدة 5 دقائق تلقائياً.</p>
+                    <p>ستظهر رسالة في الشات: "تم كتم [اسمك] بسبب الفيضانات"</p>
+                </div>
+                
+                <div class="help-section">
+                    <h3>💬 استخدام الشات</h3>
+                    <ul>
+                        <li>اضغط على أي اسم مستخدم لعرض الإجراءات المتاحة</li>
+                        <li>يمكنك إرسال رسائل خاصة من خلال صندوق الرسائل الخاصة</li>
+                        <li>الشات مفتوح تلقائياً بعد تسجيل الدخول</li>
+                    </ul>
+                </div>
+                
+                <div class="help-section">
+                    <h3>🔊 الأصوات</h3>
+                    <p>يمكنك التحكم في الأصوات من الإعدادات:</p>
+                    <ul>
+                        <li>أصوات الرسائل الخاصة</li>
+                        <li>أصوات الرسائل العامة</li>
+                        <li>أصوات الاتصال</li>
+                        <li>أصوات الإشعارات</li>
+                    </ul>
+                </div>
+                
+                <div class="help-section">
+                    <h3>🏆 المسابقات</h3>
+                    <p>في غرفة المسابقات، يتم إعادة تعيين العداد عند حل السؤال.</p>
+                    <p>يمكنك إيقاف إشعارات المسابقات عند الخروج من الغرفة.</p>
+                </div>
+                
+                <div class="help-section">
+                    <h3>📞 للدعم والمساعدة</h3>
+                    <p>تواصل معنا عبر: <strong>njdj9985@gmail.com</strong></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
+        <p>جاري التحميل...</p>
+    </div>
+
+    <!-- Toast Notifications المحسنة -->
+    <div id="toastContainer" class="toast-container enhanced-toasts"></div>
+
+    <!-- عناصر الصوت المحسنة -->
+    <audio id="privateMessageSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEc" type="audio/wav">
+    </audio>
+
+    <audio id="publicMessageSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRmwKAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YUgKAACBjYSFbF1fdJmtsJFhNjVfodDbq2EdBj+a2/LDcSQFLYDO8tiKNwkZaLvt559NEAxRp+PwtmQcBTiS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/y" type="audio/wav">
+    </audio>
+
+    <audio id="callSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRl4LAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YToLAAA9kJeFbF1fhJitsZFiNjVfodDaq2EdBj+a2/LDcSQFLYDO8tiKNwkZaLvt559NEAxRp+PwtmQcBTiS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrTp66hVFApGnt/yvmEdBTmS2PLNeSsFJHfH8N2QQAoUXrT
