@@ -2736,3 +2736,8 @@ function likePost(id) {
         body: JSON.stringify({ id })
     });
 }
+  const profileModal = document.querySelector('.modal.active .modal-content');
+    if (profileModal) {
+        profileModal.appendChild(playButton);
+    }
+}
