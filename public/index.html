@@ -4,8 +4,73 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🦂 شات وتين العقرب</title>
-    <link rel="stylesheet" href__="style.css">
-    <link rel="stylesheet" href__="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* تعديلات إضافية للشكل المنظم مثل الصورة */
+        .main-content {
+            display: flex;
+            height: calc(100vh - 120px);
+        }
+        .chat-area {
+            flex: 2;
+            border-left: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+        .users-sidebar {
+            flex: 1;
+            border-left: 1px solid #ddd;
+            background: #f9f9f9;
+        }
+        .bottom-control-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-top: 1px solid #ddd;
+            padding: 10px;
+            display: flex;
+            justify-content: space-around;
+            z-index: 1000;
+        }
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+            z-index: 1001;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .profile-info input[type="email"], .profile-info input[type="password"] {
+            display: none; /* إخفاء البريد وكلمة المرور افتراضيًا */
+        }
+        .admin-visible {
+            display: none;
+        }
+        .owner-visible {
+            display: none;
+        }
+        /* إظهار للإدارة والمالك */
+        body.admin .admin-visible,
+        body.owner .owner-visible,
+        body.admin .owner-visible {
+            display: block;
+        }
+    </style>
 </head>
 <body>
     <!-- شاشة تسجيل الدخول -->
@@ -108,7 +173,7 @@
             </div>
             <div class="contact-info">
                 <p>للتواصل والاستفسار:</p>
-                <a href__="mailto:njdj9985@gmail.com">njdj9985@gmail.com</a>
+                <a href="mailto:njdj9985@gmail.com">njdj9985@gmail.com</a>
             </div>
             <button onclick="checkBanStatus()" class="btn btn-primary">
                 <i class="fas fa-sync-alt"></i>
@@ -394,7 +459,7 @@
                     <i class="fas fa-minus"></i>
                 </button>
                 <button class="chat-box-btn" onclick="maximizePrivateChatBox()" title="تكبير">
-                    <i class="fas fa-expand"></i>
+                    <i class="fa fa-expand"></i>
                 </button>
                 <button class="chat-box-btn" onclick="closePrivateChatBox()" title="إغلاق">
                     <i class="fas fa-times"></i>
@@ -661,8 +726,6 @@
         </div>
     </div>
 
-    <!-- باقي المودالات... سأرسل باقي الكود في الرسالة التالية -->
-
     <!-- مودال الملف الشخصي -->
     <div id="profileModal" class="modal">
         <div class="modal-content profile-modal">
@@ -743,11 +806,11 @@
                                 <label>الاسم المعروض:</label>
                                 <input type="text" id="displayNameInput" placeholder="اسمك المعروض">
                             </div>
-                            <div class="info-section">
+                            <div class="info-section admin-visible owner-visible">
                                 <label>البريد الإلكتروني:</label>
                                 <input type="email" id="emailInput" placeholder="بريدك الإلكتروني">
                             </div>
-                            <div class="info-section">
+                            <div class="info-section admin-visible owner-visible">
                                 <label>كلمة المرور الجديدة:</label>
                                 <input type="password" id="newPasswordInput" placeholder="كلمة المرور الجديدة">
                             </div>
@@ -891,7 +954,7 @@
                     
                     <div class="profile-details">
                         <div id="viewProfileInfo" class="profile-info-display">
-                            <!-- سيتم ملؤها بالجافاسكريبت -->
+                            <!-- سيتم ملؤها بالجافاسكريبت، بدون بريد أو كلمة مرور -->
                         </div>
                         <div id="viewProfileMusic" class="profile-music-display">
                             <!-- موسيقى البروفايل -->
@@ -1425,7 +1488,49 @@
             if (savedSounds) {
                 Object.assign(soundSettings, JSON.parse(savedSounds));
             }
+
+            // إضافة فئة للرتبة
+            const currentUser = getCurrentUser();
+            if (currentUser && currentUser.rank) {
+                document.body.classList.add(currentUser.rank.toLowerCase());
+            }
+
+            // إظهار/إخفاء زر إدارة الغرف
+            if (isOwner()) {
+                document.getElementById('roomsManagerBtn').style.display = 'block';
+            }
         });
+
+        // دالة للتحقق من كون المستخدم مالكًا
+        function isOwner() {
+            const currentUser = getCurrentUser();
+            return currentUser && currentUser.rank === 'owner';
+        }
+
+        // دالة للتحقق من كون المستخدم إداريًا أو مالكًا
+        function isAdminOrOwner() {
+            const currentUser = getCurrentUser();
+            return currentUser && (currentUser.rank === 'admin' || currentUser.rank === 'owner');
+        }
+
+        // تعديل دالة فتح إدارة الغرف
+        function openRoomsManager() {
+            if (!isOwner()) {
+                showToast('غير مسموح لك بإنشاء غرف', 'error');
+                return;
+            }
+            // باقي الكود لفتح المودال...
+            // افترض أن هناك مودال لإدارة الغرف
+        }
+
+        // تعديل دالة تحديث البروفايل
+        function updateProfile() {
+            if (!isAdminOrOwner() && !isCurrentUserProfile()) { // افترض دالة isCurrentUserProfile
+                showToast('غير مسموح لك بتغيير هذا البروفايل', 'error');
+                return;
+            }
+            // باقي الكود...
+        }
 
         // حفظ إعدادات الأصوات
         function saveSoundSettings() {
@@ -1471,6 +1576,24 @@
             }
             
             playNext();
+        }
+
+        // دالة عرض التوست (افتراضية)
+        function showToast(message, type) {
+            // كود عرض التوست...
+            console.log(message);
+        }
+
+        // دالة الحصول على المستخدم الحالي (افتراضية)
+        function getCurrentUser() {
+            // افترض إرجاع مستخدم مع rank
+            return { name: 'المستخدم', rank: 'visitor' }; // يجب استبدالها بالحقيقية
+        }
+
+        // دالة التحقق إذا كان البروفايل للمستخدم الحالي
+        function isCurrentUserProfile() {
+            // كود التحقق...
+            return true; // افتراضي
         }
     </script>
 </body>
