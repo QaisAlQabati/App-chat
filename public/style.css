@@ -517,9 +517,9 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-md);
+    padding: var(--spacing-lg);
     background: var(--bg-card);
-    border-bottom: 0.5px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .chat-header h2 {
@@ -556,7 +556,7 @@ body {
 .messages-container {
     flex: 1;
     overflow-y: auto;
-    padding: var(--spacing-sm);
+    padding: var(--spacing-lg);
     background: var(--bg-secondary);
     scroll-behavior: smooth;
 }
@@ -587,7 +587,7 @@ body {
 
 .message {
     display: flex;
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
     animation: messageSlideIn 0.4s ease;
     align-items: flex-start;
 }
@@ -608,11 +608,11 @@ body {
 }
 
 .message-avatar {
-    width: 32px;
-    height: 32px;
+    width: 45px;
+    height: 45px;
     border-radius: var(--radius-full);
-    margin: 0 var(--spacing-sm);
-    border: 1px solid var(--primary-color);
+    margin: 0 var(--spacing-md);
+    border: 2px solid var(--primary-color);
     cursor: pointer;
     object-fit: cover;
     transition: var(--transition-fast);
@@ -624,16 +624,15 @@ body {
 }
 
 .message-content {
-    max-width: 75%;
+    max-width: 70%;
     background: var(--bg-card);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-sm);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
     position: relative;
     backdrop-filter: blur(10px);
-    border: 0.5px solid var(--border-color);
+    border: 1px solid var(--border-color);
     box-shadow: var(--shadow-light);
     transition: var(--transition-fast);
-    font-size: var(--font-size-sm);
 }
 
 .message-content:hover {
@@ -649,10 +648,9 @@ body {
 .message-header {
     display: flex;
     align-items: center;
-    margin-bottom: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
     flex-wrap: wrap;
-    gap: var(--spacing-xs);
-    font-size: var(--font-size-xs);
+    gap: var(--spacing-sm);
 }
 
 .message-author {
@@ -681,9 +679,9 @@ body {
 }
 
 .message-text {
-    line-height: 1.45;
+    line-height: 1.6;
     word-wrap: break-word;
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
 }
 
 .message-media {
@@ -751,9 +749,9 @@ body {
 }
 
 .message-input-container {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-lg);
     background: var(--bg-card);
-    border-top: 0.5px solid var(--border-color);
+    border-top: 1px solid var(--border-color);
     backdrop-filter: blur(10px);
 }
 
@@ -819,15 +817,15 @@ body {
 }
 
 .send-btn {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-md);
     border: none;
     background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
     color: var(--text-white);
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: var(--transition-fast);
-    min-width: 50px;
-    height: 40px;
+    min-width: 60px;
+    height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -841,7 +839,7 @@ body {
 
 /* الشريط الجانبي للمستخدمين */
 .users-sidebar {
-    width: 280px;
+    width: 320px;
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
     overflow-y: auto;
@@ -854,8 +852,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-md);
-    border-bottom: 0.5px solid var(--border-color);
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
     background: var(--bg-card);
 }
 
@@ -878,18 +876,18 @@ body {
 
 .users-list {
     flex: 1;
-    padding: var(--spacing-sm);
+    padding: var(--spacing-md);
 }
 
 .user-item {
     display: flex;
     align-items: center;
-    padding: var(--spacing-sm);
-    border-radius: var(--radius-sm);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
     cursor: pointer;
     transition: var(--transition-fast);
-    border: 0.5px solid transparent;
-    margin-bottom: var(--spacing-xs);
+    border: 1px solid transparent;
+    margin-bottom: var(--spacing-sm);
     background: var(--bg-card);
 }
 
@@ -901,11 +899,11 @@ body {
 }
 
 .user-avatar {
-    width: 36px;
-    height: 36px;
+    width: 45px;
+    height: 45px;
     border-radius: var(--radius-full);
-    margin-left: var(--spacing-sm);
-    border: 1px solid var(--success-color);
+    margin-left: var(--spacing-md);
+    border: 2px solid var(--success-color);
     object-fit: cover;
 }
 
