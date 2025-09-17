@@ -9,16 +9,18 @@ let chatMode = 'public'; // public or private
 let selectedUserId = null;
 let quotedMessage = null;
 
-// الرتب المتاحة
+// الرتب المتاحة مع إضافة مالك (owner)
 const RANKS = {
-    visitor: { name: 'زائر', emoji: '👋', level: 0, color: '#888' },
-    bronze: { name: 'عضو برونزي', emoji: '🥉', level: 1, color: '#cd7f32' },
-    silver: { name: 'عضو فضي', emoji: '🥈', level: 2, color: '#c0c0c0' },
-    gold: { name: 'عضو ذهبي', emoji: '🥇', level: 3, color: '#ffd700' },
-    trophy: { name: 'مالك الموقع', emoji: '🏆', level: 4, color: '#ff6b35' },
-    diamond: { name: 'عضو الماس', emoji: '💎', level: 5, color: '#b9f2ff' },
-    prince: { name: 'برنس', emoji: '👑', level: 6, color: 'linear-gradient(45deg, #ffd700, #ff6b35)' },
-    admin: { name: 'إداري', emoji: '⚡', level: 7, color: 'linear-gradient(45deg, #ff6b35, #f093fb)' },
+    visitor: { name: 'زائر', emoji: '👋', level: 0, color: '#888', permissions: [] },
+    bronze: { name: 'عضو برونزي', emoji: '🥉', level: 1, color: '#cd7f32', permissions: [] },
+    silver: { name: 'عضو فضي', emoji: '🥈', level: 2, color: '#c0c0c0', permissions: [] },
+    gold: { name: 'عضو ذهبي', emoji: '🥇', level: 3, color: '#ffd700', permissions: ['play_music'] },
+    trophy: { name: 'كأس', emoji: '🏆', level: 4, color: '#ff6b35', permissions: ['play_music'] },
+    diamond: { name: 'عضو الماس', emoji: '💎', level: 5, color: '#b9f2ff', permissions: ['play_music', 'upload_music'] },
+    prince: { name: 'برنس', emoji: '👑', level: 6, color: 'linear-gradient(45deg, #ffd700, #ff6b35)', permissions: ['play_music', 'upload_music'] },
+    moderator: { name: 'مشرف', emoji: '🛡️', level: 7, color: 'linear-gradient(45deg, #ff6b35, #f093fb)', permissions: ['play_music', 'upload_music', 'ban_user', 'mute_user', 'assign_rank'] },
+    admin: { name: 'إداري', emoji: '⚡', level: 8, color: 'linear-gradient(45deg, #000000, #333333)', permissions: ['play_music', 'upload_music', 'ban_user', 'mute_user', 'assign_rank', 'create_room', 'delete_room', 'send_global_notification'] },
+    owner: { name: 'مالك', emoji: '👑', level: 9, color: 'gold', permissions: ['all'] } // صلاحيات كاملة
 };
 
 // أسئلة المسابقات
@@ -26,27 +28,32 @@ const QUIZ_QUESTIONS = [
     {
         question: "ما هي عاصمة فرنسا؟",
         options: ["لندن", "برلين", "باريس", "روما"],
-        correct: 2
+        correct: 2,
+        hint: "مدينة الأنوار"
     },
     {
         question: "كم عدد قارات العالم؟",
         options: ["5", "6", "7", "8"],
-        correct: 2
+        correct: 2,
+        hint: "تشمل القارة القطبية الجنوبية"
     },
     {
         question: "ما هو أكبر محيط في العالم؟",
         options: ["الأطلسي", "الهندي", "المتجمد الشمالي", "الهادئ"],
-        correct: 3
+        correct: 3,
+        hint: "يغطي ثلث سطح الأرض"
     },
     {
         question: "في أي عام تم اختراع الإنترنت؟",
         options: ["1969", "1975", "1983", "1991"],
-        correct: 0
+        correct: 0,
+        hint: "في أواخر الستينات"
     },
     {
         question: "ما هو أطول نهر في العالم؟",
         options: ["النيل", "الأمازون", "اليانغتسي", "المسيسيبي"],
-        correct: 0
+        correct: 0,
+        hint: "يجري في قارة إفريقيا"
     }
 ];
 
@@ -63,10 +70,8 @@ function initializeApp() {
     document.querySelectorAll('.screen').forEach(screen => {
         screen.classList.remove('active');
     });
-    
     // عرض شاشة تسجيل الدخول
     document.getElementById('loginScreen').classList.add('active');
-    
     // تهيئة الأصوات
     initializeAudio();
 }
@@ -77,7 +82,6 @@ function setupEventListeners() {
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
     document.getElementById('registerForm').addEventListener('submit', handleRegister);
     document.getElementById('guestForm').addEventListener('submit', handleGuestLogin);
-    
     // إرسال الرسائل
     document.getElementById('messageInput').addEventListener('keypress', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -85,13 +89,10 @@ function setupEventListeners() {
             sendMessage();
         }
     });
-    
     // رفع الصور
     document.getElementById('imageInput').addEventListener('change', handleImageUpload);
-    
     // تغيير الغرفة
     document.getElementById('roomSelect').addEventListener('change', changeRoom);
-    
     // إغلاق المودالات عند النقر خارجها
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal')) {
@@ -144,13 +145,10 @@ function showMainScreen() {
         screen.classList.remove('active');
     });
     document.getElementById('mainScreen').classList.add('active');
-    
     // تحديث معلومات المستخدم في الواجهة
     updateUserInterface();
-    
     // تحميل الغرف
     loadRooms();
-    
     // تحميل الرسائل
     loadMessages();
 }
@@ -158,23 +156,21 @@ function showMainScreen() {
 // تحديث واجهة المستخدم
 function updateUserInterface() {
     if (!currentUser) return;
-    
     // تحديث معلومات المستخدم في الشريط العلوي
     document.getElementById('headerUserName').textContent = currentUser.display_name || currentUser.email;
     document.getElementById('headerUserRank').textContent = RANKS[currentUser.rank]?.name || 'زائر';
-    
     // تحديث صورة المستخدم
     const avatarImg = document.getElementById('headerUserAvatar');
     if (currentUser.profile_image1) {
         avatarImg.src = currentUser.profile_image1;
     }
-    
     // إظهار أزرار الإدارة حسب الدور
     const adminBtn = document.getElementById('adminPanelBtn');
     const roomsBtn = document.getElementById('roomsManagerBtn');
     const clearBtn = document.getElementById('clearChatBtn');
     
-    if (currentUser.role === 'admin' || currentUser.role === 'owner') {
+    // التحقق من الصلاحيات — فقط المالك والمشرفون
+    if (hasPermission('create_room') || hasPermission('delete_room') || currentUser.role === 'owner') {
         if (adminBtn) adminBtn.style.display = 'block';
         if (roomsBtn) roomsBtn.style.display = 'block';
         if (clearBtn) clearBtn.style.display = 'block';
@@ -182,6 +178,16 @@ function updateUserInterface() {
     
     // تعيين دور المستخدم في الجسم
     document.body.setAttribute('data-user-role', currentUser.role);
+    document.body.setAttribute('data-user-rank', currentUser.rank);
+}
+
+// التحقق من الصلاحية
+function hasPermission(permission) {
+    if (!currentUser) return false;
+    const userRank = RANKS[currentUser.rank];
+    if (!userRank) return false;
+    if (userRank.permissions.includes('all')) return true;
+    return userRank.permissions.includes(permission);
 }
 
 // تهيئة Socket.IO
@@ -192,7 +198,7 @@ function initializeSocket() {
             token: token
         }
     });
-    
+
     // الاتصال
     socket.on('connect', () => {
         console.log('متصل بالخادم');
@@ -205,13 +211,20 @@ function initializeSocket() {
             token: token
         });
     });
-    
+
     // رسالة جديدة
     socket.on('newMessage', (message) => {
+        // فلترة الكلمات غير اللائقة
+        if (isInappropriate(message.message)) {
+            if (hasPermission('ban_user')) {
+                showNotification(`تم حذف رسالة غير لائقة من ${message.display_name}`, 'warning');
+            }
+            return; // لا تظهر الرسالة
+        }
         displayMessage(message);
         playNotificationSound();
     });
-    
+
     // رسالة خاصة جديدة
     socket.on('newPrivateMessage', (message) => {
         if (chatMode === 'private' && 
@@ -220,13 +233,15 @@ function initializeSocket() {
         }
         playNotificationSound();
         updateNotificationCount();
+        // إظهار إشعار تلقائي عند استلام رسالة خاصة
+        showPrivateMessageNotification(message);
     });
-    
+
     // تحديث قائمة المستخدمين
     socket.on('roomUsersList', (users) => {
         updateUsersList(users);
     });
-    
+
     // حذف رسالة
     socket.on('messageDeleted', (messageId) => {
         const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
@@ -234,14 +249,14 @@ function initializeSocket() {
             messageElement.remove();
         }
     });
-    
+
     // إشعار جديد
     socket.on('newNotification', (notification) => {
         showNotification(notification.message, notification.type || 'info');
         updateNotificationCount();
         notificationsList.push(notification);
     });
-    
+
     // تحديث قائمة المتصلين
     socket.on('onlineUsersUpdated', (users) => {
         onlineUsersList = users;
@@ -250,14 +265,13 @@ function initializeSocket() {
         if (sidebarCount) {
             sidebarCount.textContent = users.length;
         }
-        
         // تحديث قائمة المتصلين في المودال إذا كان مفتوحاً
         const modal = document.getElementById('onlineUsersModal');
         if (modal && modal.classList.contains('modal') && modal.style.display !== 'none') {
             displayOnlineUsers();
         }
     });
-    
+
     // قطع الاتصال
     socket.on('disconnect', () => {
         console.log('انقطع الاتصال بالخادم');
@@ -274,21 +288,24 @@ function initializeSocket() {
     });
 }
 
+// فلترة الكلمات غير اللائقة
+function isInappropriate(text) {
+    const badWords = ['كلمة1', 'كلمة2', 'كلمة3']; // يمكنك تعديلها
+    if (!text) return false;
+    return badWords.some(word => text.toLowerCase().includes(word.toLowerCase()));
+}
+
 // تسجيل الدخول
 async function handleLogin(e) {
     e.preventDefault();
-    
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
-    
     if (!email || !password) {
         showError('يرجى ملء جميع الحقول');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: {
@@ -296,9 +313,7 @@ async function handleLogin(e) {
             },
             body: JSON.stringify({ email, password })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
             localStorage.setItem('chatToken', data.token);
             currentUser = data.user;
@@ -322,24 +337,19 @@ async function handleLogin(e) {
 // إنشاء حساب جديد
 async function handleRegister(e) {
     e.preventDefault();
-    
     const displayName = document.getElementById('registerDisplayName').value;
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
-    
     if (!email || !password) {
         showError('يرجى ملء جميع الحقول المطلوبة');
         return;
     }
-    
     if (password.length < 6) {
         showError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/register', {
             method: 'POST',
             headers: {
@@ -347,9 +357,7 @@ async function handleRegister(e) {
             },
             body: JSON.stringify({ email, password, display_name: displayName })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
             localStorage.setItem('chatToken', data.token);
             currentUser = data.user;
@@ -369,21 +377,17 @@ async function handleRegister(e) {
 // دخول كزائر
 async function handleGuestLogin(e) {
     e.preventDefault();
-    
     const name = document.getElementById('guestName').value;
     const age = document.getElementById('guestAge').value;
     const gender = document.getElementById('guestGender').value;
-    
     if (!name || !age || !gender) {
         showError('يرجى ملء جميع الحقول');
         return;
     }
-    
     if (age < 13 || age > 99) {
         showError('العمر يجب أن يكون بين 13 و 99 سنة');
         return;
     }
-    
     // إنشاء مستخدم زائر مؤقت
     currentUser = {
         id: Date.now(),
@@ -395,10 +399,49 @@ async function handleGuestLogin(e) {
         gender: gender,
         isGuest: true
     };
-    
     showMainScreen();
     initializeSocket();
     showNotification('مرحباً بك كزائر', 'success');
+}
+
+// تسجيل الدخول عبر Google
+function loginWithGoogle() {
+    showNotification('جارٍ التسجيل عبر Google...', 'info');
+    // محاكاة تسجيل الدخول
+    setTimeout(() => {
+        currentUser = {
+            id: Date.now(),
+            display_name: 'مستخدم جوجل',
+            email: `google_${Date.now()}@gmail.com`,
+            role: 'user',
+            rank: 'silver',
+            isSocialLogin: true,
+            provider: 'google'
+        };
+        showMainScreen();
+        initializeSocket();
+        showNotification('تم تسجيل الدخول عبر Google بنجاح', 'success');
+    }, 1500);
+}
+
+// تسجيل الدخول عبر Facebook
+function loginWithFacebook() {
+    showNotification('جارٍ التسجيل عبر Facebook...', 'info');
+    // محاكاة تسجيل الدخول
+    setTimeout(() => {
+        currentUser = {
+            id: Date.now(),
+            display_name: 'مستخدم فيسبوك',
+            email: `facebook_${Date.now()}@facebook.com`,
+            role: 'user',
+            rank: 'bronze',
+            isSocialLogin: true,
+            provider: 'facebook'
+        };
+        showMainScreen();
+        initializeSocket();
+        showNotification('تم تسجيل الدخول عبر Facebook بنجاح', 'success');
+    }, 1500);
 }
 
 // عرض شاشة الحظر
@@ -417,14 +460,12 @@ async function checkBanStatus() {
         showLoginScreen();
         return;
     }
-    
     try {
         const response = await fetch('/api/user/profile', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
         if (response.ok) {
             const user = await response.json();
             currentUser = user;
@@ -448,7 +489,6 @@ async function loadRooms() {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
         if (response.ok) {
             const rooms = await response.json();
             updateRoomsSelect(rooms);
@@ -462,7 +502,6 @@ async function loadRooms() {
 function updateRoomsSelect(rooms) {
     const select = document.getElementById('roomSelect');
     select.innerHTML = '';
-    
     rooms.forEach(room => {
         const option = document.createElement('option');
         option.value = room.id;
@@ -479,16 +518,13 @@ function changeRoom() {
     const newRoomId = parseInt(document.getElementById('roomSelect').value);
     if (newRoomId !== currentRoom) {
         currentRoom = newRoomId;
-        
         // إشعار الخادم بتغيير الغرفة
         if (socket) {
             socket.emit('changeRoom', newRoomId);
         }
-        
         // تحديث اسم الغرفة
         const roomName = document.getElementById('roomSelect').selectedOptions[0].textContent;
         document.getElementById('currentRoomName').textContent = roomName;
-        
         // مسح الرسائل وتحميل رسائل الغرفة الجديدة
         document.getElementById('messagesContainer').innerHTML = '';
         loadMessages();
@@ -500,23 +536,18 @@ async function loadMessages() {
     try {
         const token = localStorage.getItem('chatToken');
         if (!token && !currentUser?.isGuest) return;
-        
         const headers = {};
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
-        
         const response = await fetch(`/api/messages/${currentRoom}`, { headers });
-        
         if (response.ok) {
             const messages = await response.json();
             const container = document.getElementById('messagesContainer');
             container.innerHTML = '';
-            
             messages.forEach(message => {
                 displayMessage(message);
             });
-            
             scrollToBottom();
         }
     } catch (error) {
@@ -531,14 +562,21 @@ function displayMessage(message) {
     messageDiv.className = `message ${message.user_id === currentUser?.id ? 'own' : ''}`;
     messageDiv.setAttribute('data-message-id', message.id);
     
+    // إضافة خيارات الرسالة (ثلاث نقاط)
+    const optionsBtn = document.createElement('button');
+    optionsBtn.className = 'message-options-btn';
+    optionsBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
+    optionsBtn.onclick = (e) => {
+        e.stopPropagation();
+        showMessageOptions(message, messageDiv);
+    };
+    
     const rank = RANKS[message.rank] || RANKS.visitor;
     const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
         hour: '2-digit',
         minute: '2-digit'
     });
-    
     let messageContent = '';
-    
     // محتوى الرسالة
     if (message.message) {
         messageContent = `<div class="message-text">${escapeHtml(message.message)}</div>`;
@@ -550,7 +588,6 @@ function displayMessage(message) {
     } else if (message.image_url) {
         messageContent = `<img class="message-image" src="${message.image_url}" alt="صورة" onclick="openImageModal('${message.image_url}')">`;
     }
-    
     messageDiv.innerHTML = `
         <img class="message-avatar" src="${message.profile_image1 || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'}" 
              alt="صورة ${message.display_name}" onclick="openUserProfile(${message.user_id})">
@@ -563,36 +600,61 @@ function displayMessage(message) {
             ${messageContent}
         </div>
     `;
-    
+    messageDiv.appendChild(optionsBtn);
     container.appendChild(messageDiv);
     scrollToBottom();
+}
+
+// عرض خيارات الرسالة
+function showMessageOptions(message, messageElement) {
+    const optionsDiv = document.createElement('div');
+    optionsDiv.className = 'message-options';
+    optionsDiv.innerHTML = `
+        <button onclick="quoteMessage(${message.id}, '${escapeHtml(message.display_name)}', '${escapeHtml(message.message)}')">
+            <i class="fas fa-quote-right"></i> اقتباس
+        </button>
+        <button onclick="reportMessage(${message.id})">
+            <i class="fas fa-flag"></i> بلاغ
+        </button>
+        <button onclick="notifyAboutMessage(${message.id}, '${escapeHtml(message.display_name)}')">
+            <i class="fas fa-bell"></i> إشعار
+        </button>
+        ${message.user_id === currentUser?.id || hasPermission('delete_message') ? `
+        <button onclick="deleteMessage(${message.id}, this)">
+            <i class="fas fa-trash"></i> حذف
+        </button>` : ''}
+    `;
+    // إضافة الخيارات بجانب الرسالة
+    messageElement.appendChild(optionsDiv);
+    // إغلاق الخيارات عند النقر خارجها
+    document.addEventListener('click', function closeOptions(e) {
+        if (!messageElement.contains(e.target) && !optionsDiv.contains(e.target)) {
+            optionsDiv.remove();
+            document.removeEventListener('click', closeOptions);
+        }
+    });
 }
 
 // إرسال رسالة
 function sendMessage() {
     const input = document.getElementById('messageInput');
     const message = input.value.trim();
-    
     if (!message) return;
-    
     if (message.length > 1000) {
         showError('الرسالة طويلة جداً (الحد الأقصى 1000 حرف)');
         return;
     }
-    
     if (socket) {
         const messageData = {
             message: message,
             roomId: currentRoom
         };
-        
         // إضافة الاقتباس إذا كان موجوداً
         if (quotedMessage) {
             messageData.quoted_message_id = quotedMessage.id;
             messageData.quoted_author = quotedMessage.author;
             messageData.quoted_content = quotedMessage.content;
         }
-        
         socket.emit('sendMessage', messageData);
         input.value = '';
         cancelQuote();
@@ -603,22 +665,17 @@ function sendMessage() {
 function handleImageUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
     if (!file.type.startsWith('image/')) {
         showError('يرجى اختيار صورة صحيحة');
         return;
     }
-    
     if (file.size > 5 * 1024 * 1024) {
         showError('حجم الصورة كبير جداً (الحد الأقصى 5 ميجابايت)');
         return;
     }
-    
     const formData = new FormData();
     formData.append('image', file);
-    
     showLoading(true);
-    
     fetch('/api/upload-image', {
         method: 'POST',
         headers: {
@@ -661,24 +718,19 @@ async function startRecording() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
-        
         mediaRecorder.ondataavailable = (event) => {
             audioChunks.push(event.data);
         };
-        
         mediaRecorder.onstop = () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             uploadVoiceMessage(audioBlob);
             stream.getTracks().forEach(track => track.stop());
         };
-        
         mediaRecorder.start();
         isRecording = true;
-        
         const voiceBtn = document.getElementById('voiceBtn');
         voiceBtn.classList.add('recording');
         voiceBtn.innerHTML = '<i class="fas fa-stop"></i>';
-        
         showNotification('بدأ التسجيل...', 'info');
     } catch (error) {
         showError('لا يمكن الوصول للميكروفون');
@@ -690,11 +742,9 @@ function stopRecording() {
     if (mediaRecorder && isRecording) {
         mediaRecorder.stop();
         isRecording = false;
-        
         const voiceBtn = document.getElementById('voiceBtn');
         voiceBtn.classList.remove('recording');
         voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
-        
         showNotification('تم إيقاف التسجيل', 'success');
     }
 }
@@ -703,9 +753,7 @@ function stopRecording() {
 function uploadVoiceMessage(audioBlob) {
     const formData = new FormData();
     formData.append('voice', audioBlob, 'voice.webm');
-    
     showLoading(true);
-    
     fetch('/api/upload-voice', {
         method: 'POST',
         headers: {
@@ -736,26 +784,20 @@ function uploadVoiceMessage(audioBlob) {
 function updateUsersList(users) {
     const container = document.getElementById('onlineUsersList');
     const countElement = document.getElementById('onlineCount');
-    
     container.innerHTML = '';
     countElement.textContent = users.length;
-    
     // ترتيب المستخدمين حسب الرتبة
     users.sort((a, b) => {
         const rankA = RANKS[a.rank] || RANKS.visitor;
         const rankB = RANKS[b.rank] || RANKS.visitor;
         return rankB.level - rankA.level;
     });
-    
     users.forEach(user => {
         if (user.userId === currentUser?.id) return; // لا نعرض المستخدم الحالي
-        
         const userDiv = document.createElement('div');
         userDiv.className = 'user-item';
         userDiv.onclick = () => openUserActions(user);
-        
         const rank = RANKS[user.rank] || RANKS.visitor;
-        
         userDiv.innerHTML = `
             <img class="user-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${user.displayName}">
             <div class="user-details">
@@ -763,7 +805,6 @@ function updateUsersList(users) {
                 <div class="user-status">${rank.emoji} ${rank.name}</div>
             </div>
         `;
-        
         container.appendChild(userDiv);
     });
 }
@@ -771,31 +812,25 @@ function updateUsersList(users) {
 // فتح إجراءات المستخدم
 function openUserActions(user) {
     selectedUserId = user.userId;
-    
     document.getElementById('actionUserName').textContent = user.displayName;
     document.getElementById('actionUserAvatar').src = 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop';
-    
     openModal('userActionsModal');
 }
 
 // بدء دردشة خاصة
 function startPrivateChat() {
     if (!selectedUserId) return;
-    
     chatMode = 'private';
     document.getElementById('chatModeText').textContent = 'خاص';
-    
     // تحديث واجهة الدردشة الخاصة
     loadPrivateMessages();
     closeAllModals();
-    
     showNotification('تم التبديل للدردشة الخاصة', 'info');
 }
 
 // تحميل الرسائل الخاصة
 async function loadPrivateMessages() {
     if (!selectedUserId) return;
-    
     try {
         const token = localStorage.getItem('chatToken');
         const response = await fetch(`/api/private-messages/${selectedUserId}`, {
@@ -803,16 +838,13 @@ async function loadPrivateMessages() {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
         if (response.ok) {
             const messages = await response.json();
             const container = document.getElementById('messagesContainer');
             container.innerHTML = '';
-            
             messages.forEach(message => {
                 displayPrivateMessage(message);
             });
-            
             scrollToBottom();
         }
     } catch (error) {
@@ -826,15 +858,12 @@ function displayPrivateMessage(message) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${message.user_id === currentUser?.id ? 'own' : ''}`;
     messageDiv.setAttribute('data-message-id', message.id);
-    
     const rank = RANKS[message.rank] || RANKS.visitor;
     const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
         hour: '2-digit',
         minute: '2-digit'
     });
-    
     let messageContent = '';
-    
     if (message.message) {
         messageContent = `<div class="message-text">${escapeHtml(message.message)}</div>`;
     } else if (message.voice_url) {
@@ -844,7 +873,6 @@ function displayPrivateMessage(message) {
     } else if (message.image_url) {
         messageContent = `<img class="message-image" src="${message.image_url}" alt="صورة" onclick="openImageModal('${message.image_url}')">`;
     }
-    
     messageDiv.innerHTML = `
         <img class="message-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${message.display_name}">
         <div class="message-content">
@@ -856,7 +884,6 @@ function displayPrivateMessage(message) {
             ${messageContent}
         </div>
     `;
-    
     container.appendChild(messageDiv);
     scrollToBottom();
 }
@@ -910,18 +937,14 @@ async function loadNews() {
 function displayNews(news) {
     const container = document.getElementById('newsFeed');
     container.innerHTML = '';
-    
     if (news.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد أخبار حالياً</p>';
         return;
     }
-    
     news.forEach(item => {
         const newsDiv = document.createElement('div');
         newsDiv.className = 'news-item';
-        
         const time = new Date(item.timestamp).toLocaleString('ar-SA');
-        
         newsDiv.innerHTML = `
             <div class="news-header-info">
                 <img class="news-author-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${item.display_name}">
@@ -932,8 +955,13 @@ function displayNews(news) {
             </div>
             <div class="news-content">${escapeHtml(item.content)}</div>
             ${item.media ? `<div class="news-media"><img src="${item.media}" alt="صورة الخبر"></div>` : ''}
+            <div class="news-reactions">
+                <button class="reaction-btn" data-reaction="like"><i class="fas fa-thumbs-up"></i> <span>0</span></button>
+                <button class="reaction-btn" data-reaction="heart"><i class="fas fa-heart"></i> <span>0</span></button>
+                <button class="reaction-btn" data-reaction="laugh"><i class="fas fa-laugh"></i> <span>0</span></button>
+                <button class="reaction-btn" data-reaction="dislike"><i class="fas fa-thumbs-down"></i> <span>0</span></button>
+            </div>
         `;
-        
         container.appendChild(newsDiv);
     });
 }
@@ -942,19 +970,15 @@ function displayNews(news) {
 async function postNews() {
     const content = document.getElementById('newsContentInput').value.trim();
     const fileInput = document.getElementById('newsFileInput');
-    
     if (!content && !fileInput.files[0]) {
         showError('يرجى كتابة محتوى أو اختيار ملف');
         return;
     }
-    
     const formData = new FormData();
     if (content) formData.append('content', content);
     if (fileInput.files[0]) formData.append('newsFile', fileInput.files[0]);
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/news', {
             method: 'POST',
             headers: {
@@ -962,7 +986,6 @@ async function postNews() {
             },
             body: formData
         });
-        
         if (response.ok) {
             document.getElementById('newsContentInput').value = '';
             fileInput.value = '';
@@ -1008,17 +1031,14 @@ async function loadStories() {
 function displayStories(stories) {
     const container = document.getElementById('storiesContainer');
     container.innerHTML = '';
-    
     if (stories.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد قصص حالياً</p>';
         return;
     }
-    
     stories.forEach(story => {
         const storyDiv = document.createElement('div');
         storyDiv.className = 'story-item';
         storyDiv.onclick = () => viewStory(story);
-        
         storyDiv.innerHTML = `<img src="${story.image}" alt="قصة ${story.display_name}">`;
         container.appendChild(storyDiv);
     });
@@ -1038,19 +1058,15 @@ function closeAddStoryModal() {
 async function addStory() {
     const fileInput = document.getElementById('storyMediaInput');
     const text = document.getElementById('storyTextInput').value.trim();
-    
     if (!fileInput.files[0]) {
         showError('يرجى اختيار صورة أو فيديو');
         return;
     }
-    
     const formData = new FormData();
     formData.append('storyImage', fileInput.files[0]);
     if (text) formData.append('text', text);
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/stories', {
             method: 'POST',
             headers: {
@@ -1058,7 +1074,6 @@ async function addStory() {
             },
             body: formData
         });
-        
         if (response.ok) {
             closeAddStoryModal();
             loadStories();
@@ -1096,20 +1111,18 @@ function openQuizRoom() {
 function startQuiz() {
     const randomQuestion = QUIZ_QUESTIONS[Math.floor(Math.random() * QUIZ_QUESTIONS.length)];
     displayQuizQuestion(randomQuestion);
-    startQuizTimer();
+    startQuizTimerWithHints(randomQuestion);
 }
 
 // عرض سؤال المسابقة
 function displayQuizQuestion(question) {
     document.getElementById('questionText').textContent = question.question;
-    
     const optionsContainer = document.getElementById('questionOptions');
     optionsContainer.innerHTML = '';
-    
     question.options.forEach((option, index) => {
         const button = document.createElement('button');
         button.className = 'option-btn';
-        button.textContent = option;
+        button.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
         button.onclick = () => selectQuizAnswer(index, question.correct);
         optionsContainer.appendChild(button);
     });
@@ -1128,10 +1141,17 @@ function selectQuizAnswer(selected, correct) {
     });
     
     if (selected === correct) {
+        const pointsEarned = 10;
         showNotification('إجابة صحيحة! +10 نقاط', 'success');
-        updateUserCoins(10);
+        updateUserCoins(pointsEarned);
+        updateUserQuizRank(pointsEarned);
     } else {
         showNotification('إجابة خاطئة', 'error');
+    }
+    
+    // إيقاف المؤقت الحالي
+    if (contestTimer) {
+        clearInterval(contestTimer);
     }
     
     setTimeout(() => {
@@ -1139,33 +1159,125 @@ function selectQuizAnswer(selected, correct) {
     }, 3000);
 }
 
-// بدء مؤقت المسابقة
-function startQuizTimer() {
-    let timeLeft = 30;
+// بدء مؤقت المسابقة مع التلميحات
+function startQuizTimerWithHints(question) {
+    let timeLeft = 15; // 15 ثانية أولاً
+    let hintShown = false;
     const timerElement = document.getElementById('quizTimer');
+    const hintSection = document.getElementById('hintSection');
+    const hintText = document.getElementById('hintText');
     
-    const timer = setInterval(() => {
+    // إخفاء التلميح في البداية
+    hintSection.style.display = 'none';
+    
+    contestTimer = setInterval(() => {
         timeLeft--;
         timerElement.textContent = timeLeft;
         
+        // عرض التلميح بعد 15 ثانية
+        if (timeLeft <= 0 && !hintShown) {
+            hintShown = true;
+            timeLeft = 10; // إعادة العد إلى 10 ثواني إضافية
+            hintSection.style.display = 'block';
+            hintText.textContent = `تلميح: ${question.hint}`;
+            timerElement.textContent = timeLeft;
+        }
+        
+        // انتهاء الوقت
         if (timeLeft <= 0) {
-            clearInterval(timer);
-            showNotification('انتهى الوقت!', 'warning');
-            setTimeout(() => {
-                startQuiz();
-            }, 2000);
+            clearInterval(contestTimer);
+            if (!hintShown) {
+                // لم يجاوب أحد خلال الـ 15 ثانية الأولى
+                hintShown = true;
+                hintSection.style.display = 'block';
+                hintText.textContent = `تلميح: ${question.hint}`;
+                setTimeout(() => {
+                    revealAnswerAndNext(question.correct);
+                }, 2000);
+            } else {
+                // لم يجاوب أحد حتى بعد التلميح
+                revealAnswerAndNext(question.correct);
+            }
         }
     }, 1000);
 }
 
+// عرض الإجابة والانتقال للسؤال التالي
+function revealAnswerAndNext(correctAnswerIndex) {
+    const buttons = document.querySelectorAll('.option-btn');
+    buttons.forEach((btn, index) => {
+        btn.disabled = true;
+        if (index === correctAnswerIndex) {
+            btn.style.background = 'var(--success-color)';
+        }
+    });
+    showNotification(`الإجابة الصحيحة: ${QUIZ_QUESTIONS.find(q => q.options[correctAnswerIndex])?.options[correctAnswerIndex]}`, 'info');
+    setTimeout(() => {
+        startQuiz(); // سؤال جديد
+    }, 3000);
+}
+
+// تحديث ترتيب المستخدم في المسابقة
+function updateUserQuizRank(points) {
+    // محاكاة تحديث الترتيب
+    let currentPoints = parseInt(document.getElementById('userQuizPoints').textContent) || 0;
+    currentPoints += points;
+    document.getElementById('userQuizPoints').textContent = currentPoints;
+    // تحديث الترتيب (محاكاة)
+    document.getElementById('userQuizRank').textContent = `#${Math.floor(Math.random() * 10) + 1}`;
+    // تحديث لوحة المتصدرين
+    updateLeaderboard(currentPoints);
+}
+
+// تحديث لوحة المتصدرين
+function updateLeaderboard(userPoints) {
+    const leaderboardList = document.getElementById('leaderboardList');
+    leaderboardList.innerHTML = ''; // مسح القائمة الحالية
+
+    // إنشاء قائمة وهمية
+    const mockLeaders = [
+        { name: currentUser?.display_name || 'أنت', score: userPoints },
+        { name: 'أحمد', score: userPoints + 5 },
+        { name: 'سارة', score: userPoints + 3 },
+        { name: 'محمد', score: userPoints - 2 },
+        { name: 'ليلى', score: userPoints - 5 }
+    ];
+
+    // ترتيب حسب النقاط
+    mockLeaders.sort((a, b) => b.score - a.score);
+
+    mockLeaders.forEach((leader, index) => {
+        const item = document.createElement('div');
+        item.className = 'leaderboard-item';
+        item.innerHTML = `
+            <span class="rank">${index + 1}.</span>
+            <span class="username">${leader.name}</span>
+            <span class="score">${leader.score}</span>
+        `;
+        if (leader.name === (currentUser?.display_name || 'أنت')) {
+            item.style.color = 'gold';
+            item.style.fontWeight = 'bold';
+        }
+        leaderboardList.appendChild(item);
+    });
+}
+
 // إغلاق غرفة المسابقات
 function closeQuizRoom() {
+    if (contestTimer) {
+        clearInterval(contestTimer);
+    }
     closeModal('quizRoomModal');
 }
 
 // فتح إدارة الغرف
 function openRoomsManager() {
-    showNotification('إدارة الغرف متاحة في لوحة الإدارة', 'info');
+    if (!hasPermission('create_room')) {
+        showError('غير مسموح - للإداريين فقط');
+        return;
+    }
+    openModal('adminModal');
+    showAdminTab('rooms');
     closeMainMenu();
 }
 
@@ -1177,11 +1289,10 @@ function openCoinsShop() {
 
 // فتح لوحة الإدارة
 function openAdminPanel() {
-    if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
+    if (!hasPermission('create_room') && currentUser?.role !== 'owner') {
         showError('غير مسموح - للإداريين فقط');
         return;
     }
-    
     openModal('adminModal');
     loadAdminData();
     closeMainMenu();
@@ -1191,6 +1302,7 @@ function openAdminPanel() {
 async function loadAdminData() {
     await loadAllUsers();
     loadRanks();
+    loadAuditLog(); // تحميل سجل الرقابة
 }
 
 // تحميل جميع المستخدمين
@@ -1201,7 +1313,6 @@ async function loadAllUsers() {
                 'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
             }
         });
-        
         if (response.ok) {
             const users = await response.json();
             displayAdminUsers(users);
@@ -1215,14 +1326,11 @@ async function loadAllUsers() {
 function displayAdminUsers(users) {
     const container = document.getElementById('adminUsersList');
     container.innerHTML = '';
-    
     users.forEach(user => {
         const userDiv = document.createElement('div');
         userDiv.className = 'admin-user-item';
-        
         const rank = RANKS[user.rank] || RANKS.visitor;
         const joinDate = new Date(user.created_at).toLocaleDateString('ar-SA');
-        
         userDiv.innerHTML = `
             <div class="admin-user-info">
                 <img class="admin-user-avatar" src="${user.profile_image1 || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'}" alt="${user.display_name}">
@@ -1243,7 +1351,6 @@ function displayAdminUsers(users) {
                 </button>
             </div>
         `;
-        
         container.appendChild(userDiv);
     });
 }
@@ -1252,17 +1359,15 @@ function displayAdminUsers(users) {
 function loadRanks() {
     const container = document.getElementById('ranksList');
     container.innerHTML = '';
-    
     Object.entries(RANKS).forEach(([key, rank]) => {
         const rankDiv = document.createElement('div');
         rankDiv.className = 'rank-item';
-        
         rankDiv.innerHTML = `
             <div class="rank-emoji">${rank.emoji}</div>
             <div class="rank-name">${rank.name}</div>
             <div class="rank-level">المستوى ${rank.level}</div>
+            <div class="rank-permissions">${rank.permissions.join(', ') || 'لا صلاحيات'}</div>
         `;
-        
         container.appendChild(rankDiv);
     });
 }
@@ -1271,18 +1376,15 @@ function loadRanks() {
 function openAssignRankModal(userId, userName) {
     document.getElementById('rankTargetUser').textContent = userName;
     document.getElementById('rankTargetUser').setAttribute('data-user-id', userId);
-    
     // ملء قائمة الرتب
     const select = document.getElementById('newRankSelect');
     select.innerHTML = '';
-    
     Object.entries(RANKS).forEach(([key, rank]) => {
         const option = document.createElement('option');
         option.value = key;
         option.textContent = `${rank.emoji} ${rank.name}`;
         select.appendChild(option);
     });
-    
     openModal('assignRankModal');
 }
 
@@ -1291,15 +1393,12 @@ async function confirmAssignRank() {
     const userId = document.getElementById('rankTargetUser').getAttribute('data-user-id');
     const newRank = document.getElementById('newRankSelect').value;
     const reason = document.getElementById('rankChangeReason').value.trim();
-    
     if (!newRank) {
         showError('يرجى اختيار رتبة');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/assign-rank', {
             method: 'POST',
             headers: {
@@ -1312,10 +1411,10 @@ async function confirmAssignRank() {
                 reason
             })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
+            // تسجيل الإجراء في سجل الرقابة
+            logAuditAction('assign_rank', userId, reason, newRank);
             closeAssignRankModal();
             loadAllUsers();
             showNotification(data.message, 'success');
@@ -1347,15 +1446,12 @@ async function confirmBanUser() {
     const userId = document.getElementById('banTargetUser').getAttribute('data-user-id');
     const reason = document.getElementById('banReason').value.trim();
     const duration = document.getElementById('banDuration').value;
-    
     if (!reason) {
         showError('يرجى كتابة سبب الحظر');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/ban', {
             method: 'POST',
             headers: {
@@ -1368,10 +1464,10 @@ async function confirmBanUser() {
                 duration
             })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
+            // تسجيل الإجراء في سجل الرقابة
+            logAuditAction('ban', userId, reason, duration);
             closeBanUserModal();
             loadAllUsers();
             showNotification(data.message, 'success');
@@ -1391,6 +1487,56 @@ function closeBanUserModal() {
     document.getElementById('banReason').value = '';
 }
 
+// فتح مودال كتم المستخدم
+function openMuteUserModal() {
+    const userId = document.getElementById('actionUserAvatar').parentElement.querySelector('#actionUserName').getAttribute('data-user-id');
+    const userName = document.getElementById('actionUserName').textContent;
+    document.getElementById('muteTargetUser').textContent = userName;
+    document.getElementById('muteTargetUser').setAttribute('data-user-id', userId);
+    openModal('muteUserModal');
+}
+
+// كتم المستخدم
+async function muteUser() {
+    const userId = document.getElementById('muteTargetUser').getAttribute('data-user-id');
+    const reason = document.getElementById('muteReason').value.trim();
+    const duration = document.getElementById('muteDuration').value;
+    
+    if (!reason) {
+        showError('يرجى كتابة سبب الكتم');
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        const response = await fetch('/api/mute', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({
+                userId: parseInt(userId),
+                reason,
+                duration
+            })
+        });
+        const data = await response.json();
+        if (response.ok) {
+            // تسجيل الإجراء في سجل الرقابة
+            logAuditAction('mute', userId, reason, duration);
+            closeModal('muteUserModal');
+            showNotification(`تم كتم المستخدم بسبب: ${reason}`, 'warning');
+        } else {
+            showError(data.error);
+        }
+    } catch (error) {
+        showError('حدث خطأ في كتم المستخدم');
+    } finally {
+        showLoading(false);
+    }
+}
+
 // فتح مودال إهداء النقاط
 function openGiveCoinsModal(userId, userName) {
     document.getElementById('coinsTargetUser').textContent = userName;
@@ -1403,15 +1549,12 @@ async function giveCoins() {
     const userId = document.getElementById('coinsTargetUser').getAttribute('data-user-id');
     const amount = document.getElementById('coinsAmount').value;
     const reason = document.getElementById('coinsReason').value;
-    
     if (!amount || amount < 1 || amount > 10000) {
         showError('يرجى إدخال عدد صحيح من النقاط (1-10000)');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/give-coins', {
             method: 'POST',
             headers: {
@@ -1424,10 +1567,10 @@ async function giveCoins() {
                 reason: reason
             })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
+            // تسجيل الإجراء في سجل الرقابة
+            logAuditAction('give_coins', userId, reason, amount);
             closeGiveCoinsModal();
             loadAllUsers();
             showNotification(`تم إهداء ${amount} نقطة بنجاح`, 'success');
@@ -1459,15 +1602,12 @@ function showAdminTab(tabName) {
     document.querySelectorAll('.admin-tab').forEach(tab => {
         tab.classList.remove('active');
     });
-    
     // إزالة الفئة النشطة من جميع الأزرار
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    
     // عرض التبويب المحدد
     document.getElementById(`admin${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Tab`).classList.add('active');
-    
     // تفعيل الزر المحدد
     event.target.classList.add('active');
 }
@@ -1475,7 +1615,6 @@ function showAdminTab(tabName) {
 // فتح الملف الشخصي
 function openProfileModal() {
     if (!currentUser) return;
-    
     // ملء البيانات الحالية
     document.getElementById('displayNameInput').value = currentUser.display_name || '';
     document.getElementById('emailInput').value = currentUser.email || '';
@@ -1483,7 +1622,6 @@ function openProfileModal() {
     document.getElementById('genderInput').value = currentUser.gender || '';
     document.getElementById('maritalStatusInput').value = currentUser.marital_status || '';
     document.getElementById('aboutMeInput').value = currentUser.about_me || '';
-    
     // عرض الصور الحالية
     if (currentUser.profile_image1) {
         document.getElementById('profileImg1').src = currentUser.profile_image1;
@@ -1491,11 +1629,13 @@ function openProfileModal() {
     if (currentUser.profile_image2) {
         document.getElementById('profileImg2').src = currentUser.profile_image2;
     }
-    
     // عرض الإحصائيات
     document.getElementById('profileCoins').textContent = currentUser.coins || 2000;
     document.getElementById('profileRank').textContent = RANKS[currentUser.rank]?.name || 'زائر';
-    
+    // تشغيل موسيقى البروفايل إذا كانت موجودة
+    if (currentUser.profile_music) {
+        autoPlayProfileMusic(currentUser.profile_music);
+    }
     openModal('profileModal');
 }
 
@@ -1510,15 +1650,12 @@ function showProfileTab(tabName) {
     document.querySelectorAll('.profile-tab').forEach(tab => {
         tab.classList.remove('active');
     });
-    
     // إزالة الفئة النشطة من جميع الأزرار
     document.querySelectorAll('.profile-tabs .tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    
     // عرض التبويب المحدد
     document.getElementById(`profile${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Tab`).classList.add('active');
-    
     // تفعيل الزر المحدد
     event.target.classList.add('active');
 }
@@ -1526,7 +1663,6 @@ function showProfileTab(tabName) {
 // تحديث الملف الشخصي
 async function updateProfile() {
     const formData = new FormData();
-    
     const displayName = document.getElementById('displayNameInput').value.trim();
     const email = document.getElementById('emailInput').value.trim();
     const newPassword = document.getElementById('newPasswordInput').value;
@@ -1534,7 +1670,6 @@ async function updateProfile() {
     const gender = document.getElementById('genderInput').value;
     const maritalStatus = document.getElementById('maritalStatusInput').value;
     const aboutMe = document.getElementById('aboutMeInput').value.trim();
-    
     if (displayName) formData.append('display_name', displayName);
     if (email) formData.append('email', email);
     if (newPassword) formData.append('password', newPassword);
@@ -1542,17 +1677,13 @@ async function updateProfile() {
     if (gender) formData.append('gender', gender);
     if (maritalStatus) formData.append('marital_status', maritalStatus);
     if (aboutMe) formData.append('about_me', aboutMe);
-    
     // إضافة الصور إذا تم اختيارها
     const profileFile1 = document.getElementById('profileFile1').files[0];
     const profileFile2 = document.getElementById('profileFile2').files[0];
-    
     if (profileFile1) formData.append('profileImage1', profileFile1);
     if (profileFile2) formData.append('profileImage2', profileFile2);
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/user/profile', {
             method: 'PUT',
             headers: {
@@ -1560,7 +1691,6 @@ async function updateProfile() {
             },
             body: formData
         });
-        
         if (response.ok) {
             const updatedUser = await response.json();
             currentUser = { ...currentUser, ...updatedUser };
@@ -1593,6 +1723,7 @@ function openNotifications() {
 function loadNotifications() {
     const container = document.getElementById('notificationsList');
     container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد إشعارات جديدة</p>';
+    // يمكنك تحميل الإشعارات الحقيقية من الخادم هنا
 }
 
 // إغلاق الإشعارات
@@ -1623,10 +1754,10 @@ function closeSettingsModal() {
 function saveSettings() {
     const soundNotifications = document.getElementById('soundNotifications').checked;
     const saveChatHistory = document.getElementById('saveChatHistory').checked;
-    
+    const filterBadWords = document.getElementById('filterBadWords').checked;
     localStorage.setItem('soundNotifications', soundNotifications);
     localStorage.setItem('saveChatHistory', saveChatHistory);
-    
+    localStorage.setItem('filterBadWords', filterBadWords);
     showNotification('تم حفظ الإعدادات', 'success');
     closeSettingsModal();
 }
@@ -1654,21 +1785,21 @@ function openHelpModal() {
 
 // عرض الرتب
 function showRanks() {
-    let ranksText = 'الرتب المتاحة:\n\n';
+    let ranksText = 'الرتب المتاحة:
+';
     Object.values(RANKS).forEach(rank => {
-        ranksText += `${rank.emoji} ${rank.name} (المستوى ${rank.level})\n`;
+        ranksText += `${rank.emoji} ${rank.name} (المستوى ${rank.level}) - الصلاحيات: ${rank.permissions.join(', ') || 'لا شيء'}
+`;
     });
-    
     alert(ranksText);
 }
 
 // تنظيف الغرف
 async function cleanRooms() {
-    if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
+    if (!hasPermission('delete_room') && currentUser?.role !== 'owner') {
         showError('غير مسموح - للإداريين فقط');
         return;
     }
-    
     if (confirm('هل أنت متأكد من تنظيف جميع الرسائل؟')) {
         try {
             const response = await fetch('/api/clean-rooms', {
@@ -1677,7 +1808,6 @@ async function cleanRooms() {
                     'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
                 }
             });
-            
             if (response.ok) {
                 document.getElementById('messagesContainer').innerHTML = '';
                 showNotification('تم تنظيف الغرفة بنجاح', 'success');
@@ -1702,7 +1832,7 @@ function closeRadioPlayer() {
 
 // تشغيل محطة راديو
 function playRadioStation(station) {
-    showNotification(`تم تشغيل ${station}`, 'success');
+    showNotification(`تم تشغيل محطة ${station}`, 'success');
     // هنا يمكن إضافة كود تشغيل الراديو الفعلي
 }
 
@@ -1710,7 +1840,6 @@ function playRadioStation(station) {
 function toggleRadio() {
     const btn = document.getElementById('radioPlayBtn');
     const icon = btn.querySelector('i');
-    
     if (icon.classList.contains('fa-play')) {
         icon.classList.remove('fa-play');
         icon.classList.add('fa-pause');
@@ -1729,7 +1858,10 @@ function uploadCustomMusic() {
         showError('يرجى اختيار ملفات صوتية');
         return;
     }
-    
+    if (!hasPermission('upload_music')) {
+        showError('هذه الميزة متاحة للرتب العالية فقط');
+        return;
+    }
     showNotification('تم رفع الأغاني بنجاح', 'success');
     fileInput.value = '';
 }
@@ -1738,7 +1870,6 @@ function uploadCustomMusic() {
 function toggleMusicPlayer() {
     const btn = document.getElementById('musicToggle');
     const nowPlaying = document.getElementById('nowPlaying');
-    
     if (nowPlaying.style.display === 'none') {
         nowPlaying.style.display = 'block';
         nowPlaying.querySelector('.song-title').textContent = 'تشغيل الموسيقى...';
@@ -1749,16 +1880,63 @@ function toggleMusicPlayer() {
     }
 }
 
+// البحث عن أغنية
+function searchMusic() {
+    const query = document.getElementById('musicSearchInput').value.trim();
+    if (!query) {
+        showNotification('يرجى كتابة اسم الأغنية للبحث', 'warning');
+        return;
+    }
+    const resultsContainer = document.getElementById('searchResults');
+    resultsContainer.innerHTML = '<p style="text-align: center; padding: 10px;">جارٍ البحث...</p>';
+    // محاكاة نتائج البحث
+    setTimeout(() => {
+        const mockResults = [
+            { title: 'أغنية جميلة', artist: 'فنان مشهور', cover: 'https://via.placeholder.com/50', url: '#song1' },
+            { title: 'أغنية رومانسية', artist: 'مطربة عربية', cover: 'https://via.placeholder.com/50', url: '#song2' },
+            { title: 'أغنية حماسية', artist: 'فرقة عالمية', cover: 'https://via.placeholder.com/50', url: '#song3' }
+        ];
+        resultsContainer.innerHTML = '';
+        mockResults.forEach(song => {
+            const item = document.createElement('div');
+            item.className = 'search-result-item';
+            item.innerHTML = `
+                <img src="${song.cover}" class="result-cover">
+                <div class="result-info">
+                    <div class="result-title">${escapeHtml(song.title)}</div>
+                    <div class="result-artist">${escapeHtml(song.artist)}</div>
+                </div>
+            `;
+            item.onclick = () => playSearchedSong(song.url, song.title);
+            resultsContainer.appendChild(item);
+        });
+    }, 1000);
+}
+
+// تشغيل الأغنية التي تم البحث عنها
+function playSearchedSong(songUrl, songTitle) {
+    // التحقق من الصلاحية
+    if (!hasPermission('play_music')) {
+        showNotification('هذه الميزة متاحة للرتب العالية فقط', 'error');
+        return;
+    }
+    // محاكاة التشغيل
+    const nowPlaying = document.getElementById('nowPlaying');
+    nowPlaying.style.display = 'block';
+    nowPlaying.querySelector('.song-title').textContent = `🎶 ${songTitle}`;
+    showNotification(`تم تشغيل: ${songTitle}`, 'success');
+    // تسجيل التشغيل في سجل الرقابة
+    logAuditAction('play_music', currentUser?.id, 'تشغيل أغنية من البحث', songTitle);
+}
+
 // تسجيل الخروج
 function logout() {
     localStorage.removeItem('chatToken');
     currentUser = null;
-    
     if (socket) {
         socket.disconnect();
         socket = null;
     }
-    
     showLoginScreen();
     showNotification('تم تسجيل الخروج', 'info');
 }
@@ -1780,22 +1958,16 @@ function updateUserCoins(amount) {
 function openEmojiPicker() {
     const emojis = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😢', '😡', '👍', '👎', '❤️', '🔥', '💯', '🎉', '🦂'];
     const input = document.getElementById('messageInput');
-    
     let emojiHtml = '<div style="background: white; border: 1px solid #ccc; border-radius: 8px; padding: 10px; position: absolute; z-index: 1000; display: flex; flex-wrap: wrap; gap: 5px; max-width: 200px;">';
-    
     emojis.forEach(emoji => {
         emojiHtml += `<span style="cursor: pointer; padding: 5px; border-radius: 4px; hover: background: #f0f0f0;" onclick="addEmoji('${emoji}')">${emoji}</span>`;
     });
-    
     emojiHtml += '</div>';
-    
     // إضافة منتقي الرموز بجانب حقل الإدخال
     const picker = document.createElement('div');
     picker.innerHTML = emojiHtml;
     picker.style.position = 'relative';
-    
     input.parentNode.appendChild(picker);
-    
     // إزالة المنتقي بعد 5 ثوان
     setTimeout(() => {
         picker.remove();
@@ -1807,7 +1979,6 @@ function addEmoji(emoji) {
     const input = document.getElementById('messageInput');
     input.value += emoji;
     input.focus();
-    
     // إزالة منتقي الرموز
     const picker = input.parentNode.querySelector('div');
     if (picker) picker.remove();
@@ -1821,12 +1992,10 @@ function openGifPicker() {
 // اقتباس رسالة
 function quoteMessage(messageId, author, content) {
     quotedMessage = { id: messageId, author, content };
-    
     const quotedDiv = document.getElementById('quotedMessage');
     quotedDiv.style.display = 'flex';
     quotedDiv.querySelector('.quoted-author').textContent = author;
     quotedDiv.querySelector('.quoted-text').textContent = content.substring(0, 50) + (content.length > 50 ? '...' : '');
-    
     document.getElementById('messageInput').focus();
 }
 
@@ -1845,23 +2014,20 @@ function openImageModal(imageUrl) {
             <img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 12px;" onclick="this.parentElement.parentElement.remove()">
         </div>
     `;
-    
     modal.onclick = (e) => {
         if (e.target === modal) {
             modal.remove();
         }
     };
-    
     document.body.appendChild(modal);
 }
 
 // مسح الدردشة
 async function clearChat() {
-    if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
+    if (!hasPermission('delete_message') && currentUser?.role !== 'owner') {
         showError('غير مسموح - للإداريين فقط');
         return;
     }
-    
     if (confirm('هل أنت متأكد من مسح جميع الرسائل في هذه الغرفة؟')) {
         try {
             const response = await fetch(`/api/rooms/${currentRoom}/clear`, {
@@ -1870,7 +2036,6 @@ async function clearChat() {
                     'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
                 }
             });
-            
             if (response.ok) {
                 document.getElementById('messagesContainer').innerHTML = '';
                 showNotification('تم مسح الدردشة بنجاح', 'success');
@@ -1889,15 +2054,12 @@ function showLoginTab(tabName) {
     document.querySelectorAll('.auth-form').forEach(form => {
         form.classList.remove('active');
     });
-    
     // إزالة الفئة النشطة من جميع الأزرار
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    
     // عرض النموذج المحدد
     document.getElementById(`${tabName}Form`).classList.add('active');
-    
     // تفعيل الزر المحدد
     event.target.classList.add('active');
 }
@@ -1914,7 +2076,6 @@ function showError(message) {
     if (errorDiv) {
         errorDiv.textContent = message;
         errorDiv.classList.add('show');
-        
         setTimeout(() => {
             errorDiv.classList.remove('show');
         }, 5000);
@@ -1935,17 +2096,27 @@ function showLoading(show) {
 function showNotification(message, type = 'info') {
     const container = document.getElementById('toastContainer');
     if (!container) return;
-    
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
-    
     container.appendChild(toast);
-    
     // إزالة الإشعار بعد 5 ثوان
     setTimeout(() => {
         toast.remove();
     }, 5000);
+}
+
+// إشعار رسالة خاصة
+function showPrivateMessageNotification(message) {
+    const notification = new Notification('رسالة خاصة جديدة', {
+        body: `${message.display_name}: ${message.message.substring(0, 50)}...`,
+        icon: 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
+    });
+    notification.onclick = function() {
+        window.focus();
+        startPrivateChat(message.user_id, message.display_name);
+        this.close();
+    };
 }
 
 // فتح مودال
@@ -1987,6 +2158,11 @@ function initializeAudio() {
     if (soundEnabled !== null) {
         document.getElementById('soundNotifications').checked = soundEnabled === 'true';
     }
+    
+    // طلب إذن الإشعارات
+    if (Notification.permission !== "granted") {
+        Notification.requestPermission();
+    }
 }
 
 // تشغيل صوت الإشعار
@@ -2022,14 +2198,12 @@ window.addEventListener('unhandledrejection', function(e) {
 });
 
 // ==================== الميزات الجديدة ====================
-
 // متغيرات الإشعارات والميزات الجديدة
 let onlineUsersList = [];
 let allUsersList = [];
 let notificationsList = [];
 let privateChatMinimized = false;
 let currentPrivateChatUser = null;
-
 // متغيرات للميزات الجديدة
 var currentMusicPlayer = null;
 var isContestActive = false;
@@ -2041,7 +2215,6 @@ function openImagePicker() {
     imageInput.type = 'file';
     imageInput.accept = 'image/*';
     imageInput.multiple = true;
-    
     imageInput.onchange = function(event) {
         const files = event.target.files;
         if (files.length > 0) {
@@ -2050,7 +2223,6 @@ function openImagePicker() {
             }
         }
     };
-    
     imageInput.click();
 }
 
@@ -2059,18 +2231,15 @@ function uploadImage(file) {
         alert('حجم الصورة كبير جداً! الحد الأقصى 10 ميجابايت');
         return;
     }
-    
     const formData = new FormData();
     formData.append('image', file);
-    formData.append('roomId', currentRoomId);
-    
+    formData.append('roomId', currentRoom);
     // عرض مؤشر التحميل
     showUploadProgress('جاري رفع الصورة...');
-    
     fetch('/upload-image', {
         method: 'POST',
         headers: {
-            'Authorization': 'Bearer ' + localStorage.getItem('token')
+            'Authorization': 'Bearer ' + localStorage.getItem('chatToken')
         },
         body: formData
     })
@@ -2082,7 +2251,7 @@ function uploadImage(file) {
             socket.emit('sendMessage', {
                 message: '',
                 imageUrl: data.imageUrl,
-                roomId: currentRoomId,
+                roomId: currentRoom,
                 type: 'image'
             });
         } else {
@@ -2100,14 +2269,12 @@ function openPrivateImagePicker(receiverId) {
     const imageInput = document.createElement('input');
     imageInput.type = 'file';
     imageInput.accept = 'image/*';
-    
     imageInput.onchange = function(event) {
         const file = event.target.files[0];
         if (file) {
             uploadPrivateImage(file, receiverId);
         }
     };
-    
     imageInput.click();
 }
 
@@ -2116,17 +2283,14 @@ function uploadPrivateImage(file, receiverId) {
         alert('حجم الصورة كبير جداً! الحد الأقصى 10 ميجابايت');
         return;
     }
-    
     const formData = new FormData();
     formData.append('image', file);
     formData.append('receiverId', receiverId);
-    
     showUploadProgress('جاري رفع الصورة الخاصة...');
-    
     fetch('/upload-private-image', {
         method: 'POST',
         headers: {
-            'Authorization': 'Bearer ' + localStorage.getItem('token')
+            'Authorization': 'Bearer ' + localStorage.getItem('chatToken')
         },
         body: formData
     })
@@ -2175,7 +2339,6 @@ function hideUploadProgress() {
 function detectAndProcessYouTubeLinks(message) {
     const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/g;
     const matches = message.match(youtubeRegex);
-    
     if (matches) {
         matches.forEach(match => {
             const videoId = extractYouTubeVideoId(match);
@@ -2184,7 +2347,6 @@ function detectAndProcessYouTubeLinks(message) {
             }
         });
     }
-    
     return message;
 }
 
@@ -2214,11 +2376,11 @@ function createYouTubeEmbed(videoId) {
 // وظائف حذف الرسائل
 function deleteMessage(messageId, messageElement) {
     if (confirm('هل أنت متأكد من حذف هذه الرسالة؟')) {
-        fetch('/delete-message', {
+        fetch('/api/delete-message', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + localStorage.getItem('token')
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
             },
             body: JSON.stringify({ messageId: messageId })
         })
@@ -2227,6 +2389,8 @@ function deleteMessage(messageId, messageElement) {
             if (data.success) {
                 messageElement.innerHTML = '<em>تم حذف هذه الرسالة</em>';
                 messageElement.classList.add('deleted-message');
+                // تسجيل الإجراء في سجل الرقابة
+                logAuditAction('delete_message', currentUser?.id, 'حذف رسالة', messageId);
             } else {
                 alert('فشل في حذف الرسالة: ' + data.message);
             }
@@ -2239,73 +2403,100 @@ function deleteMessage(messageId, messageElement) {
 
 // وظائف الطرد والكتم
 function kickUser(userId, userName) {
+    if (!hasPermission('ban_user')) {
+        showError('غير مسموح لك بتنفيذ هذا الإجراء');
+        return;
+    }
     if (confirm(`هل تريد طرد ${userName} من الغرفة؟`)) {
         socket.emit('kickUser', {
             userId: userId,
-            roomId: currentRoomId
+            roomId: currentRoom
         });
+        // تسجيل الإجراء في سجل الرقابة
+        logAuditAction('kick', userId, 'طرد من الغرفة', currentRoom);
     }
 }
 
 function muteUser(userId, userName) {
+    if (!hasPermission('mute_user')) {
+        showError('غير مسموح لك بتنفيذ هذا الإجراء');
+        return;
+    }
     const duration = prompt(`كم دقيقة تريد كتم ${userName}؟ (اترك فارغاً للكتم الدائم)`, '10');
-    
     if (duration !== null) {
         const muteMinutes = duration === '' ? null : parseInt(duration);
-        
         socket.emit('muteUser', {
             userId: userId,
-            roomId: currentRoomId,
+            roomId: currentRoom,
             duration: muteMinutes
         });
+        // تسجيل الإجراء في سجل الرقابة
+        logAuditAction('mute', userId, 'كتم في الغرفة', `${duration} دقائق`);
     }
 }
 
 function unmuteUser(userId, userName) {
+    if (!hasPermission('mute_user')) {
+        showError('غير مسموح لك بتنفيذ هذا الإجراء');
+        return;
+    }
     if (confirm(`هل تريد إلغاء كتم ${userName}؟`)) {
         socket.emit('unmuteUser', {
             userId: userId,
-            roomId: currentRoomId
+            roomId: currentRoom
         });
+        // تسجيل الإجراء في سجل الرقابة
+        logAuditAction('unmute', userId, 'إلغاء كتم', currentRoom);
     }
 }
 
 // وظائف إنشاء الغرف
 function openCreateRoomModal() {
+    if (!hasPermission('create_room') && currentUser?.role !== 'owner') {
+        showError('غير مسموح - للإداريين فقط');
+        return;
+    }
     const modal = document.createElement('div');
     modal.className = 'modal active';
     modal.id = 'createRoomModal';
-    
     modal.innerHTML = `
         <div class="modal-content">
             <span class="close" onclick="closeCreateRoomModal()">&times;</span>
             <h2>🏠 إنشاء غرفة جديدة</h2>
-            
             <div class="room-form">
                 <div class="form-group">
                     <label>اسم الغرفة:</label>
-                    <input type="text" id="roomName" placeholder="ادخل اسم الغرفة">
+                    <input type="text" id="roomName" placeholder="ادخل اسم الغرفة" required>
                 </div>
-                
                 <div class="form-group">
                     <label>وصف الغرفة:</label>
                     <textarea id="roomDescription" placeholder="ادخل وصف للغرفة"></textarea>
                 </div>
-                
                 <div class="form-group">
                     <label>نوع الغرفة:</label>
                     <select id="roomType">
                         <option value="public">عامة</option>
                         <option value="private">خاصة</option>
-                        <option value="contest">مسابقات</option>
+                        <option value="quiz">مسابقة</option>
+                        <option value="music">موسيقى</option>
+                        <option value="game">ألعاب</option>
                     </select>
                 </div>
-                
                 <div class="form-group">
                     <label>الحد الأقصى للمستخدمين:</label>
                     <input type="number" id="maxUsers" value="50" min="2" max="200">
                 </div>
-                
+                <div class="form-group">
+                    <label>صلاحيات الدخول:</label>
+                    <select id="roomAccessRank">
+                        <option value="visitor">الجميع</option>
+                        <option value="bronze">برونزي فما فوق</option>
+                        <option value="silver">فضي فما فوق</option>
+                        <option value="gold">ذهبي فما فوق</option>
+                        <option value="diamond">الماس فما فوق</option>
+                        <option value="moderator">المشرفون فما فوق</option>
+                    </select>
+                </div>
                 <div class="room-actions">
                     <button onclick="createRoom()" class="btn save-btn">إنشاء الغرفة</button>
                     <button onclick="closeCreateRoomModal()" class="btn cancel-btn">إلغاء</button>
@@ -2313,7 +2504,6 @@ function openCreateRoomModal() {
             </div>
         </div>
     `;
-    
     document.body.appendChild(modal);
 }
 
@@ -2329,6 +2519,7 @@ function createRoom() {
     const roomDescription = document.getElementById('roomDescription').value.trim();
     const roomType = document.getElementById('roomType').value;
     const maxUsers = parseInt(document.getElementById('maxUsers').value);
+    const accessRank = document.getElementById('roomAccessRank').value;
     
     if (!roomName) {
         alert('يرجى إدخال اسم الغرفة');
@@ -2339,21 +2530,23 @@ function createRoom() {
         name: roomName,
         description: roomDescription,
         type: roomType,
-        maxUsers: maxUsers
+        maxUsers: maxUsers,
+        accessRank: accessRank
     });
+    
+    // تسجيل الإجراء في سجل الرقابة
+    logAuditAction('create_room', currentUser?.id, 'إنشاء غرفة جديدة', roomName);
     
     closeCreateRoomModal();
 }
 
 // ==================== وظائف الإشعارات ====================
-
 // فتح مودال إرسال إشعار
 function openSendNotificationModal() {
-    if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
+    if (!hasPermission('send_global_notification') && currentUser?.role !== 'owner') {
         showNotification('غير مسموح - للإداريين فقط', 'error');
         return;
     }
-    
     openModal('sendNotificationModal');
     loadUsersForNotification();
     closeMainMenu();
@@ -2374,12 +2567,10 @@ async function loadUsersForNotification() {
                 'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
             }
         });
-        
         if (response.ok) {
             const users = await response.json();
             const select = document.getElementById('notificationRecipient');
             select.innerHTML = '<option value="">اختر مستخدم...</option>';
-            
             users.forEach(user => {
                 const option = document.createElement('option');
                 option.value = user.id;
@@ -2397,20 +2588,16 @@ async function sendNotificationToUser() {
     const recipientId = document.getElementById('notificationRecipient').value;
     const message = document.getElementById('notificationMessage').value.trim();
     const type = document.getElementById('notificationType').value;
-    
     if (!recipientId) {
         showNotification('يرجى اختيار مستخدم', 'warning');
         return;
     }
-    
     if (!message) {
         showNotification('يرجى كتابة رسالة الإشعار', 'warning');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/send-notification', {
             method: 'POST',
             headers: {
@@ -2423,10 +2610,10 @@ async function sendNotificationToUser() {
                 type
             })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
+            // تسجيل الإجراء في سجل الرقابة
+            logAuditAction('send_notification', currentUser?.id, 'إرسال إشعار', `إلى ${recipientId}: ${message}`);
             showNotification('تم إرسال الإشعار بنجاح', 'success');
             closeSendNotificationModal();
         } else {
@@ -2440,7 +2627,6 @@ async function sendNotificationToUser() {
 }
 
 // ==================== قائمة المتصلين حالياً ====================
-
 // فتح مودال المتصلين حالياً
 function openOnlineUsersModal() {
     openModal('onlineUsersModal');
@@ -2456,22 +2642,16 @@ function closeOnlineUsersModal() {
 // عرض المتصلين حالياً
 function displayOnlineUsers() {
     const container = document.getElementById('onlineUsersList');
-    
     if (onlineUsersList.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">لا يوجد مستخدمين متصلين حالياً</p>';
         return;
     }
-    
     container.innerHTML = '';
-    
     onlineUsersList.forEach(user => {
         if (user.userId === currentUser?.id) return; // لا نعرض المستخدم الحالي
-        
         const userDiv = document.createElement('div');
         userDiv.className = 'online-user-item';
-        
         const rank = RANKS[user.rank] || RANKS.visitor;
-        
         userDiv.innerHTML = `
             <div class="online-user-info">
                 <div class="online-status-indicator"></div>
@@ -2484,14 +2664,13 @@ function displayOnlineUsers() {
                 <button onclick="startPrivateChat(${user.userId}, '${escapeHtml(user.displayName)}')" class="btn btn-sm btn-primary" title="دردشة خاصة">
                     <i class="fas fa-comment"></i>
                 </button>
-                ${currentUser?.role === 'admin' || currentUser?.role === 'owner' ? `
+                ${hasPermission('send_global_notification') ? `
                     <button onclick="openNotificationModalForUser(${user.userId}, '${escapeHtml(user.displayName)}')" class="btn btn-sm btn-info" title="إرسال إشعار">
                         <i class="fas fa-bell"></i>
                     </button>
                 ` : ''}
             </div>
         `;
-        
         container.appendChild(userDiv);
     });
 }
@@ -2501,27 +2680,22 @@ function startPrivateChat(userId, userName) {
     currentPrivateChatUser = { id: userId, name: userName };
     openPrivateChatBox();
     closeOnlineUsersModal();
-    
     // تحديث قائمة المستخدمين في صندوق الدردشة الخاصة
     const select = document.getElementById('privateChatUserSelect');
     select.value = userId;
-    
     // تحديث عنوان صندوق الدردشة
     const titleSpan = document.querySelector('.chat-box-title span');
     titleSpan.textContent = `دردشة خاصة مع ${userName}`;
-    
     // تحميل الرسائل الخاصة
     loadPrivateMessages(userId);
 }
 
 // ==================== صندوق الدردشة الخاصة ====================
-
 // فتح صندوق الدردشة الخاصة
 function openPrivateChatBox() {
     const chatBox = document.getElementById('privateChatBox');
     chatBox.style.display = 'block';
     privateChatMinimized = false;
-    
     // تحميل المستخدمين في القائمة
     loadUsersForPrivateChat();
     closeMainMenu();
@@ -2538,7 +2712,6 @@ function closePrivateChatBox() {
 function minimizePrivateChatBox() {
     const chatBox = document.getElementById('privateChatBox');
     const body = chatBox.querySelector('.chat-box-body');
-    
     if (privateChatMinimized) {
         body.style.display = 'block';
         privateChatMinimized = false;
@@ -2556,12 +2729,10 @@ async function loadUsersForPrivateChat() {
                 'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
             }
         });
-        
         if (response.ok) {
             const users = await response.json();
             const select = document.getElementById('privateChatUserSelect');
             select.innerHTML = '<option value="">اختر مستخدم...</option>';
-            
             users.forEach(user => {
                 const option = document.createElement('option');
                 option.value = user.id;
@@ -2580,23 +2751,19 @@ function sendPrivateChatMessage() {
     const userSelect = document.getElementById('privateChatUserSelect');
     const message = input.value.trim();
     const receiverId = userSelect.value;
-    
     if (!message) {
         showNotification('يرجى كتابة رسالة', 'warning');
         return;
     }
-    
     if (!receiverId) {
         showNotification('يرجى اختيار مستخدم', 'warning');
         return;
     }
-    
     if (socket) {
         socket.emit('sendPrivateMessage', {
             message: message,
             receiverId: parseInt(receiverId)
         });
-        
         input.value = '';
     }
 }
@@ -2606,12 +2773,10 @@ function displayPrivateMessage(message) {
     const container = document.getElementById('privateChatMessages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `private-message ${message.user_id === currentUser?.id ? 'own' : ''}`;
-    
     const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
         hour: '2-digit',
         minute: '2-digit'
     });
-    
     messageDiv.innerHTML = `
         <div class="private-message-content">
             <div class="private-message-header">
@@ -2621,7 +2786,6 @@ function displayPrivateMessage(message) {
             <div class="private-message-text">${escapeHtml(message.message)}</div>
         </div>
     `;
-    
     container.appendChild(messageDiv);
     container.scrollTop = container.scrollHeight;
 }
@@ -2634,12 +2798,10 @@ async function loadPrivateMessages(userId) {
                 'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
             }
         });
-        
         if (response.ok) {
             const messages = await response.json();
             const container = document.getElementById('privateChatMessages');
             container.innerHTML = '';
-            
             if (messages.length === 0) {
                 container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">لا توجد رسائل بعد، ابدأ المحادثة!</p>';
             } else {
@@ -2659,14 +2821,12 @@ function autoPlayProfileMusic(musicUrl) {
         const audio = new Audio(musicUrl);
         audio.volume = 0.3;
         audio.loop = false;
-        
         // محاولة تشغيل الأغنية
         audio.play().catch(error => {
             console.log('لا يمكن تشغيل الأغنية تلقائياً:', error);
             // إضافة زر تشغيل إذا فشل التشغيل التلقائي
             addManualPlayButton(audio);
         });
-        
         return audio;
     }
 }
@@ -2679,9 +2839,111 @@ function addManualPlayButton(audio) {
         audio.play();
         playButton.style.display = 'none';
     };
-    
     const profileModal = document.querySelector('.modal.active .modal-content');
     if (profileModal) {
         profileModal.appendChild(playButton);
     }
+}
+
+// بلاغ عن رسالة
+function reportMessage(messageId) {
+    const reason = prompt('يرجى كتابة سبب البلاغ:');
+    if (reason) {
+        // إرسال البلاغ للإدارة
+        socket.emit('reportMessage', {
+            messageId: messageId,
+            reporterId: currentUser?.id,
+            reason: reason
+        });
+        showNotification('تم إرسال البلاغ للإدارة', 'success');
+        // تسجيل الإجراء في سجل الرقابة
+        logAuditAction('report_message', currentUser?.id, reason, messageId);
+    }
+}
+
+// إشعار حول رسالة
+function notifyAboutMessage(messageId, author) {
+    const message = prompt('اكتب رسالة الإشعار:');
+    if (message) {
+        socket.emit('notifyAboutMessage', {
+            messageId: messageId,
+            senderId: currentUser?.id,
+            message: message,
+            author: author
+        });
+        showNotification('تم إرسال الإشعار', 'success');
+    }
+}
+
+// فتح مودال إرسال إشعار لمستخدم محدد من قائمة المتصلين
+function openNotificationModalForUser(userId, userName) {
+    if (!hasPermission('send_global_notification')) {
+        showError('غير مسموح لك بتنفيذ هذا الإجراء');
+        return;
+    }
+    document.getElementById('notificationRecipient').value = userId;
+    openSendNotificationModal();
+}
+
+// تسجيل الإجراء في سجل الرقابة
+function logAuditAction(action, targetUserId, reason, details = null) {
+    const auditLog = {
+        timestamp: new Date().toISOString(),
+        adminId: currentUser?.id,
+        adminName: currentUser?.display_name,
+        action: action,
+        targetUserId: targetUserId,
+        reason: reason,
+        details: details
+    };
+
+    // إضافة إلى قائمة سجل الرقابة في الذاكرة
+    let auditLogs = JSON.parse(localStorage.getItem('auditLogs') || '[]');
+    auditLogs.push(auditLog);
+    localStorage.setItem('auditLogs', JSON.stringify(auditLogs));
+
+    // تحديث واجهة سجل الرقابة إذا كانت مفتوحة
+    updateAuditLogDisplay();
+}
+
+// تحديث عرض سجل الرقابة
+function updateAuditLogDisplay() {
+    const auditLogList = document.getElementById('auditLogList');
+    if (!auditLogList) return;
+
+    const logs = JSON.parse(localStorage.getItem('auditLogs') || '[]');
+    auditLogList.innerHTML = '';
+
+    logs.reverse().forEach(log => {
+        const item = document.createElement('div');
+        item.className = 'audit-item';
+        item.innerHTML = `
+            <span class="timestamp">[${new Date(log.timestamp).toLocaleString('ar-SA')}]</span>
+            <span class="admin">[المشرف: ${log.adminName}]</span>
+            <span class="action">${getActionText(log.action)} المستخدم [${log.targetUserId}] بسبب [${log.reason}] ${log.details ? `(${log.details})` : ''}</span>
+        `;
+        auditLogList.appendChild(item);
+    });
+}
+
+// الحصول على نص الإجراء
+function getActionText(action) {
+    const actions = {
+        'ban': 'حظر',
+        'mute': 'كتم',
+        'kick': 'طرد',
+        'assign_rank': 'تعيين رتبة',
+        'give_coins': 'إعطاء نقاط',
+        'create_room': 'إنشاء غرفة',
+        'delete_message': 'حذف رسالة',
+        'send_notification': 'إرسال إشعار',
+        'play_music': 'تشغيل موسيقى',
+        'report_message': 'بلاغ عن رسالة'
+    };
+    return actions[action] || action;
+}
+
+// تحميل سجل الرقابة
+function loadAuditLog() {
+    updateAuditLogDisplay();
 }
