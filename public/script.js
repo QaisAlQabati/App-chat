@@ -2689,3 +2689,330 @@ function addManualPlayButton(audio) {
         profileModal.appendChild(playButton);
     }
 }
+// =============== غرفة المسابقات والألعاب ===============
+// 🎯 المطور: مساعد الذكاء الاصطناعي - حسب طلبك
+
+class QuizRoomManager {
+    constructor() {
+        this.currentQuestion = null;
+        this.timer = null;
+        this.timeLeft = 15;
+        this.hintShown = false;
+        this.leaderboard = {};
+        this.questions = [];
+        this.currentQuestionIndex = 0;
+        this.isRunning = false;
+        this.ownerOnly = true; // فقط المالك/المشرف يمكنه بدء المسابقة
+        this.gameMode = 'quiz'; // quiz, poll, challenge
+    }
+
+    // تحقق من الصلاحيات
+    hasPermission(user) {
+        if (!user) return false;
+        return user.rank === 'owner' || user.rank === 'admin' || user.rank === 'moderator';
+    }
+
+    // بدء المسابقة
+    startQuiz(questions = []) {
+        if (!this.hasPermission(currentUser)) {
+            this.showToast('⚠️ فقط المالك أو المشرف يمكنه بدء المسابقة!', 'error');
+            return;
+        }
+
+        if (questions.length === 0) {
+            this.showToast('❌ لا توجد أسئلة للمسابقة!', 'error');
+            return;
+        }
+
+        this.questions = questions;
+        this.currentQuestionIndex = 0;
+        this.leaderboard = {};
+        this.isRunning = true;
+        this.hintShown = false;
+
+        // تحديث واجهة لوحة المتصدرين
+        this.updateLeaderboardUI();
+
+        // عرض أول سؤال
+        this.loadQuestion();
+        
+        // إظهار أزرار التحكم
+        this.showGameControls();
+    }
+
+    // تحميل السؤال الحالي
+    loadQuestion() {
+        if (this.currentQuestionIndex >= this.questions.length) {
+            this.endQuiz();
+            return;
+        }
+
+        this.currentQuestion = this.questions[this.currentQuestionIndex];
+        this.timeLeft = 15;
+        this.hintShown = false;
+
+        // تحديث واجهة السؤال
+        document.getElementById('questionText').innerText = this.currentQuestion.question;
+        const optionsContainer = document.getElementById('questionOptions');
+        optionsContainer.innerHTML = '';
+
+        // عرض الخيارات
+        this.currentQuestion.options.forEach((option, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = option;
+            btn.onclick = () => this.handleAnswer(index);
+            optionsContainer.appendChild(btn);
+        });
+
+        // إخفاء التلميح
+        const hintBox = document.querySelector('.hint-box');
+        if (hintBox) hintBox.style.display = 'none';
+
+        // بدء المؤقت
+        this.startTimer();
+    }
+
+    // بدء المؤقت
+    startTimer() {
+        clearInterval(this.timer);
+        this.timeLeft = 15;
+        this.updateTimerUI();
+
+        this.timer = setInterval(() => {
+            this.timeLeft--;
+
+            if (this.timeLeft <= 0) {
+                clearInterval(this.timer);
+                if (!this.hintShown) {
+                    // عرض التلميح بعد 15 ثانية
+                    this.showHint();
+                    this.timeLeft = 10; // 10 ثواني إضافية
+                    this.startHintTimer();
+                } else {
+                    // عرض الإجابة الصحيحة والانتقال للسؤال التالي
+                    this.revealAnswer();
+                    setTimeout(() => this.nextQuestion(), 3000);
+                }
+            } else {
+                this.updateTimerUI();
+            }
+        }, 1000);
+    }
+
+    // بدء مؤقت التلميح
+    startHintTimer() {
+        clearInterval(this.timer);
+        this.timer = setInterval(() => {
+            this.timeLeft--;
+
+            if (this.timeLeft <= 0) {
+                clearInterval(this.timer);
+                this.revealAnswer();
+                setTimeout(() => this.nextQuestion(), 3000);
+            } else {
+                this.updateTimerUI();
+            }
+        }, 1000);
+    }
+
+    // تحديث شريط المؤقت
+    updateTimerUI() {
+        const timerElement = document.getElementById('quizTimer');
+        const progressBar = document.getElementById('timerProgress');
+        
+        if (timerElement) timerElement.innerText = this.timeLeft;
+        
+        if (progressBar) {
+            let totalTime = this.hintShown ? 10 : 15;
+            let progress = ((totalTime - this.timeLeft) / totalTime) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+    }
+
+    // عرض التلميح
+    showHint() {
+        this.hintShown = true;
+        const hintBox = document.querySelector('.hint-box');
+        if (!hintBox) {
+            const qb = document.querySelector('.quiz-question');
+            const newHintBox = document.createElement('div');
+            newHintBox.className = 'hint-box';
+            newHintBox.innerHTML = `<i class="fas fa-lightbulb"></i> تلميح: ${this.currentQuestion.hint}`;
+            qb.appendChild(newHintBox);
+        } else {
+            hintBox.innerHTML = `<i class="fas fa-lightbulb"></i> تلميح: ${this.currentQuestion.hint}`;
+            hintBox.style.display = 'block';
+        }
+    }
+
+    // عرض الإجابة الصحيحة
+    revealAnswer() {
+        const options = document.querySelectorAll('.option-btn');
+        const correctIndex = this.currentQuestion.correctIndex;
+
+        options.forEach((btn, index) => {
+            if (index === correctIndex) {
+                btn.classList.add('correct');
+                btn.innerHTML += ' ✅';
+            } else {
+                btn.classList.add('incorrect');
+            }
+            btn.disabled = true;
+        });
+    }
+
+    // التعامل مع إجابة المستخدم
+    handleAnswer(selectedIndex) {
+        if (!this.isRunning || !this.currentQuestion) return;
+
+        const isCorrect = selectedIndex === this.currentQuestion.correctIndex;
+        const username = currentUser.displayName || 'زائر';
+
+        // تحديث لوحة المتصدرين
+        if (!this.leaderboard[username]) {
+            this.leaderboard[username] = { points: 0, correct: 0, attempts: 0 };
+        }
+
+        this.leaderboard[username].attempts++;
+        if (isCorrect) {
+            this.leaderboard[username].correct++;
+            this.leaderboard[username].points += 10; // 10 نقاط لكل إجابة صحيحة
+        }
+
+        // تحديث واجهة لوحة المتصدرين
+        this.updateLeaderboardUI();
+
+        // تعطيل الأزرار بعد الإجابة
+        const options = document.querySelectorAll('.option-btn');
+        options.forEach(btn => btn.disabled = true);
+
+        // إذا كانت الإجابة صحيحة، انتقل للسؤال التالي بعد 2 ثانية
+        if (isCorrect) {
+            setTimeout(() => this.nextQuestion(), 2000);
+        }
+    }
+
+    // الانتقال للسؤال التالي
+    nextQuestion() {
+        this.currentQuestionIndex++;
+        if (this.currentQuestionIndex < this.questions.length) {
+            this.loadQuestion();
+        } else {
+            this.endQuiz();
+        }
+    }
+
+    // إنهاء المسابقة
+    endQuiz() {
+        this.isRunning = false;
+        clearInterval(this.timer);
+        this.showToast('🎉 انتهت المسابقة! شكرًا للمشاركة.', 'success');
+        
+        // يمكنك هنا عرض الفائز أو حفظ النتائج
+        console.log('Final Leaderboard:', this.leaderboard);
+    }
+
+    // تحديث واجهة لوحة المتصدرين
+    updateLeaderboardUI() {
+        const leaderboardElement = document.getElementById('leaderboardList');
+        if (!leaderboardElement) return;
+
+        // فرز المشاركين حسب النقاط
+        const sortedPlayers = Object.entries(this.leaderboard)
+            .sort((a, b) => b[1].points - a[1].points);
+
+        leaderboardElement.innerHTML = sortedPlayers.map(([name, stats], index) => `
+            <div class="leaderboard-item">
+                <span><strong>${index + 1}. ${name}</strong></span>
+                <span>${stats.points} نقطة (${stats.correct}/${stats.attempts})</span>
+            </div>
+        `).join('');
+
+        // تحديث نقاط المستخدم الحالي في الواجهة
+        if (currentUser && this.leaderboard[currentUser.displayName]) {
+            document.getElementById('userQuizPoints').innerText = this.leaderboard[currentUser.displayName].points;
+            document.getElementById('userQuizRank').innerText = `#${sortedPlayers.findIndex(p => p[0] === currentUser.displayName) + 1}`;
+        }
+    }
+
+    // عرض رسالة للمستخدم
+    showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = message;
+        document.getElementById('toastContainer').appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    // عرض أزرار التحكم في اللعبة
+    showGameControls() {
+        const quizContent = document.querySelector('.quiz-content');
+        if (!document.querySelector('.game-controls')) {
+            const controls = document.createElement('div');
+            controls.className = 'game-controls';
+            controls.innerHTML = `
+                <button class="game-btn pause" onclick="quizManager.pauseGame()">⏸️ إيقاف مؤقت</button>
+                <button class="game-btn stop" onclick="quizManager.stopGame()">⏹️ إنهاء المسابقة</button>
+            `;
+            quizContent.insertBefore(controls, quizContent.firstChild);
+        }
+    }
+
+    // إيقاف مؤقت اللعبة
+    pauseGame() {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.showToast('⏸️ تم إيقاف المؤقت مؤقتًا.', 'warning');
+        }
+    }
+
+    // إيقاف اللعبة نهائيًا
+    stopGame() {
+        this.isRunning = false;
+        clearInterval(this.timer);
+        this.showToast('⏹️ تم إنهاء المسابقة مبكرًا.', 'error');
+    }
+}
+
+// إنشاء نسخة عالمية يمكن الوصول إليها من HTML
+const quizManager = new QuizRoomManager();
+
+// =============== مثال على أسئلة تجريبية ===============
+const sampleQuestions = [
+    {
+        question: "ما عاصمة فرنسا؟",
+        options: ["لندن", "باريس", "برلين", "مدريد"],
+        correctIndex: 1,
+        hint: "تبدأ بحرف الباء وتشتهر ببرج إيفل"
+    },
+    {
+        question: "ما هو أطول نهر في العالم؟",
+        options: ["نهر الأمازون", "نهر النيل", "نهر اليانغتسي", "نهر المسيسيبي"],
+        correctIndex: 1,
+        hint: "يجري في قارة إفريقيا"
+    },
+    {
+        question: "من رسم لوحة الموناليزا؟",
+        options: ["فان جوخ", "بيكاسو", "ليوناردو دا فينشي", "رامبرانت"],
+        correctIndex: 2,
+        hint: "فنان إيطالي من عصر النهضة"
+    }
+];
+
+// دالة لبدء المسابقة تجريبيًا (يمكن ربطها بزر في الواجهة)
+function startSampleQuiz() {
+    quizManager.startQuiz(sampleQuestions);
+}
+
+// دالة لإغلاق مودال المسابقة
+function closeQuizRoom() {
+    document.getElementById('quizRoomModal').style.display = 'none';
+    quizManager.stopGame(); // إيقاف أي مسابقة جارية
+}
+
+// تهيئة عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    // يمكنك هنا تحميل الأسئلة من السيرفر أو قاعدة البيانات
+    console.log('Quiz Room Manager Initialized ✅');
+});
