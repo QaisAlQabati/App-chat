@@ -21,7 +21,7 @@ const RANKS = {
     admin: { name: 'إداري', emoji: '⚡', level: 7, color: 'linear-gradient(45deg, #ff6b35, #f093fb)' },
     super: { name: 'سوبر', emoji: '⭐', level: 8, color: '#ffd700' },
     legend: { name: 'أسطورة', emoji: '🌟', level: 9, color: '#8a2be2' },
-    chat_star: { name: 'نجمة إدارة الشات', emoji: '🏆', level: 10, color: 'linear-gradient(45deg, #ffd700, #ff6b35)' }
+    chat_star: { name: ' مالك الموقع', emoji: '🏆', level: 10, color: 'linear-gradient(45deg, #ffd700, #ff6b35)' }
 };
 
 
