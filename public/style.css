@@ -2900,3 +2900,111 @@ textarea:focus {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.2); }
 }
+.quiz-timer-bar {
+    width: 100%;
+    height: 8px;
+    background: #333;
+    border-radius: 4px;
+    margin: 10px 0;
+    overflow: hidden;
+}
+
+.timer-progress {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #ff5757, #ffcc00);
+    transition: width 0.1s ease;
+}
+
+.question-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.option-btn {
+    padding: 12px 20px;
+    border: 2px solid #444;
+    background: #222;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+.option-btn:hover {
+    background: #333;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.option-btn.correct {
+    background: #28a745 !important;
+    border-color: #28a745 !important;
+}
+
+.option-btn.incorrect {
+    background: #dc3545 !important;
+    border-color: #dc3545 !important;
+}
+
+.quiz-leaderboard {
+    margin-top: 30px;
+    padding: 20px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+}
+
+.leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    border-bottom: 1px solid #444;
+}
+
+.leaderboard-item:first-child {
+    color: gold;
+    font-weight: bold;
+}
+
+.hint-box {
+    background: rgba(255, 215, 0, 0.2);
+    border: 2px dashed #ffd700;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+    font-weight: bold;
+    color: #fff3cd;
+    display: none;
+}
+
+.game-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.game-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.game-btn.start {
+    background: #28a745;
+    color: white;
+}
+
+.game-btn.pause {
+    background: #ffc107;
+    color: black;
+}
+
+.game-btn.stop {
+    background: #dc3545;
+    color: white;
+}
