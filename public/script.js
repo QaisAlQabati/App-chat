@@ -1,2950 +1,1360 @@
-
 // متغيرات عامة
 let socket;
 let currentUser = null;
 let currentRoom = 1;
+let isPrivateMode = false;
+let currentPrivateUser = null;
 let isRecording = false;
-let mediaRecorder;
-let audioChunks = [];
-let chatMode = 'public'; // public or private
-let selectedUserId = null;
-let quotedMessage = null;
-
-// الرتب المتاحة مع إضافة مالك (owner)
-const RANKS = {
-    visitor: { name: 'زائر', emoji: '👋', level: 0, color: '#888', permissions: [] },
-    bronze: { name: 'عضو برونزي', emoji: '🥉', level: 1, color: '#cd7f32', permissions: [] },
-    silver: { name: 'عضو فضي', emoji: '🥈', level: 2, color: '#c0c0c0', permissions: [] },
-    gold: { name: 'عضو ذهبي', emoji: '🥇', level: 3, color: '#ffd700', permissions: ['play_music'] },
-    trophy: { name: 'كأس', emoji: '🏆', level: 4, color: '#ff6b35', permissions: ['play_music'] },
-    diamond: { name: 'عضو الماس', emoji: '💎', level: 5, color: '#b9f2ff', permissions: ['play_music', 'upload_music'] },
-    prince: { name: 'برنس', emoji: '👑', level: 6, color: 'linear-gradient(45deg, #ffd700, #ff6b35)', permissions: ['play_music', 'upload_music'] },
-    moderator: { name: 'مشرف', emoji: '🛡️', level: 7, color: 'linear-gradient(45deg, #ff6b35, #f093fb)', permissions: ['play_music', 'upload_music', 'ban_user', 'mute_user', 'assign_rank'] },
-    admin: { name: 'إداري', emoji: '⚡', level: 8, color: 'linear-gradient(45deg, #000000, #333333)', permissions: ['play_music', 'upload_music', 'ban_user', 'mute_user', 'assign_rank', 'create_room', 'delete_room', 'send_global_notification'] },
-    owner: { name: 'مالك', emoji: '👑', level: 9, color: 'gold', permissions: ['all'] } // صلاحيات كاملة
-};
-
-// أسئلة المسابقات
-const QUIZ_QUESTIONS = [
-    {
-        question: "ما هي عاصمة فرنسا؟",
-        options: ["لندن", "برلين", "باريس", "روما"],
-        correct: 2,
-        hint: "مدينة الأنوار"
-    },
-    {
-        question: "كم عدد قارات العالم؟",
-        options: ["5", "6", "7", "8"],
-        correct: 2,
-        hint: "تشمل القارة القطبية الجنوبية"
-    },
-    {
-        question: "ما هو أكبر محيط في العالم؟",
-        options: ["الأطلسي", "الهندي", "المتجمد الشمالي", "الهادئ"],
-        correct: 3,
-        hint: "يغطي ثلث سطح الأرض"
-    },
-    {
-        question: "في أي عام تم اختراع الإنترنت؟",
-        options: ["1969", "1975", "1983", "1991"],
-        correct: 0,
-        hint: "في أواخر الستينات"
-    },
-    {
-        question: "ما هو أطول نهر في العالم؟",
-        options: ["النيل", "الأمازون", "اليانغتسي", "المسيسيبي"],
-        correct: 0,
-        hint: "يجري في قارة إفريقيا"
-    }
-];
+let mediaRecorder = null;
+let recordedChunks = [];
+let notifications = [];
+let isDarkTheme = false;
+let competitionTimers = new Map();
 
 // تهيئة التطبيق
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
     setupEventListeners();
-    checkAuthStatus();
+    loadTheme();
 });
 
-// تهيئة التطبيق
 function initializeApp() {
     // إخفاء جميع الشاشات
     document.querySelectorAll('.screen').forEach(screen => {
         screen.classList.remove('active');
     });
-    // عرض شاشة تسجيل الدخول
+    
+    // إظهار شاشة تسجيل الدخول
     document.getElementById('loginScreen').classList.add('active');
-    // تهيئة الأصوات
-    initializeAudio();
+    
+    // تطبيق التصميم المدمج
+    document.body.classList.add('compact-layout');
 }
 
-// إعداد مستمعي الأحداث
 function setupEventListeners() {
-    // تسجيل الدخول
+    // أحداث تسجيل الدخول
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
     document.getElementById('registerForm').addEventListener('submit', handleRegister);
     document.getElementById('guestForm').addEventListener('submit', handleGuestLogin);
-    // إرسال الرسائل
+    
+    // أحداث الرسائل
     document.getElementById('messageInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
+        if (e.key === 'Enter') {
             sendMessage();
         }
     });
-    // رفع الصور
+    
+    document.getElementById('privateMessageInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendPrivateMessage();
+        }
+    });
+    
+    // أحداث رفع الصور
     document.getElementById('imageInput').addEventListener('change', handleImageUpload);
-    // تغيير الغرفة
-    document.getElementById('roomSelect').addEventListener('change', changeRoom);
+    document.getElementById('privateImageInput').addEventListener('change', handlePrivateImageUpload);
+    
     // إغلاق المودالات عند النقر خارجها
-    document.addEventListener('click', function(e) {
+    window.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal')) {
             closeAllModals();
         }
     });
 }
 
-// التحقق من حالة المصادقة
-function checkAuthStatus() {
-    const token = localStorage.getItem('chatToken');
-    if (token) {
-        // التحقق من صحة التوكن
-        fetch('/api/user/profile', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        })
-        .then(response => {
-            if (response.ok) {
-                return response.json();
-            }
-            throw new Error('Invalid token');
-        })
-        .then(user => {
-            currentUser = user;
-            showMainScreen();
-            initializeSocket();
-        })
-        .catch(() => {
-            localStorage.removeItem('chatToken');
-            showLoginScreen();
-        });
-    } else {
-        showLoginScreen();
-    }
-}
-
-// عرض شاشة تسجيل الدخول
-function showLoginScreen() {
-    document.querySelectorAll('.screen').forEach(screen => {
-        screen.classList.remove('active');
-    });
-    document.getElementById('loginScreen').classList.add('active');
-}
-
-// عرض الشاشة الرئيسية
-function showMainScreen() {
-    document.querySelectorAll('.screen').forEach(screen => {
-        screen.classList.remove('active');
-    });
-    document.getElementById('mainScreen').classList.add('active');
-    // تحديث معلومات المستخدم في الواجهة
-    updateUserInterface();
-    // تحميل الغرف
-    loadRooms();
-    // تحميل الرسائل
-    loadMessages();
-}
-
-// تحديث واجهة المستخدم
-function updateUserInterface() {
-    if (!currentUser) return;
-    // تحديث معلومات المستخدم في الشريط العلوي
-    document.getElementById('headerUserName').textContent = currentUser.display_name || currentUser.email;
-    document.getElementById('headerUserRank').textContent = RANKS[currentUser.rank]?.name || 'زائر';
-    // تحديث صورة المستخدم
-    const avatarImg = document.getElementById('headerUserAvatar');
-    if (currentUser.profile_image1) {
-        avatarImg.src = currentUser.profile_image1;
-    }
-    // إظهار أزرار الإدارة حسب الدور
-    const adminBtn = document.getElementById('adminPanelBtn');
-    const roomsBtn = document.getElementById('roomsManagerBtn');
-    const clearBtn = document.getElementById('clearChatBtn');
-    
-    // التحقق من الصلاحيات — فقط المالك والمشرفون
-    if (hasPermission('create_room') || hasPermission('delete_room') || currentUser.role === 'owner') {
-        if (adminBtn) adminBtn.style.display = 'block';
-        if (roomsBtn) roomsBtn.style.display = 'block';
-        if (clearBtn) clearBtn.style.display = 'block';
-    }
-    
-    // تعيين دور المستخدم في الجسم
-    document.body.setAttribute('data-user-role', currentUser.role);
-    document.body.setAttribute('data-user-rank', currentUser.rank);
-}
-
-// التحقق من الصلاحية
-function hasPermission(permission) {
-    if (!currentUser) return false;
-    const userRank = RANKS[currentUser.rank];
-    if (!userRank) return false;
-    if (userRank.permissions.includes('all')) return true;
-    return userRank.permissions.includes(permission);
-}
-
-// تهيئة Socket.IO
-function initializeSocket() {
-    const token = localStorage.getItem('chatToken');
-    socket = io({
-        auth: {
-            token: token
-        }
-    });
-
-    // الاتصال
-    socket.on('connect', () => {
-        console.log('متصل بالخادم');
-        socket.emit('join', {
-            userId: currentUser.id,
-            displayName: currentUser.display_name,
-            rank: currentUser.rank,
-            email: currentUser.email,
-            roomId: currentRoom,
-            token: token
-        });
-    });
-
-    // رسالة جديدة
-    socket.on('newMessage', (message) => {
-        // فلترة الكلمات غير اللائقة
-        if (isInappropriate(message.message)) {
-            if (hasPermission('ban_user')) {
-                showNotification(`تم حذف رسالة غير لائقة من ${message.display_name}`, 'warning');
-            }
-            return; // لا تظهر الرسالة
-        }
-        displayMessage(message);
-        playNotificationSound();
-    });
-
-    // رسالة خاصة جديدة
-    socket.on('newPrivateMessage', (message) => {
-        if (chatMode === 'private' && 
-            (message.user_id === selectedUserId || message.receiver_id === currentUser.id)) {
-            displayPrivateMessage(message);
-        }
-        playNotificationSound();
-        updateNotificationCount();
-        // إظهار إشعار تلقائي عند استلام رسالة خاصة
-        showPrivateMessageNotification(message);
-    });
-
-    // تحديث قائمة المستخدمين
-    socket.on('roomUsersList', (users) => {
-        updateUsersList(users);
-    });
-
-    // حذف رسالة
-    socket.on('messageDeleted', (messageId) => {
-        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-        if (messageElement) {
-            messageElement.remove();
-        }
-    });
-
-    // إشعار جديد
-    socket.on('newNotification', (notification) => {
-        showNotification(notification.message, notification.type || 'info');
-        updateNotificationCount();
-        notificationsList.push(notification);
-    });
-
-    // تحديث قائمة المتصلين
-    socket.on('onlineUsersUpdated', (users) => {
-        onlineUsersList = users;
-        // تحديث العدد في الشريط الجانبي
-        const sidebarCount = document.getElementById('onlineCount');
-        if (sidebarCount) {
-            sidebarCount.textContent = users.length;
-        }
-        // تحديث قائمة المتصلين في المودال إذا كان مفتوحاً
-        const modal = document.getElementById('onlineUsersModal');
-        if (modal && modal.classList.contains('modal') && modal.style.display !== 'none') {
-            displayOnlineUsers();
-        }
-    });
-
-    // قطع الاتصال
-    socket.on('disconnect', () => {
-        console.log('انقطع الاتصال بالخادم');
-        showNotification('انقطع الاتصال بالخادم', 'error');
-    });
-
-    // معالجة أخطاء الأمان
-    socket.on('error', (errorMessage) => {
-        console.error('خطأ في الأمان:', errorMessage);
-        showNotification('خطأ في الأمان: ' + errorMessage, 'error');
-        // إعادة توجيه لصفحة تسجيل الدخول
-        localStorage.removeItem('chatToken');
-        showLoginScreen();
-    });
-}
-
-// فلترة الكلمات غير اللائقة
-function isInappropriate(text) {
-    const badWords = ['كلمة1', 'كلمة2', 'كلمة3']; // يمكنك تعديلها
-    if (!text) return false;
-    return badWords.some(word => text.toLowerCase().includes(word.toLowerCase()));
-}
-
-// تسجيل الدخول
+// وظائف تسجيل الدخول
 async function handleLogin(e) {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
-    if (!email || !password) {
-        showError('يرجى ملء جميع الحقول');
-        return;
-    }
+    
     try {
-        showLoading(true);
         const response = await fetch('/api/login', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
+        
         const data = await response.json();
         if (response.ok) {
-            localStorage.setItem('chatToken', data.token);
+            localStorage.setItem('token', data.token);
             currentUser = data.user;
-            showMainScreen();
-            initializeSocket();
-            showNotification('تم تسجيل الدخول بنجاح', 'success');
-        } else {
-            if (data.error.includes('محظور')) {
-                showBanScreen(data.banReason || 'لم يتم تحديد سبب الحظر');
-            } else {
-                showError(data.error);
-            }
-        }
-    } catch (error) {
-        showError('حدث خطأ في الاتصال');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// إنشاء حساب جديد
-async function handleRegister(e) {
-    e.preventDefault();
-    const displayName = document.getElementById('registerDisplayName').value;
-    const email = document.getElementById('registerEmail').value;
-    const password = document.getElementById('registerPassword').value;
-    if (!email || !password) {
-        showError('يرجى ملء جميع الحقول المطلوبة');
-        return;
-    }
-    if (password.length < 6) {
-        showError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-        return;
-    }
-    try {
-        showLoading(true);
-        const response = await fetch('/api/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email, password, display_name: displayName })
-        });
-        const data = await response.json();
-        if (response.ok) {
-            localStorage.setItem('chatToken', data.token);
-            currentUser = data.user;
-            showMainScreen();
-            initializeSocket();
-            showNotification('تم إنشاء الحساب بنجاح', 'success');
+            initializeChat();
         } else {
             showError(data.error);
         }
     } catch (error) {
-        showError('حدث خطأ في الاتصال');
-    } finally {
-        showLoading(false);
+        showError('خطأ في الاتصال');
     }
 }
 
-// دخول كزائر
-async function handleGuestLogin(e) {
+async function handleRegister(e) {
+    e.preventDefault();
+    const email = document.getElementById('registerEmail').value;
+    const password = document.getElementById('registerPassword').value;
+    const display_name = document.getElementById('registerDisplayName').value;
+    
+    try {
+        const response = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, display_name })
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+            localStorage.setItem('token', data.token);
+            currentUser = data.user;
+            initializeChat();
+        } else {
+            showError(data.error);
+        }
+    } catch (error) {
+        showError('خطأ في الاتصال');
+    }
+}
+
+function handleGuestLogin(e) {
     e.preventDefault();
     const name = document.getElementById('guestName').value;
     const age = document.getElementById('guestAge').value;
     const gender = document.getElementById('guestGender').value;
-    if (!name || !age || !gender) {
-        showError('يرجى ملء جميع الحقول');
-        return;
-    }
-    if (age < 13 || age > 99) {
-        showError('العمر يجب أن يكون بين 13 و 99 سنة');
-        return;
-    }
+    
     // إنشاء مستخدم زائر مؤقت
     currentUser = {
         id: Date.now(),
         display_name: name,
-        email: `guest_${Date.now()}@temp.com`,
-        role: 'user',
         rank: 'visitor',
+        role: 'guest',
         age: parseInt(age),
         gender: gender,
-        isGuest: true
+        profile_image1: null,
+        profile_image2: null
     };
-    showMainScreen();
+    
+    initializeChat();
+}
+
+function initializeChat() {
+    // إخفاء شاشة تسجيل الدخول وإظهار الشات
+    document.getElementById('loginScreen').classList.remove('active');
+    document.getElementById('chatScreen').classList.add('active');
+    
+    // تحديث معلومات المستخدم في الواجهة
+    updateUserInterface();
+    
+    // تهيئة Socket.IO
     initializeSocket();
-    showNotification('مرحباً بك كزائر', 'success');
+    
+    // تحميل البيانات الأولية
+    loadInitialData();
 }
 
-// تسجيل الدخول عبر Google
-function loginWithGoogle() {
-    showNotification('جارٍ التسجيل عبر Google...', 'info');
-    // محاكاة تسجيل الدخول
-    setTimeout(() => {
-        currentUser = {
-            id: Date.now(),
-            display_name: 'مستخدم جوجل',
-            email: `google_${Date.now()}@gmail.com`,
-            role: 'user',
-            rank: 'silver',
-            isSocialLogin: true,
-            provider: 'google'
-        };
-        showMainScreen();
-        initializeSocket();
-        showNotification('تم تسجيل الدخول عبر Google بنجاح', 'success');
-    }, 1500);
+function updateUserInterface() {
+    document.getElementById('userDisplayName').textContent = currentUser.display_name;
+    document.getElementById('userRank').textContent = getRankText(currentUser.rank);
+    document.getElementById('userRank').className = `rank rank-${currentUser.rank}`;
+    
+    // تحديث الصورة الشخصية
+    if (currentUser.profile_image1) {
+        document.getElementById('userAvatar').src = currentUser.profile_image1;
+    }
+    
+    // إظهار أزرار الإدارة للمدراء
+    if (currentUser.role === 'admin') {
+        document.getElementById('adminBtn').style.display = 'inline-block';
+        document.getElementById('createRoomBtn').style.display = 'inline-block';
+    }
 }
 
-// تسجيل الدخول عبر Facebook
-function loginWithFacebook() {
-    showNotification('جارٍ التسجيل عبر Facebook...', 'info');
-    // محاكاة تسجيل الدخول
-    setTimeout(() => {
-        currentUser = {
-            id: Date.now(),
-            display_name: 'مستخدم فيسبوك',
-            email: `facebook_${Date.now()}@facebook.com`,
-            role: 'user',
-            rank: 'bronze',
-            isSocialLogin: true,
-            provider: 'facebook'
-        };
-        showMainScreen();
-        initializeSocket();
-        showNotification('تم تسجيل الدخول عبر Facebook بنجاح', 'success');
-    }, 1500);
-}
-
-// عرض شاشة الحظر
-function showBanScreen(reason) {
-    document.querySelectorAll('.screen').forEach(screen => {
-        screen.classList.remove('active');
+function initializeSocket() {
+    socket = io();
+    
+    // الانضمام للشات
+    socket.emit('join', {
+        roomId: currentRoom,
+        userId: currentUser.id,
+        display_name: currentUser.display_name,
+        rank: currentUser.rank
     });
-    document.getElementById('banScreen').classList.add('active');
-    document.getElementById('banReason').innerHTML = `<p>${reason}</p>`;
+    
+    // استقبال الرسائل
+    socket.on('newMessage', displayMessage);
+    socket.on('newPrivateMessage', displayPrivateMessage);
+    socket.on('newImage', displayImageMessage);
+    socket.on('newPrivateImage', displayPrivateImageMessage);
+    socket.on('newVoice', displayVoiceMessage);
+    socket.on('newPrivateVoice', displayPrivateVoiceMessage);
+    
+    // استقبال تحديثات المستخدمين
+    socket.on('userList', updateUsersList);
+    socket.on('userUpdated', handleUserUpdate);
+    
+    // استقبال تحديثات الغرف
+    socket.on('roomCreated', addRoomToList);
+    socket.on('roomDeleted', removeRoomFromList);
+    
+    // استقبال الأخبار
+    socket.on('newNews', addNewsPost);
+    socket.on('updateNewsPost', updateNewsPost);
+    
+    // استقبال التعليقات
+    socket.on('newComment', handleNewComment);
+    socket.on('commentNotification', showCommentNotification);
+    
+    // استقبال المسابقات
+    socket.on('newCompetition', startCompetition);
+    socket.on('competitionStopped', stopCompetition);
+    
+    // استقبال الأخطاء
+    socket.on('error', function(message) {
+        showNotification(message, 'error');
+    });
 }
 
-// التحقق من حالة الحظر
-async function checkBanStatus() {
-    const token = localStorage.getItem('chatToken');
-    if (!token) {
-        showLoginScreen();
+async function loadInitialData() {
+    try {
+        // تحميل الغرف
+        const roomsResponse = await fetch('/api/rooms');
+        const rooms = await roomsResponse.json();
+        displayRooms(rooms);
+        
+        // تحميل المستخدمين
+        const usersResponse = await fetch('/api/users');
+        const users = await usersResponse.json();
+        updateUsersList(users);
+        
+        // تحميل رسائل الغرفة الحالية
+        const messagesResponse = await fetch(`/api/messages/${currentRoom}`);
+        const messages = await messagesResponse.json();
+        messages.forEach(displayMessage);
+        
+        // تحميل الأخبار
+        const newsResponse = await fetch('/api/news');
+        const news = await newsResponse.json();
+        news.forEach(addNewsPost);
+        
+    } catch (error) {
+        console.error('خطأ في تحميل البيانات:', error);
+    }
+}
+
+// وظائف الرسائل مع نظام مكافحة الفيضانات
+function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const content = input.value.trim();
+    
+    if (!content) return;
+    
+    // فحص الحماية من الفيضانات في الواجهة
+    if (isFloodProtected()) {
+        showNotification('يرجى الانتظار قبل إرسال رسالة أخرى', 'warning');
         return;
     }
-    try {
-        const response = await fetch('/api/user/profile', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        if (response.ok) {
-            const user = await response.json();
-            currentUser = user;
-            showMainScreen();
-            initializeSocket();
-            showNotification('تم رفع الحظر', 'success');
-        } else {
-            showNotification('لا يزال الحظر ساري المفعول', 'error');
-        }
-    } catch (error) {
-        showError('حدث خطأ في التحقق من حالة الحظر');
-    }
-}
-
-// تحميل الغرف
-async function loadRooms() {
-    try {
-        const token = localStorage.getItem('chatToken');
-        const response = await fetch('/api/rooms', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        if (response.ok) {
-            const rooms = await response.json();
-            updateRoomsSelect(rooms);
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل الغرف:', error);
-    }
-}
-
-// تحديث قائمة الغرف
-function updateRoomsSelect(rooms) {
-    const select = document.getElementById('roomSelect');
-    select.innerHTML = '';
-    rooms.forEach(room => {
-        const option = document.createElement('option');
-        option.value = room.id;
-        option.textContent = room.name;
-        if (room.id === currentRoom) {
-            option.selected = true;
-        }
-        select.appendChild(option);
+    
+    socket.emit('sendMessage', {
+        roomId: currentRoom,
+        content: content
     });
+    
+    input.value = '';
+    updateLastMessageTime();
 }
 
-// تغيير الغرفة
-function changeRoom() {
-    const newRoomId = parseInt(document.getElementById('roomSelect').value);
-    if (newRoomId !== currentRoom) {
-        currentRoom = newRoomId;
-        // إشعار الخادم بتغيير الغرفة
-        if (socket) {
-            socket.emit('changeRoom', newRoomId);
-        }
-        // تحديث اسم الغرفة
-        const roomName = document.getElementById('roomSelect').selectedOptions[0].textContent;
-        document.getElementById('currentRoomName').textContent = roomName;
-        // مسح الرسائل وتحميل رسائل الغرفة الجديدة
-        document.getElementById('messagesContainer').innerHTML = '';
-        loadMessages();
+function sendPrivateMessage() {
+    if (!currentPrivateUser) return;
+    
+    const input = document.getElementById('privateMessageInput');
+    const content = input.value.trim();
+    
+    if (!content) return;
+    
+    if (isFloodProtected()) {
+        showNotification('يرجى الانتظار قبل إرسال رسالة أخرى', 'warning');
+        return;
     }
+    
+    socket.emit('sendPrivateMessage', {
+        receiverId: currentPrivateUser.id,
+        content: content
+    });
+    
+    input.value = '';
+    updateLastMessageTime();
 }
 
-// تحميل الرسائل
-async function loadMessages() {
-    try {
-        const token = localStorage.getItem('chatToken');
-        if (!token && !currentUser?.isGuest) return;
-        const headers = {};
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-        const response = await fetch(`/api/messages/${currentRoom}`, { headers });
-        if (response.ok) {
-            const messages = await response.json();
-            const container = document.getElementById('messagesContainer');
-            container.innerHTML = '';
-            messages.forEach(message => {
-                displayMessage(message);
-            });
-            scrollToBottom();
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل الرسائل:', error);
-    }
+// نظام مكافحة الفيضانات
+let lastMessageTimes = [];
+
+function isFloodProtected() {
+    const now = Date.now();
+    const fiveSecondsAgo = now - 5000;
+    
+    // إزالة الرسائل القديمة
+    lastMessageTimes = lastMessageTimes.filter(time => time > fiveSecondsAgo);
+    
+    // فحص إذا تم إرسال أكثر من 3 رسائل في 5 ثواني
+    return lastMessageTimes.length >= 3;
 }
 
-// عرض رسالة
+function updateLastMessageTime() {
+    lastMessageTimes.push(Date.now());
+}
+
+// عرض الرسائل مع التصميم المحسن
 function displayMessage(message) {
     const container = document.getElementById('messagesContainer');
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${message.user_id === currentUser?.id ? 'own' : ''}`;
-    messageDiv.setAttribute('data-message-id', message.id);
+    messageDiv.className = `message ${message.user_id === currentUser.id ? 'own' : ''} ${message.type === 'system' ? 'system' : ''} fade-in`;
     
-    // إضافة خيارات الرسالة (ثلاث نقاط)
-    const optionsBtn = document.createElement('button');
-    optionsBtn.className = 'message-options-btn';
-    optionsBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
-    optionsBtn.onclick = (e) => {
-        e.stopPropagation();
-        showMessageOptions(message, messageDiv);
-    };
-    
-    const rank = RANKS[message.rank] || RANKS.visitor;
-    const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    let messageContent = '';
-    // محتوى الرسالة
-    if (message.message) {
-        messageContent = `<div class="message-text">${escapeHtml(message.message)}</div>`;
-    } else if (message.voice_url) {
-        messageContent = `<audio class="message-audio" controls>
-            <source src="${message.voice_url}" type="audio/webm">
-            متصفحك لا يدعم تشغيل الصوت
-        </audio>`;
-    } else if (message.image_url) {
-        messageContent = `<img class="message-image" src="${message.image_url}" alt="صورة" onclick="openImageModal('${message.image_url}')">`;
-    }
-    messageDiv.innerHTML = `
-        <img class="message-avatar" src="${message.profile_image1 || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'}" 
-             alt="صورة ${message.display_name}" onclick="openUserProfile(${message.user_id})">
-        <div class="message-content" style="${message.message_background ? `background-image: url(${message.message_background})` : ''}">
+    if (message.type === 'system') {
+        messageDiv.innerHTML = `<div class="message-content">${message.content}</div>`;
+    } else {
+        const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        messageDiv.innerHTML = `
             <div class="message-header">
-                <span class="message-author rank-${message.rank}" onclick="openUserProfile(${message.user_id})">${escapeHtml(message.display_name)}</span>
-                <span class="message-rank">${rank.emoji} ${rank.name}</span>
+                <span class="message-user rank-${message.rank}">${message.display_name}</span>
                 <span class="message-time">${time}</span>
             </div>
-            ${messageContent}
-        </div>
-    `;
-    messageDiv.appendChild(optionsBtn);
-    container.appendChild(messageDiv);
-    scrollToBottom();
-}
-
-// عرض خيارات الرسالة
-function showMessageOptions(message, messageElement) {
-    const optionsDiv = document.createElement('div');
-    optionsDiv.className = 'message-options';
-    optionsDiv.innerHTML = `
-        <button onclick="quoteMessage(${message.id}, '${escapeHtml(message.display_name)}', '${escapeHtml(message.message)}')">
-            <i class="fas fa-quote-right"></i> اقتباس
-        </button>
-        <button onclick="reportMessage(${message.id})">
-            <i class="fas fa-flag"></i> بلاغ
-        </button>
-        <button onclick="notifyAboutMessage(${message.id}, '${escapeHtml(message.display_name)}')">
-            <i class="fas fa-bell"></i> إشعار
-        </button>
-        ${message.user_id === currentUser?.id || hasPermission('delete_message') ? `
-        <button onclick="deleteMessage(${message.id}, this)">
-            <i class="fas fa-trash"></i> حذف
-        </button>` : ''}
-    `;
-    // إضافة الخيارات بجانب الرسالة
-    messageElement.appendChild(optionsDiv);
-    // إغلاق الخيارات عند النقر خارجها
-    document.addEventListener('click', function closeOptions(e) {
-        if (!messageElement.contains(e.target) && !optionsDiv.contains(e.target)) {
-            optionsDiv.remove();
-            document.removeEventListener('click', closeOptions);
-        }
-    });
-}
-
-// إرسال رسالة
-function sendMessage() {
-    const input = document.getElementById('messageInput');
-    const message = input.value.trim();
-    if (!message) return;
-    if (message.length > 1000) {
-        showError('الرسالة طويلة جداً (الحد الأقصى 1000 حرف)');
-        return;
-    }
-    if (socket) {
-        const messageData = {
-            message: message,
-            roomId: currentRoom
-        };
-        // إضافة الاقتباس إذا كان موجوداً
-        if (quotedMessage) {
-            messageData.quoted_message_id = quotedMessage.id;
-            messageData.quoted_author = quotedMessage.author;
-            messageData.quoted_content = quotedMessage.content;
-        }
-        socket.emit('sendMessage', messageData);
-        input.value = '';
-        cancelQuote();
-    }
-}
-
-// رفع صورة
-function handleImageUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-        showError('يرجى اختيار صورة صحيحة');
-        return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-        showError('حجم الصورة كبير جداً (الحد الأقصى 5 ميجابايت)');
-        return;
-    }
-    const formData = new FormData();
-    formData.append('image', file);
-    showLoading(true);
-    fetch('/api/upload-image', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.image_url && socket) {
-            socket.emit('sendMessage', {
-                image_url: data.image_url,
-                roomId: currentRoom
-            });
-        } else {
-            showError('فشل في رفع الصورة');
-        }
-    })
-    .catch(error => {
-        showError('حدث خطأ في رفع الصورة');
-    })
-    .finally(() => {
-        showLoading(false);
-        e.target.value = '';
-    });
-}
-
-// تسجيل صوتي
-function toggleVoiceRecording() {
-    if (isRecording) {
-        stopRecording();
-    } else {
-        startRecording();
-    }
-}
-
-// بدء التسجيل
-async function startRecording() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        audioChunks = [];
-        mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
-        };
-        mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            uploadVoiceMessage(audioBlob);
-            stream.getTracks().forEach(track => track.stop());
-        };
-        mediaRecorder.start();
-        isRecording = true;
-        const voiceBtn = document.getElementById('voiceBtn');
-        voiceBtn.classList.add('recording');
-        voiceBtn.innerHTML = '<i class="fas fa-stop"></i>';
-        showNotification('بدأ التسجيل...', 'info');
-    } catch (error) {
-        showError('لا يمكن الوصول للميكروفون');
-    }
-}
-
-// إيقاف التسجيل
-function stopRecording() {
-    if (mediaRecorder && isRecording) {
-        mediaRecorder.stop();
-        isRecording = false;
-        const voiceBtn = document.getElementById('voiceBtn');
-        voiceBtn.classList.remove('recording');
-        voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
-        showNotification('تم إيقاف التسجيل', 'success');
-    }
-}
-
-// رفع رسالة صوتية
-function uploadVoiceMessage(audioBlob) {
-    const formData = new FormData();
-    formData.append('voice', audioBlob, 'voice.webm');
-    showLoading(true);
-    fetch('/api/upload-voice', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.voice_url && socket) {
-            socket.emit('sendMessage', {
-                voice_url: data.voice_url,
-                roomId: currentRoom
-            });
-        } else {
-            showError('فشل في رفع التسجيل الصوتي');
-        }
-    })
-    .catch(error => {
-        showError('حدث خطأ في رفع التسجيل الصوتي');
-    })
-    .finally(() => {
-        showLoading(false);
-    });
-}
-
-// تحديث قائمة المستخدمين
-function updateUsersList(users) {
-    const container = document.getElementById('onlineUsersList');
-    const countElement = document.getElementById('onlineCount');
-    container.innerHTML = '';
-    countElement.textContent = users.length;
-    // ترتيب المستخدمين حسب الرتبة
-    users.sort((a, b) => {
-        const rankA = RANKS[a.rank] || RANKS.visitor;
-        const rankB = RANKS[b.rank] || RANKS.visitor;
-        return rankB.level - rankA.level;
-    });
-    users.forEach(user => {
-        if (user.userId === currentUser?.id) return; // لا نعرض المستخدم الحالي
-        const userDiv = document.createElement('div');
-        userDiv.className = 'user-item';
-        userDiv.onclick = () => openUserActions(user);
-        const rank = RANKS[user.rank] || RANKS.visitor;
-        userDiv.innerHTML = `
-            <img class="user-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${user.displayName}">
-            <div class="user-details">
-                <div class="user-display-name rank-${user.rank}">${escapeHtml(user.displayName)}</div>
-                <div class="user-status">${rank.emoji} ${rank.name}</div>
-            </div>
+            <div class="message-content">${message.content}</div>
         `;
-        container.appendChild(userDiv);
-    });
-}
-
-// فتح إجراءات المستخدم
-function openUserActions(user) {
-    selectedUserId = user.userId;
-    document.getElementById('actionUserName').textContent = user.displayName;
-    document.getElementById('actionUserAvatar').src = 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop';
-    openModal('userActionsModal');
-}
-
-// بدء دردشة خاصة
-function startPrivateChat() {
-    if (!selectedUserId) return;
-    chatMode = 'private';
-    document.getElementById('chatModeText').textContent = 'خاص';
-    // تحديث واجهة الدردشة الخاصة
-    loadPrivateMessages();
-    closeAllModals();
-    showNotification('تم التبديل للدردشة الخاصة', 'info');
-}
-
-// تحميل الرسائل الخاصة
-async function loadPrivateMessages() {
-    if (!selectedUserId) return;
-    try {
-        const token = localStorage.getItem('chatToken');
-        const response = await fetch(`/api/private-messages/${selectedUserId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        if (response.ok) {
-            const messages = await response.json();
-            const container = document.getElementById('messagesContainer');
-            container.innerHTML = '';
-            messages.forEach(message => {
-                displayPrivateMessage(message);
-            });
-            scrollToBottom();
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل الرسائل الخاصة:', error);
+    }
+    
+    // تطبيق خلفية الرسائل المخصصة
+    if (message.user_id === currentUser.id && currentUser.message_background) {
+        messageDiv.style.backgroundImage = `url(${currentUser.message_background})`;
+        messageDiv.style.backgroundSize = 'cover';
+        messageDiv.style.backgroundPosition = 'center';
+        messageDiv.style.color = 'white';
+        messageDiv.style.textShadow = '1px 1px 2px rgba(0,0,0,0.7)';
+    }
+    
+    container.appendChild(messageDiv);
+    
+    // التمرير التلقائي للأسفل
+    container.scrollTop = container.scrollHeight;
+    
+    // الحد من عدد الرسائل المعروضة لتحسين الأداء
+    const messages = container.querySelectorAll('.message');
+    if (messages.length > 100) {
+        messages[0].remove();
     }
 }
 
-// عرض رسالة خاصة
-function displayPrivateMessage(message) {
+function displayImageMessage(message) {
     const container = document.getElementById('messagesContainer');
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${message.user_id === currentUser?.id ? 'own' : ''}`;
-    messageDiv.setAttribute('data-message-id', message.id);
-    const rank = RANKS[message.rank] || RANKS.visitor;
+    messageDiv.className = `message ${message.user_id === currentUser.id ? 'own' : ''} fade-in`;
+    
     const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
         hour: '2-digit',
         minute: '2-digit'
     });
-    let messageContent = '';
-    if (message.message) {
-        messageContent = `<div class="message-text">${escapeHtml(message.message)}</div>`;
-    } else if (message.voice_url) {
-        messageContent = `<audio class="message-audio" controls>
-            <source src="${message.voice_url}" type="audio/webm">
-        </audio>`;
-    } else if (message.image_url) {
-        messageContent = `<img class="message-image" src="${message.image_url}" alt="صورة" onclick="openImageModal('${message.image_url}')">`;
-    }
+    
     messageDiv.innerHTML = `
-        <img class="message-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${message.display_name}">
+        <div class="message-header">
+            <span class="message-user rank-${message.rank}">${message.display_name}</span>
+            <span class="message-time">${time}</span>
+        </div>
         <div class="message-content">
-            <div class="message-header">
-                <span class="message-author rank-${message.rank}">${escapeHtml(message.display_name)}</span>
-                <span class="message-rank">${rank.emoji} ${rank.name}</span>
-                <span class="message-time">${time}</span>
-            </div>
-            ${messageContent}
+            <img src="${message.image_url}" alt="صورة" onclick="openImageModal('${message.image_url}')">
         </div>
     `;
+    
     container.appendChild(messageDiv);
-    scrollToBottom();
+    container.scrollTop = container.scrollHeight;
 }
 
-// تبديل وضع الدردشة
-function toggleChatMode() {
-    if (chatMode === 'public') {
-        // التبديل للخاص يتطلب اختيار مستخدم
-        showNotification('اختر مستخدماً لبدء دردشة خاصة', 'info');
-    } else {
-        // العودة للعام
-        chatMode = 'public';
-        selectedUserId = null;
-        document.getElementById('chatModeText').textContent = 'عام';
-        loadMessages();
-        showNotification('تم التبديل للدردشة العامة', 'info');
-    }
-}
-
-// فتح القائمة الرئيسية
-function openMainMenu() {
-    openModal('mainMenuModal');
-}
-
-// إغلاق القائمة الرئيسية
-function closeMainMenu() {
-    closeModal('mainMenuModal');
-}
-
-// فتح قسم الأخبار
-function openNewsSection() {
-    openModal('newsModal');
-    loadNews();
-    closeMainMenu();
-}
-
-// تحميل الأخبار
-async function loadNews() {
-    try {
-        const response = await fetch('/api/news');
-        if (response.ok) {
-            const news = await response.json();
-            displayNews(news);
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل الأخبار:', error);
-    }
-}
-
-// عرض الأخبار
-function displayNews(news) {
-    const container = document.getElementById('newsFeed');
-    container.innerHTML = '';
-    if (news.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد أخبار حالياً</p>';
-        return;
-    }
-    news.forEach(item => {
-        const newsDiv = document.createElement('div');
-        newsDiv.className = 'news-item';
-        const time = new Date(item.timestamp).toLocaleString('ar-SA');
-        newsDiv.innerHTML = `
-            <div class="news-header-info">
-                <img class="news-author-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${item.display_name}">
-                <div class="news-author-info">
-                    <h4>${escapeHtml(item.display_name)}</h4>
-                    <span class="news-time">${time}</span>
-                </div>
+function displayVoiceMessage(message) {
+    const container = document.getElementById('messagesContainer');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${message.user_id === currentUser.id ? 'own' : ''} fade-in`;
+    
+    const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    messageDiv.innerHTML = `
+        <div class="message-header">
+            <span class="message-user rank-${message.rank}">${message.display_name}</span>
+            <span class="message-time">${time}</span>
+        </div>
+        <div class="message-content">
+            <div class="voice-message">
+                <span>🎤</span>
+                <audio controls>
+                    <source src="${message.voice_url}" type="audio/webm">
+                    متصفحك لا يدعم تشغيل الصوت
+                </audio>
             </div>
-            <div class="news-content">${escapeHtml(item.content)}</div>
-            ${item.media ? `<div class="news-media"><img src="${item.media}" alt="صورة الخبر"></div>` : ''}
-            <div class="news-reactions">
-                <button class="reaction-btn" data-reaction="like"><i class="fas fa-thumbs-up"></i> <span>0</span></button>
-                <button class="reaction-btn" data-reaction="heart"><i class="fas fa-heart"></i> <span>0</span></button>
-                <button class="reaction-btn" data-reaction="laugh"><i class="fas fa-laugh"></i> <span>0</span></button>
-                <button class="reaction-btn" data-reaction="dislike"><i class="fas fa-thumbs-down"></i> <span>0</span></button>
+        </div>
+    `;
+    
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+// وظائف الدردشة الخاصة
+function displayPrivateMessage(message) {
+    if (!document.getElementById('privateChatModal').style.display === 'block') return;
+    
+    const container = document.getElementById('privateChatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${message.senderId === currentUser.id ? 'own' : ''} fade-in`;
+    
+    const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    messageDiv.innerHTML = `
+        <div class="message-header">
+            <span class="message-user rank-${message.rank}">${message.display_name}</span>
+            <span class="message-time">${time}</span>
+        </div>
+        <div class="message-content">${message.content}</div>
+    `;
+    
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+function displayPrivateImageMessage(message) {
+    if (!document.getElementById('privateChatModal').style.display === 'block') return;
+    
+    const container = document.getElementById('privateChatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${message.senderId === currentUser.id ? 'own' : ''} fade-in`;
+    
+    const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    messageDiv.innerHTML = `
+        <div class="message-header">
+            <span class="message-user rank-${message.rank}">${message.display_name}</span>
+            <span class="message-time">${time}</span>
+        </div>
+        <div class="message-content">
+            <img src="${message.image_url}" alt="صورة" onclick="openImageModal('${message.image_url}')">
+        </div>
+    `;
+    
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+function displayPrivateVoiceMessage(message) {
+    if (!document.getElementById('privateChatModal').style.display === 'block') return;
+    
+    const container = document.getElementById('privateChatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${message.senderId === currentUser.id ? 'own' : ''} fade-in`;
+    
+    const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    messageDiv.innerHTML = `
+        <div class="message-header">
+            <span class="message-user rank-${message.rank}">${message.display_name}</span>
+            <span class="message-time">${time}</span>
+        </div>
+        <div class="message-content">
+            <div class="voice-message">
+                <span>🎤</span>
+                <audio controls>
+                    <source src="${message.voice_url}" type="audio/webm">
+                    متصفحك لا يدعم تشغيل الصوت
+                </audio>
             </div>
-        `;
-        container.appendChild(newsDiv);
-    });
+        </div>
+    `;
+    
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight;
 }
 
-// نشر خبر
-async function postNews() {
-    const content = document.getElementById('newsContentInput').value.trim();
-    const fileInput = document.getElementById('newsFileInput');
-    if (!content && !fileInput.files[0]) {
-        showError('يرجى كتابة محتوى أو اختيار ملف');
-        return;
+// وظائف الأخبار مع التفاعلات والتعليقات
+function addNewsPost(post) {
+    const feed = document.getElementById('newsFeed');
+    const postDiv = document.createElement('div');
+    postDiv.className = 'news-post slide-up';
+    postDiv.id = `news-post-${post.id}`;
+    
+    const time = new Date(post.timestamp).toLocaleTimeString('ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit'
+    });
+    
+    const reactions = post.reactions || { likes: [], dislikes: [], hearts: [] };
+    
+    postDiv.innerHTML = `
+        <div class="news-post-header">
+            <span class="news-post-user rank-${post.rank || 'member'}">${post.display_name}</span>
+            <span class="news-post-time">${time}</span>
+        </div>
+        <div class="news-post-content">${post.content}</div>
+        ${post.media ? `<div class="news-post-media"><img src="${post.media}" alt="صورة الخبر"></div>` : ''}
+        <div class="news-post-actions">
+            <button class="reaction-btn" onclick="addReaction(${post.id}, 'like')">
+                👍 <span class="reaction-count">${reactions.likes.length}</span>
+            </button>
+            <button class="reaction-btn" onclick="addReaction(${post.id}, 'heart')">
+                ❤️ <span class="reaction-count">${reactions.hearts.length}</span>
+            </button>
+            <button class="reaction-btn" onclick="addReaction(${post.id}, 'dislike')">
+                👎 <span class="reaction-count">${reactions.dislikes.length}</span>
+            </button>
+            <button class="reaction-btn" onclick="toggleComments(${post.id})">
+                💬 تعليق
+            </button>
+        </div>
+        <div class="comments-section" id="comments-${post.id}" style="display: none;">
+            <div class="comment-form">
+                <select id="target-user-${post.id}" class="comment-input">
+                    <option value="">للجميع</option>
+                </select>
+                <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="اكتب تعليقك...">
+                <button class="comment-btn" onclick="addComment(${post.id})">إرسال</button>
+            </div>
+            <div id="comments-list-${post.id}"></div>
+        </div>
+    `;
+    
+    feed.insertBefore(postDiv, feed.firstChild);
+    
+    // تحميل قائمة المستخدمين للتعليقات
+    loadUsersForComments(post.id);
+    
+    // تحميل التعليقات الموجودة
+    loadComments(post.id);
+}
+
+function updateNewsPost(post) {
+    const postElement = document.getElementById(`news-post-${post.id}`);
+    if (postElement) {
+        // تحديث عدادات التفاعلات
+        const reactions = post.reactions || { likes: [], dislikes: [], hearts: [] };
+        const reactionBtns = postElement.querySelectorAll('.reaction-btn .reaction-count');
+        if (reactionBtns[0]) reactionBtns[0].textContent = reactions.likes.length;
+        if (reactionBtns[1]) reactionBtns[1].textContent = reactions.hearts.length;
+        if (reactionBtns[2]) reactionBtns[2].textContent = reactions.dislikes.length;
     }
-    const formData = new FormData();
-    if (content) formData.append('content', content);
-    if (fileInput.files[0]) formData.append('newsFile', fileInput.files[0]);
+}
+
+function addReaction(postId, type) {
+    socket.emit('addReaction', { postId, type });
+}
+
+function toggleComments(postId) {
+    const commentsSection = document.getElementById(`comments-${postId}`);
+    commentsSection.style.display = commentsSection.style.display === 'none' ? 'block' : 'none';
+}
+
+async function loadUsersForComments(postId) {
     try {
-        showLoading(true);
-        const response = await fetch('/api/news', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: formData
-        });
-        if (response.ok) {
-            document.getElementById('newsContentInput').value = '';
-            fileInput.value = '';
-            loadNews();
-            showNotification('تم نشر الخبر بنجاح', 'success');
-        } else {
-            const data = await response.json();
-            showError(data.error || 'فشل في نشر الخبر');
-        }
-    } catch (error) {
-        showError('حدث خطأ في نشر الخبر');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// إغلاق مودال الأخبار
-function closeNewsModal() {
-    closeModal('newsModal');
-}
-
-// فتح قسم القصص
-function openStoriesSection() {
-    openModal('storiesModal');
-    loadStories();
-    closeMainMenu();
-}
-
-// تحميل القصص
-async function loadStories() {
-    try {
-        const response = await fetch('/api/stories');
-        if (response.ok) {
-            const stories = await response.json();
-            displayStories(stories);
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل القصص:', error);
-    }
-}
-
-// عرض القصص
-function displayStories(stories) {
-    const container = document.getElementById('storiesContainer');
-    container.innerHTML = '';
-    if (stories.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد قصص حالياً</p>';
-        return;
-    }
-    stories.forEach(story => {
-        const storyDiv = document.createElement('div');
-        storyDiv.className = 'story-item';
-        storyDiv.onclick = () => viewStory(story);
-        storyDiv.innerHTML = `<img src="${story.image}" alt="قصة ${story.display_name}">`;
-        container.appendChild(storyDiv);
-    });
-}
-
-// فتح مودال إضافة قصة
-function openAddStoryModal() {
-    openModal('addStoryModal');
-}
-
-// إغلاق مودال إضافة قصة
-function closeAddStoryModal() {
-    closeModal('addStoryModal');
-}
-
-// إضافة قصة
-async function addStory() {
-    const fileInput = document.getElementById('storyMediaInput');
-    const text = document.getElementById('storyTextInput').value.trim();
-    if (!fileInput.files[0]) {
-        showError('يرجى اختيار صورة أو فيديو');
-        return;
-    }
-    const formData = new FormData();
-    formData.append('storyImage', fileInput.files[0]);
-    if (text) formData.append('text', text);
-    try {
-        showLoading(true);
-        const response = await fetch('/api/stories', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: formData
-        });
-        if (response.ok) {
-            closeAddStoryModal();
-            loadStories();
-            showNotification('تم إضافة القصة بنجاح', 'success');
-        } else {
-            const data = await response.json();
-            showError(data.error || 'فشل في إضافة القصة');
-        }
-    } catch (error) {
-        showError('حدث خطأ في إضافة القصة');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// إغلاق مودال القصص
-function closeStoriesModal() {
-    closeModal('storiesModal');
-}
-
-// فتح قسم الألعاب
-function openGamesSection() {
-    showNotification('الألعاب قيد التطوير', 'info');
-    closeMainMenu();
-}
-
-// فتح غرفة المسابقات
-function openQuizRoom() {
-    openModal('quizRoomModal');
-    startQuiz();
-    closeMainMenu();
-}
-
-// بدء المسابقة
-function startQuiz() {
-    const randomQuestion = QUIZ_QUESTIONS[Math.floor(Math.random() * QUIZ_QUESTIONS.length)];
-    displayQuizQuestion(randomQuestion);
-    startQuizTimerWithHints(randomQuestion);
-}
-
-// عرض سؤال المسابقة
-function displayQuizQuestion(question) {
-    document.getElementById('questionText').textContent = question.question;
-    const optionsContainer = document.getElementById('questionOptions');
-    optionsContainer.innerHTML = '';
-    question.options.forEach((option, index) => {
-        const button = document.createElement('button');
-        button.className = 'option-btn';
-        button.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
-        button.onclick = () => selectQuizAnswer(index, question.correct);
-        optionsContainer.appendChild(button);
-    });
-}
-
-// اختيار إجابة
-function selectQuizAnswer(selected, correct) {
-    const buttons = document.querySelectorAll('.option-btn');
-    buttons.forEach((btn, index) => {
-        btn.disabled = true;
-        if (index === correct) {
-            btn.style.background = 'var(--success-color)';
-        } else if (index === selected && selected !== correct) {
-            btn.style.background = 'var(--error-color)';
-        }
-    });
-    
-    if (selected === correct) {
-        const pointsEarned = 10;
-        showNotification('إجابة صحيحة! +10 نقاط', 'success');
-        updateUserCoins(pointsEarned);
-        updateUserQuizRank(pointsEarned);
-    } else {
-        showNotification('إجابة خاطئة', 'error');
-    }
-    
-    // إيقاف المؤقت الحالي
-    if (contestTimer) {
-        clearInterval(contestTimer);
-    }
-    
-    setTimeout(() => {
-        startQuiz(); // سؤال جديد
-    }, 3000);
-}
-
-// بدء مؤقت المسابقة مع التلميحات
-function startQuizTimerWithHints(question) {
-    let timeLeft = 15; // 15 ثانية أولاً
-    let hintShown = false;
-    const timerElement = document.getElementById('quizTimer');
-    const hintSection = document.getElementById('hintSection');
-    const hintText = document.getElementById('hintText');
-    
-    // إخفاء التلميح في البداية
-    hintSection.style.display = 'none';
-    
-    contestTimer = setInterval(() => {
-        timeLeft--;
-        timerElement.textContent = timeLeft;
+        const response = await fetch('/api/users');
+        const users = await response.json();
+        const select = document.getElementById(`target-user-${postId}`);
         
-        // عرض التلميح بعد 15 ثانية
-        if (timeLeft <= 0 && !hintShown) {
-            hintShown = true;
-            timeLeft = 10; // إعادة العد إلى 10 ثواني إضافية
-            hintSection.style.display = 'block';
-            hintText.textContent = `تلميح: ${question.hint}`;
-            timerElement.textContent = timeLeft;
-        }
-        
-        // انتهاء الوقت
-        if (timeLeft <= 0) {
-            clearInterval(contestTimer);
-            if (!hintShown) {
-                // لم يجاوب أحد خلال الـ 15 ثانية الأولى
-                hintShown = true;
-                hintSection.style.display = 'block';
-                hintText.textContent = `تلميح: ${question.hint}`;
-                setTimeout(() => {
-                    revealAnswerAndNext(question.correct);
-                }, 2000);
-            } else {
-                // لم يجاوب أحد حتى بعد التلميح
-                revealAnswerAndNext(question.correct);
-            }
-        }
-    }, 1000);
-}
-
-// عرض الإجابة والانتقال للسؤال التالي
-function revealAnswerAndNext(correctAnswerIndex) {
-    const buttons = document.querySelectorAll('.option-btn');
-    buttons.forEach((btn, index) => {
-        btn.disabled = true;
-        if (index === correctAnswerIndex) {
-            btn.style.background = 'var(--success-color)';
-        }
-    });
-    showNotification(`الإجابة الصحيحة: ${QUIZ_QUESTIONS.find(q => q.options[correctAnswerIndex])?.options[correctAnswerIndex]}`, 'info');
-    setTimeout(() => {
-        startQuiz(); // سؤال جديد
-    }, 3000);
-}
-
-// تحديث ترتيب المستخدم في المسابقة
-function updateUserQuizRank(points) {
-    // محاكاة تحديث الترتيب
-    let currentPoints = parseInt(document.getElementById('userQuizPoints').textContent) || 0;
-    currentPoints += points;
-    document.getElementById('userQuizPoints').textContent = currentPoints;
-    // تحديث الترتيب (محاكاة)
-    document.getElementById('userQuizRank').textContent = `#${Math.floor(Math.random() * 10) + 1}`;
-    // تحديث لوحة المتصدرين
-    updateLeaderboard(currentPoints);
-}
-
-// تحديث لوحة المتصدرين
-function updateLeaderboard(userPoints) {
-    const leaderboardList = document.getElementById('leaderboardList');
-    leaderboardList.innerHTML = ''; // مسح القائمة الحالية
-
-    // إنشاء قائمة وهمية
-    const mockLeaders = [
-        { name: currentUser?.display_name || 'أنت', score: userPoints },
-        { name: 'أحمد', score: userPoints + 5 },
-        { name: 'سارة', score: userPoints + 3 },
-        { name: 'محمد', score: userPoints - 2 },
-        { name: 'ليلى', score: userPoints - 5 }
-    ];
-
-    // ترتيب حسب النقاط
-    mockLeaders.sort((a, b) => b.score - a.score);
-
-    mockLeaders.forEach((leader, index) => {
-        const item = document.createElement('div');
-        item.className = 'leaderboard-item';
-        item.innerHTML = `
-            <span class="rank">${index + 1}.</span>
-            <span class="username">${leader.name}</span>
-            <span class="score">${leader.score}</span>
-        `;
-        if (leader.name === (currentUser?.display_name || 'أنت')) {
-            item.style.color = 'gold';
-            item.style.fontWeight = 'bold';
-        }
-        leaderboardList.appendChild(item);
-    });
-}
-
-// إغلاق غرفة المسابقات
-function closeQuizRoom() {
-    if (contestTimer) {
-        clearInterval(contestTimer);
-    }
-    closeModal('quizRoomModal');
-}
-
-// فتح إدارة الغرف
-function openRoomsManager() {
-    if (!hasPermission('create_room')) {
-        showError('غير مسموح - للإداريين فقط');
-        return;
-    }
-    openModal('adminModal');
-    showAdminTab('rooms');
-    closeMainMenu();
-}
-
-// فتح متجر النقاط
-function openCoinsShop() {
-    showNotification('متجر النقاط قيد التطوير', 'info');
-    closeMainMenu();
-}
-
-// فتح لوحة الإدارة
-function openAdminPanel() {
-    if (!hasPermission('create_room') && currentUser?.role !== 'owner') {
-        showError('غير مسموح - للإداريين فقط');
-        return;
-    }
-    openModal('adminModal');
-    loadAdminData();
-    closeMainMenu();
-}
-
-// تحميل بيانات الإدارة
-async function loadAdminData() {
-    await loadAllUsers();
-    loadRanks();
-    loadAuditLog(); // تحميل سجل الرقابة
-}
-
-// تحميل جميع المستخدمين
-async function loadAllUsers() {
-    try {
-        const response = await fetch('/api/all-users', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+        users.forEach(user => {
+            if (user.id !== currentUser.id) {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = user.display_name;
+                select.appendChild(option);
             }
         });
-        if (response.ok) {
-            const users = await response.json();
-            displayAdminUsers(users);
-        }
     } catch (error) {
         console.error('خطأ في تحميل المستخدمين:', error);
     }
 }
 
-// عرض المستخدمين في لوحة الإدارة
-function displayAdminUsers(users) {
-    const container = document.getElementById('adminUsersList');
-    container.innerHTML = '';
-    users.forEach(user => {
-        const userDiv = document.createElement('div');
-        userDiv.className = 'admin-user-item';
-        const rank = RANKS[user.rank] || RANKS.visitor;
-        const joinDate = new Date(user.created_at).toLocaleDateString('ar-SA');
-        userDiv.innerHTML = `
-            <div class="admin-user-info">
-                <img class="admin-user-avatar" src="${user.profile_image1 || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'}" alt="${user.display_name}">
-                <div class="admin-user-details">
-                    <h4>${escapeHtml(user.display_name)}</h4>
-                    <div class="admin-user-rank">${rank.emoji} ${rank.name} • انضم في ${joinDate}</div>
-                </div>
-            </div>
-            <div class="admin-user-actions">
-                <button class="admin-action-btn btn-info" onclick="openAssignRankModal(${user.id}, '${user.display_name}')">
-                    <i class="fas fa-crown"></i> رتبة
-                </button>
-                <button class="admin-action-btn btn-warning" onclick="openBanUserModal(${user.id}, '${user.display_name}')">
-                    <i class="fas fa-ban"></i> حظر
-                </button>
-                <button class="admin-action-btn btn-success" onclick="openGiveCoinsModal(${user.id}, '${user.display_name}')">
-                    <i class="fas fa-coins"></i> نقاط
-                </button>
-            </div>
-        `;
-        container.appendChild(userDiv);
-    });
-}
-
-// تحميل الرتب
-function loadRanks() {
-    const container = document.getElementById('ranksList');
-    container.innerHTML = '';
-    Object.entries(RANKS).forEach(([key, rank]) => {
-        const rankDiv = document.createElement('div');
-        rankDiv.className = 'rank-item';
-        rankDiv.innerHTML = `
-            <div class="rank-emoji">${rank.emoji}</div>
-            <div class="rank-name">${rank.name}</div>
-            <div class="rank-level">المستوى ${rank.level}</div>
-            <div class="rank-permissions">${rank.permissions.join(', ') || 'لا صلاحيات'}</div>
-        `;
-        container.appendChild(rankDiv);
-    });
-}
-
-// فتح مودال تعيين الرتبة
-function openAssignRankModal(userId, userName) {
-    document.getElementById('rankTargetUser').textContent = userName;
-    document.getElementById('rankTargetUser').setAttribute('data-user-id', userId);
-    // ملء قائمة الرتب
-    const select = document.getElementById('newRankSelect');
-    select.innerHTML = '';
-    Object.entries(RANKS).forEach(([key, rank]) => {
-        const option = document.createElement('option');
-        option.value = key;
-        option.textContent = `${rank.emoji} ${rank.name}`;
-        select.appendChild(option);
-    });
-    openModal('assignRankModal');
-}
-
-// تأكيد تعيين الرتبة
-async function confirmAssignRank() {
-    const userId = document.getElementById('rankTargetUser').getAttribute('data-user-id');
-    const newRank = document.getElementById('newRankSelect').value;
-    const reason = document.getElementById('rankChangeReason').value.trim();
-    if (!newRank) {
-        showError('يرجى اختيار رتبة');
-        return;
-    }
-    try {
-        showLoading(true);
-        const response = await fetch('/api/assign-rank', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: JSON.stringify({
-                userId: parseInt(userId),
-                newRank,
-                reason
-            })
-        });
-        const data = await response.json();
-        if (response.ok) {
-            // تسجيل الإجراء في سجل الرقابة
-            logAuditAction('assign_rank', userId, reason, newRank);
-            closeAssignRankModal();
-            loadAllUsers();
-            showNotification(data.message, 'success');
-        } else {
-            showError(data.error);
-        }
-    } catch (error) {
-        showError('حدث خطأ في تعيين الرتبة');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// إغلاق مودال تعيين الرتبة
-function closeAssignRankModal() {
-    closeModal('assignRankModal');
-    document.getElementById('rankChangeReason').value = '';
-}
-
-// فتح مودال حظر المستخدم
-function openBanUserModal(userId, userName) {
-    document.getElementById('banTargetUser').textContent = userName;
-    document.getElementById('banTargetUser').setAttribute('data-user-id', userId);
-    openModal('banUserModal');
-}
-
-// تأكيد حظر المستخدم
-async function confirmBanUser() {
-    const userId = document.getElementById('banTargetUser').getAttribute('data-user-id');
-    const reason = document.getElementById('banReason').value.trim();
-    const duration = document.getElementById('banDuration').value;
-    if (!reason) {
-        showError('يرجى كتابة سبب الحظر');
-        return;
-    }
-    try {
-        showLoading(true);
-        const response = await fetch('/api/ban', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: JSON.stringify({
-                userId: parseInt(userId),
-                reason,
-                duration
-            })
-        });
-        const data = await response.json();
-        if (response.ok) {
-            // تسجيل الإجراء في سجل الرقابة
-            logAuditAction('ban', userId, reason, duration);
-            closeBanUserModal();
-            loadAllUsers();
-            showNotification(data.message, 'success');
-        } else {
-            showError(data.error);
-        }
-    } catch (error) {
-        showError('حدث خطأ في حظر المستخدم');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// إغلاق مودال حظر المستخدم
-function closeBanUserModal() {
-    closeModal('banUserModal');
-    document.getElementById('banReason').value = '';
-}
-
-// فتح مودال كتم المستخدم
-function openMuteUserModal() {
-    const userId = document.getElementById('actionUserAvatar').parentElement.querySelector('#actionUserName').getAttribute('data-user-id');
-    const userName = document.getElementById('actionUserName').textContent;
-    document.getElementById('muteTargetUser').textContent = userName;
-    document.getElementById('muteTargetUser').setAttribute('data-user-id', userId);
-    openModal('muteUserModal');
-}
-
-// كتم المستخدم
-async function muteUser() {
-    const userId = document.getElementById('muteTargetUser').getAttribute('data-user-id');
-    const reason = document.getElementById('muteReason').value.trim();
-    const duration = document.getElementById('muteDuration').value;
+function addComment(postId) {
+    const input = document.getElementById(`comment-input-${postId}`);
+    const targetSelect = document.getElementById(`target-user-${postId}`);
+    const content = input.value.trim();
+    const targetUserId = targetSelect.value;
     
-    if (!reason) {
-        showError('يرجى كتابة سبب الكتم');
-        return;
+    if (!content) return;
+    
+    socket.emit('addComment', {
+        postId,
+        content,
+        targetUserId: targetUserId || null
+    });
+    
+    input.value = '';
+}
+
+function handleNewComment(comment) {
+    const commentsList = document.getElementById(`comments-list-${comment.postId}`);
+    if (commentsList) {
+        const commentDiv = document.createElement('div');
+        commentDiv.className = 'comment fade-in';
+        
+        const time = new Date(comment.timestamp).toLocaleTimeString('ar-SA', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const targetText = comment.targetUserId ? ` → ${getUserName(comment.targetUserId)}` : '';
+        
+        commentDiv.innerHTML = `
+            <span class="comment-user">${comment.display_name}</span>${targetText}
+            <span class="comment-time">${time}</span>
+            <div>${comment.content}</div>
+        `;
+        
+        commentsList.appendChild(commentDiv);
+    }
+}
+
+function showCommentNotification(data) {
+    const notification = document.createElement('div');
+    notification.className = 'comment-notification';
+    notification.innerHTML = `
+        <strong>تعليق جديد من ${data.from}:</strong><br>
+        ${data.content}
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+    
+    // تشغيل صوت الإشعار
+    playNotificationSound();
+}
+
+async function loadComments(postId) {
+    try {
+        const response = await fetch(`/api/comments/${postId}`);
+        const comments = await response.json();
+        comments.forEach(comment => handleNewComment(comment));
+    } catch (error) {
+        console.error('خطأ في تحميل التعليقات:', error);
+    }
+}
+
+// وظائف المسابقات المحسنة
+function startCompetition(competition) {
+    if (competitionTimers.has(competition.id)) {
+        clearInterval(competitionTimers.get(competition.id));
     }
     
-    try {
-        showLoading(true);
-        const response = await fetch('/api/mute', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: JSON.stringify({
-                userId: parseInt(userId),
-                reason,
-                duration
-            })
-        });
-        const data = await response.json();
-        if (response.ok) {
-            // تسجيل الإجراء في سجل الرقابة
-            logAuditAction('mute', userId, reason, duration);
-            closeModal('muteUserModal');
-            showNotification(`تم كتم المستخدم بسبب: ${reason}`, 'warning');
-        } else {
-            showError(data.error);
+    const modal = createCompetitionModal(competition);
+    document.body.appendChild(modal);
+    
+    let timeLeft = competition.duration;
+    const timerElement = modal.querySelector('.competition-timer');
+    
+    const timer = setInterval(() => {
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            competitionTimers.delete(competition.id);
+            
+            // إخفاء المودال تلقائياً عند انتهاء الوقت
+            modal.remove();
+            return;
         }
-    } catch (error) {
-        showError('حدث خطأ في كتم المستخدم');
-    } finally {
-        showLoading(false);
+        
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        timeLeft--;
+    }, 1000);
+    
+    competitionTimers.set(competition.id, timer);
+}
+
+function createCompetitionModal(competition) {
+    const modal = document.createElement('div');
+    modal.className = 'modal competition-modal';
+    modal.id = `competition-${competition.id}`;
+    modal.style.display = 'block';
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close" onclick="closeCompetition(${competition.id})">&times;</span>
+            <h2>${competition.title}</h2>
+            <div class="competition-timer">00:00</div>
+            <div class="competition-controls">
+                <button class="btn" onclick="closeCompetition(${competition.id})">إغلاق</button>
+            </div>
+        </div>
+    `;
+    
+    return modal;
+}
+
+function closeCompetition(competitionId) {
+    const modal = document.getElementById(`competition-${competitionId}`);
+    if (modal) {
+        modal.remove();
+    }
+    
+    if (competitionTimers.has(competitionId)) {
+        clearInterval(competitionTimers.get(competitionId));
+        competitionTimers.delete(competitionId);
+    }
+    
+    // إيقاف المسابقة على الخادم
+    socket.emit('stopCompetition', competitionId);
+}
+
+function stopCompetition(competitionId) {
+    closeCompetition(competitionId);
+}
+
+// وظائف التسجيل الصوتي
+async function toggleVoiceRecording(isPrivate = false) {
+    if (!isRecording) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            recordedChunks = [];
+            
+            mediaRecorder.ondataavailable = function(event) {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+            
+            mediaRecorder.onstop = function() {
+                const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                sendVoiceMessage(blob, isPrivate);
+                stream.getTracks().forEach(track => track.stop());
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            
+            const button = isPrivate ? 
+                document.getElementById('privateRecordBtn') : 
+                document.getElementById('recordButton');
+            button.textContent = '⏹️';
+            button.style.background = '#dc3545';
+            
+        } catch (error) {
+            showNotification('خطأ في الوصول للميكروفون', 'error');
+        }
+    } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        
+        const button = isPrivate ? 
+            document.getElementById('privateRecordBtn') : 
+            document.getElementById('recordButton');
+        button.textContent = '🎤';
+        button.style.background = '#6c757d';
     }
 }
 
-// فتح مودال إهداء النقاط
-function openGiveCoinsModal(userId, userName) {
-    document.getElementById('coinsTargetUser').textContent = userName;
-    document.getElementById('coinsTargetUser').setAttribute('data-user-id', userId);
-    openModal('giveCoinsModal');
+function sendVoiceMessage(blob, isPrivate = false) {
+    const formData = new FormData();
+    formData.append('voice', blob, 'voice.webm');
+    
+    if (isPrivate && currentPrivateUser) {
+        formData.append('receiverId', currentPrivateUser.id);
+        socket.emit('sendPrivateVoice', formData, function(response) {
+            if (response.error) {
+                showNotification(response.error, 'error');
+            }
+        });
+    } else {
+        formData.append('roomId', currentRoom);
+        socket.emit('sendVoice', formData, function(response) {
+            if (response.error) {
+                showNotification(response.error, 'error');
+            }
+        });
+    }
 }
 
-// إهداء النقاط
-async function giveCoins() {
-    const userId = document.getElementById('coinsTargetUser').getAttribute('data-user-id');
-    const amount = document.getElementById('coinsAmount').value;
-    const reason = document.getElementById('coinsReason').value;
-    if (!amount || amount < 1 || amount > 10000) {
-        showError('يرجى إدخال عدد صحيح من النقاط (1-10000)');
+// وظائف رفع الصور
+function handleImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+        showNotification('حجم الصورة كبير جداً (الحد الأقصى 5 ميجابايت)', 'error');
         return;
     }
-    try {
-        showLoading(true);
-        const response = await fetch('/api/give-coins', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: JSON.stringify({
-                userId: parseInt(userId),
-                amount: parseInt(amount),
-                reason: reason
-            })
-        });
-        const data = await response.json();
-        if (response.ok) {
-            // تسجيل الإجراء في سجل الرقابة
-            logAuditAction('give_coins', userId, reason, amount);
-            closeGiveCoinsModal();
-            loadAllUsers();
-            showNotification(`تم إهداء ${amount} نقطة بنجاح`, 'success');
-        } else {
-            showError(data.error);
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('roomId', currentRoom);
+    
+    socket.emit('sendImage', formData, function(response) {
+        if (response.error) {
+            showNotification(response.error, 'error');
         }
-    } catch (error) {
-        showError('حدث خطأ في إهداء النقاط');
-    } finally {
-        showLoading(false);
+    });
+    
+    e.target.value = '';
+}
+
+function handlePrivateImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file || !currentPrivateUser) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+        showNotification('حجم الصورة كبير جداً (الحد الأقصى 5 ميجابايت)', 'error');
+        return;
     }
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('receiverId', currentPrivateUser.id);
+    
+    socket.emit('sendPrivateImage', formData, function(response) {
+        if (response.error) {
+            showNotification(response.error, 'error');
+        }
+    });
+    
+    e.target.value = '';
 }
 
-// إغلاق مودال إهداء النقاط
-function closeGiveCoinsModal() {
-    closeModal('giveCoinsModal');
-    document.getElementById('coinsAmount').value = '';
-    document.getElementById('coinsReason').value = '';
-}
-
-// إغلاق لوحة الإدارة
-function closeAdminModal() {
-    closeModal('adminModal');
-}
-
-// عرض تبويب الإدارة
-function showAdminTab(tabName) {
-    // إخفاء جميع التبويبات
-    document.querySelectorAll('.admin-tab').forEach(tab => {
+// وظائف الواجهة
+function showTab(tabName) {
+    // إخفاء جميع النماذج
+    document.querySelectorAll('.form').forEach(form => {
+        form.classList.remove('active');
+        form.style.display = 'none';
+    });
+    
+    // إزالة الفئة النشطة من جميع التبويبات
+    document.querySelectorAll('.tab').forEach(tab => {
         tab.classList.remove('active');
     });
-    // إزالة الفئة النشطة من جميع الأزرار
-    document.querySelectorAll('.admin-tabs .tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    // عرض التبويب المحدد
-    document.getElementById(`admin${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Tab`).classList.add('active');
-    // تفعيل الزر المحدد
+    
+    // إظهار النموذج المحدد
+    document.getElementById(tabName + 'Form').classList.add('active');
+    document.getElementById(tabName + 'Form').style.display = 'block';
+    
+    // تفعيل التبويب المحدد
     event.target.classList.add('active');
 }
 
-// فتح الملف الشخصي
+function showError(message) {
+    const errorDiv = document.getElementById('loginError');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 5000);
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        background: ${type === 'error' ? '#dc3545' : type === 'warning' ? '#ffc107' : '#007bff'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 1001;
+        animation: slideInRight 0.3s ease-out;
+        max-width: 300px;
+        word-wrap: break-word;
+    `;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+function playNotificationSound() {
+    // تشغيل صوت إشعار بسيط
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
+    audio.volume = 0.3;
+    audio.play().catch(() => {}); // تجاهل الأخطاء
+}
+
+// وظائف المودالات
+function openMenuModal() {
+    document.getElementById('menuModal').style.display = 'block';
+}
+
+function closeMenuModal() {
+    document.getElementById('menuModal').style.display = 'none';
+}
+
+function openNewsModal() {
+    document.getElementById('newsModal').style.display = 'block';
+    closeMenuModal();
+    loadNews();
+}
+
+function closeNewsModal() {
+    document.getElementById('newsModal').style.display = 'none';
+}
+
 function openProfileModal() {
-    if (!currentUser) return;
-    // ملء البيانات الحالية
-    document.getElementById('displayNameInput').value = currentUser.display_name || '';
-    document.getElementById('emailInput').value = currentUser.email || '';
-    document.getElementById('ageInput').value = currentUser.age || '';
-    document.getElementById('genderInput').value = currentUser.gender || '';
-    document.getElementById('maritalStatusInput').value = currentUser.marital_status || '';
-    document.getElementById('aboutMeInput').value = currentUser.about_me || '';
-    // عرض الصور الحالية
+    document.getElementById('profileModal').style.display = 'block';
+    loadProfileData();
+}
+
+function closeProfileModal() {
+    document.getElementById('profileModal').style.display = 'none';
+}
+
+function openPrivateChatModal(user) {
+    currentPrivateUser = user;
+    document.getElementById('privateChatUserName').textContent = user.display_name;
+    document.getElementById('privateChatModal').style.display = 'block';
+    document.getElementById('privateChatMessages').innerHTML = '';
+    loadPrivateMessages(user.id);
+}
+
+function closePrivateChatModal() {
+    document.getElementById('privateChatModal').style.display = 'none';
+    currentPrivateUser = null;
+}
+
+function openAllUsersModal() {
+    document.getElementById('allUsersModal').style.display = 'block';
+    loadAllUsers();
+}
+
+function closeAllUsersModal() {
+    document.getElementById('allUsersModal').style.display = 'none';
+}
+
+function closeAllModals() {
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.style.display = 'none';
+    });
+}
+
+// وظائف مساعدة
+function getRankText(rank) {
+    const ranks = {
+        'visitor': 'زائر',
+        'member': 'عضو',
+        'vip': 'مميز',
+        'admin': 'مدير',
+        'owner': 'مالك'
+    };
+    return ranks[rank] || 'غير محدد';
+}
+
+function getUserName(userId) {
+    // البحث عن اسم المستخدم من قائمة المستخدمين
+    const userElement = document.querySelector(`[data-user-id="${userId}"]`);
+    return userElement ? userElement.textContent : 'مستخدم غير معروف';
+}
+
+function formatTime(timestamp) {
+    return new Date(timestamp).toLocaleTimeString('ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// وظائف الثيم
+function toggleTheme() {
+    isDarkTheme = !isDarkTheme;
+    document.body.classList.toggle('dark-theme', isDarkTheme);
+    localStorage.setItem('darkTheme', isDarkTheme);
+}
+
+function loadTheme() {
+    const savedTheme = localStorage.getItem('darkTheme');
+    if (savedTheme === 'true') {
+        isDarkTheme = true;
+        document.body.classList.add('dark-theme');
+    }
+}
+
+// وظائف تحميل البيانات
+async function loadNews() {
+    try {
+        const response = await fetch('/api/news');
+        const news = await response.json();
+        const feed = document.getElementById('newsFeed');
+        feed.innerHTML = '';
+        news.reverse().forEach(addNewsPost);
+    } catch (error) {
+        console.error('خطأ في تحميل الأخبار:', error);
+    }
+}
+
+async function loadAllUsers() {
+    try {
+        const response = await fetch('/api/users');
+        const users = await response.json();
+        const container = document.getElementById('allUsersListModal');
+        
+        container.innerHTML = users.map(user => `
+            <div class="user-card" data-user-id="${user.id}">
+                <div class="user-info">
+                    <img src="${user.profile_image1 || 'data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 40 40\'><circle cx=\'20\' cy=\'20\' r=\'20\' fill=\'%23007bff\'/><text x=\'20\' y=\'25\' text-anchor=\'middle\' fill=\'white\' font-size=\'16\'>👤</text></svg>'}" alt="صورة ${user.display_name}">
+                    <div>
+                        <h4 class="rank-${user.rank}">${user.display_name}</h4>
+                        <p>${getRankText(user.rank)}</p>
+                        ${user.age ? `<p>العمر: ${user.age}</p>` : ''}
+                        ${user.gender ? `<p>الجنس: ${user.gender}</p>` : ''}
+                        ${user.about_me ? `<p>${user.about_me}</p>` : ''}
+                    </div>
+                </div>
+                <button onclick="openPrivateChatModal({id: ${user.id}, display_name: '${user.display_name}'})" class="btn">دردشة خاصة</button>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('خطأ في تحميل المستخدمين:', error);
+    }
+}
+
+async function loadPrivateMessages(userId) {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/private-messages/${userId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const messages = await response.json();
+        messages.forEach(displayPrivateMessage);
+    } catch (error) {
+        console.error('خطأ في تحميل الرسائل الخاصة:', error);
+    }
+}
+
+function loadProfileData() {
     if (currentUser.profile_image1) {
         document.getElementById('profileImg1').src = currentUser.profile_image1;
     }
     if (currentUser.profile_image2) {
         document.getElementById('profileImg2').src = currentUser.profile_image2;
     }
-    // عرض الإحصائيات
-    document.getElementById('profileCoins').textContent = currentUser.coins || 2000;
-    document.getElementById('profileRank').textContent = RANKS[currentUser.rank]?.name || 'زائر';
-    // تشغيل موسيقى البروفايل إذا كانت موجودة
-    if (currentUser.profile_music) {
-        autoPlayProfileMusic(currentUser.profile_music);
+    if (currentUser.display_name) {
+        document.getElementById('newDisplayName').value = currentUser.display_name;
     }
-    openModal('profileModal');
+    if (currentUser.age) {
+        document.getElementById('userAge').value = currentUser.age;
+    }
+    if (currentUser.gender) {
+        document.getElementById('userGender').value = currentUser.gender;
+    }
+    if (currentUser.marital_status) {
+        document.getElementById('userMaritalStatus').value = currentUser.marital_status;
+    }
+    if (currentUser.about_me) {
+        document.getElementById('userAboutMe').value = currentUser.about_me;
+    }
+    
+    document.getElementById('currentRank').innerHTML = `
+        <span class="rank-${currentUser.rank}">${getRankText(currentUser.rank)}</span>
+    `;
 }
 
-// إغلاق الملف الشخصي
-function closeProfileModal() {
-    closeModal('profileModal');
-}
-
-// عرض تبويب الملف الشخصي
-function showProfileTab(tabName) {
-    // إخفاء جميع التبويبات
-    document.querySelectorAll('.profile-tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    // إزالة الفئة النشطة من جميع الأزرار
-    document.querySelectorAll('.profile-tabs .tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    // عرض التبويب المحدد
-    document.getElementById(`profile${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Tab`).classList.add('active');
-    // تفعيل الزر المحدد
-    event.target.classList.add('active');
-}
-
-// تحديث الملف الشخصي
-async function updateProfile() {
+// وظائف نشر الأخبار
+async function postNews() {
+    const content = document.getElementById('newsContentInput').value.trim();
+    const fileInput = document.getElementById('newsFileInput');
+    const file = fileInput.files[0];
+    
+    if (!content && !file) {
+        showNotification('يجب إدخال محتوى أو رفع ملف', 'warning');
+        return;
+    }
+    
     const formData = new FormData();
-    const displayName = document.getElementById('displayNameInput').value.trim();
-    const email = document.getElementById('emailInput').value.trim();
-    const newPassword = document.getElementById('newPasswordInput').value;
-    const age = document.getElementById('ageInput').value;
-    const gender = document.getElementById('genderInput').value;
-    const maritalStatus = document.getElementById('maritalStatusInput').value;
-    const aboutMe = document.getElementById('aboutMeInput').value.trim();
-    if (displayName) formData.append('display_name', displayName);
-    if (email) formData.append('email', email);
-    if (newPassword) formData.append('password', newPassword);
-    if (age) formData.append('age', age);
-    if (gender) formData.append('gender', gender);
-    if (maritalStatus) formData.append('marital_status', maritalStatus);
-    if (aboutMe) formData.append('about_me', aboutMe);
-    // إضافة الصور إذا تم اختيارها
-    const profileFile1 = document.getElementById('profileFile1').files[0];
-    const profileFile2 = document.getElementById('profileFile2').files[0];
-    if (profileFile1) formData.append('profileImage1', profileFile1);
-    if (profileFile2) formData.append('profileImage2', profileFile2);
+    if (content) formData.append('content', content);
+    if (file) formData.append('newsFile', file);
+    
     try {
-        showLoading(true);
-        const response = await fetch('/api/user/profile', {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/news', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
             body: formData
         });
+        
         if (response.ok) {
-            const updatedUser = await response.json();
-            currentUser = { ...currentUser, ...updatedUser };
-            updateUserInterface();
-            showNotification('تم تحديث الملف الشخصي بنجاح', 'success');
+            document.getElementById('newsContentInput').value = '';
+            fileInput.value = '';
+            showNotification('تم نشر الخبر بنجاح', 'success');
         } else {
-            const data = await response.json();
-            showError(data.error || 'فشل في تحديث الملف الشخصي');
+            const error = await response.json();
+            showNotification(error.error, 'error');
         }
     } catch (error) {
-        showError('حدث خطأ في تحديث الملف الشخصي');
-    } finally {
-        showLoading(false);
+        showNotification('خطأ في نشر الخبر', 'error');
     }
 }
 
-// فتح ملف شخصي لمستخدم آخر
-function openUserProfile(userId) {
-    // هذه الوظيفة ستكون متاحة لاحقاً
-    showNotification('عرض الملف الشخصي قيد التطوير', 'info');
-}
-
-// فتح الإشعارات
-function openNotifications() {
-    openModal('notificationsModal');
-    loadNotifications();
-}
-
-// تحميل الإشعارات
-function loadNotifications() {
-    const container = document.getElementById('notificationsList');
-    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد إشعارات جديدة</p>';
-    // يمكنك تحميل الإشعارات الحقيقية من الخادم هنا
-}
-
-// إغلاق الإشعارات
-function closeNotificationsModal() {
-    closeModal('notificationsModal');
-}
-
-// تحديث عدد الإشعارات
-function updateNotificationCount() {
-    const badge = document.getElementById('notificationCount');
-    let count = parseInt(badge.textContent) || 0;
-    count++;
-    badge.textContent = count;
-    badge.style.display = count > 0 ? 'block' : 'none';
-}
-
-// فتح الإعدادات
-function openSettings() {
-    openModal('settingsModal');
-}
-
-// إغلاق الإعدادات
-function closeSettingsModal() {
-    closeModal('settingsModal');
-}
-
-// حفظ الإعدادات
-function saveSettings() {
-    const soundNotifications = document.getElementById('soundNotifications').checked;
-    const saveChatHistory = document.getElementById('saveChatHistory').checked;
-    const filterBadWords = document.getElementById('filterBadWords').checked;
-    localStorage.setItem('soundNotifications', soundNotifications);
-    localStorage.setItem('saveChatHistory', saveChatHistory);
-    localStorage.setItem('filterBadWords', filterBadWords);
-    showNotification('تم حفظ الإعدادات', 'success');
-    closeSettingsModal();
-}
-
-// الخروج من الدردشة
-function exitChat() {
-    if (confirm('هل أنت متأكد من الخروج؟')) {
-        logout();
-    }
-}
-
-// الخروج من الغرفة
-function exitRoom() {
-    currentRoom = 1;
-    document.getElementById('roomSelect').value = 1;
-    changeRoom();
-    closeSettingsModal();
-    showNotification('تم الخروج من الغرفة', 'info');
-}
-
-// فتح المساعدة
-function openHelpModal() {
-    showNotification('المساعدة قيد التطوير', 'info');
-}
-
-// عرض الرتب
-function showRanks() {
-    let ranksText = 'الرتب المتاحة:
-';
-    Object.values(RANKS).forEach(rank => {
-        ranksText += `${rank.emoji} ${rank.name} (المستوى ${rank.level}) - الصلاحيات: ${rank.permissions.join(', ') || 'لا شيء'}
-`;
-    });
-    alert(ranksText);
-}
-
-// تنظيف الغرف
-async function cleanRooms() {
-    if (!hasPermission('delete_room') && currentUser?.role !== 'owner') {
-        showError('غير مسموح - للإداريين فقط');
-        return;
-    }
-    if (confirm('هل أنت متأكد من تنظيف جميع الرسائل؟')) {
-        try {
-            const response = await fetch('/api/clean-rooms', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-                }
-            });
-            if (response.ok) {
-                document.getElementById('messagesContainer').innerHTML = '';
-                showNotification('تم تنظيف الغرفة بنجاح', 'success');
-            } else {
-                showError('فشل في تنظيف الغرفة');
-            }
-        } catch (error) {
-            showError('حدث خطأ في تنظيف الغرفة');
-        }
-    }
-}
-
-// فتح مشغل الراديو
-function openRadioPlayer() {
-    openModal('radioPlayerModal');
-}
-
-// إغلاق مشغل الراديو
-function closeRadioPlayer() {
-    closeModal('radioPlayerModal');
-}
-
-// تشغيل محطة راديو
-function playRadioStation(station) {
-    showNotification(`تم تشغيل محطة ${station}`, 'success');
-    // هنا يمكن إضافة كود تشغيل الراديو الفعلي
-}
-
-// تبديل الراديو
-function toggleRadio() {
-    const btn = document.getElementById('radioPlayBtn');
-    const icon = btn.querySelector('i');
-    if (icon.classList.contains('fa-play')) {
-        icon.classList.remove('fa-play');
-        icon.classList.add('fa-pause');
-        showNotification('تم تشغيل الراديو', 'success');
-    } else {
-        icon.classList.remove('fa-pause');
-        icon.classList.add('fa-play');
-        showNotification('تم إيقاف الراديو', 'info');
-    }
-}
-
-// رفع موسيقى مخصصة
-function uploadCustomMusic() {
-    const fileInput = document.getElementById('customMusicInput');
-    if (fileInput.files.length === 0) {
-        showError('يرجى اختيار ملفات صوتية');
-        return;
-    }
-    if (!hasPermission('upload_music')) {
-        showError('هذه الميزة متاحة للرتب العالية فقط');
-        return;
-    }
-    showNotification('تم رفع الأغاني بنجاح', 'success');
-    fileInput.value = '';
-}
-
-// تبديل مشغل الموسيقى
-function toggleMusicPlayer() {
-    const btn = document.getElementById('musicToggle');
-    const nowPlaying = document.getElementById('nowPlaying');
-    if (nowPlaying.style.display === 'none') {
-        nowPlaying.style.display = 'block';
-        nowPlaying.querySelector('.song-title').textContent = 'تشغيل الموسيقى...';
-        showNotification('تم تشغيل الموسيقى', 'success');
-    } else {
-        nowPlaying.style.display = 'none';
-        showNotification('تم إيقاف الموسيقى', 'info');
-    }
-}
-
-// البحث عن أغنية
-function searchMusic() {
-    const query = document.getElementById('musicSearchInput').value.trim();
-    if (!query) {
-        showNotification('يرجى كتابة اسم الأغنية للبحث', 'warning');
-        return;
-    }
-    const resultsContainer = document.getElementById('searchResults');
-    resultsContainer.innerHTML = '<p style="text-align: center; padding: 10px;">جارٍ البحث...</p>';
-    // محاكاة نتائج البحث
-    setTimeout(() => {
-        const mockResults = [
-            { title: 'أغنية جميلة', artist: 'فنان مشهور', cover: 'https://via.placeholder.com/50', url: '#song1' },
-            { title: 'أغنية رومانسية', artist: 'مطربة عربية', cover: 'https://via.placeholder.com/50', url: '#song2' },
-            { title: 'أغنية حماسية', artist: 'فرقة عالمية', cover: 'https://via.placeholder.com/50', url: '#song3' }
-        ];
-        resultsContainer.innerHTML = '';
-        mockResults.forEach(song => {
-            const item = document.createElement('div');
-            item.className = 'search-result-item';
-            item.innerHTML = `
-                <img src="${song.cover}" class="result-cover">
-                <div class="result-info">
-                    <div class="result-title">${escapeHtml(song.title)}</div>
-                    <div class="result-artist">${escapeHtml(song.artist)}</div>
-                </div>
-            `;
-            item.onclick = () => playSearchedSong(song.url, song.title);
-            resultsContainer.appendChild(item);
-        });
-    }, 1000);
-}
-
-// تشغيل الأغنية التي تم البحث عنها
-function playSearchedSong(songUrl, songTitle) {
-    // التحقق من الصلاحية
-    if (!hasPermission('play_music')) {
-        showNotification('هذه الميزة متاحة للرتب العالية فقط', 'error');
-        return;
-    }
-    // محاكاة التشغيل
-    const nowPlaying = document.getElementById('nowPlaying');
-    nowPlaying.style.display = 'block';
-    nowPlaying.querySelector('.song-title').textContent = `🎶 ${songTitle}`;
-    showNotification(`تم تشغيل: ${songTitle}`, 'success');
-    // تسجيل التشغيل في سجل الرقابة
-    logAuditAction('play_music', currentUser?.id, 'تشغيل أغنية من البحث', songTitle);
-}
-
-// تسجيل الخروج
+// وظائف أخرى
 function logout() {
-    localStorage.removeItem('chatToken');
+    localStorage.removeItem('token');
     currentUser = null;
     if (socket) {
         socket.disconnect();
-        socket = null;
     }
-    showLoginScreen();
-    showNotification('تم تسجيل الخروج', 'info');
+    
+    // إعادة تعيين الواجهة
+    document.getElementById('chatScreen').classList.remove('active');
+    document.getElementById('loginScreen').classList.add('active');
+    
+    // مسح البيانات
+    document.getElementById('messagesContainer').innerHTML = '';
+    document.getElementById('usersList').innerHTML = '';
+    document.getElementById('roomsList').innerHTML = '';
+    
+    closeAllModals();
 }
 
-// إعادة تحميل الصفحة
-function reloadPage() {
-    location.reload();
+function displayRooms(rooms) {
+    const container = document.getElementById('roomsList');
+    container.innerHTML = rooms.map(room => `
+        <div class="room-item ${room.id === currentRoom ? 'active' : ''}" onclick="joinRoom(${room.id})">
+            <strong>${room.name}</strong>
+            ${room.description ? `<p>${room.description}</p>` : ''}
+        </div>
+    `).join('');
 }
 
-// تحديث نقاط المستخدم
-function updateUserCoins(amount) {
-    if (currentUser) {
-        currentUser.coins = (currentUser.coins || 2000) + amount;
-        document.getElementById('profileCoins').textContent = currentUser.coins;
-    }
-}
-
-// فتح منتقي الرموز التعبيرية
-function openEmojiPicker() {
-    const emojis = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😢', '😡', '👍', '👎', '❤️', '🔥', '💯', '🎉', '🦂'];
-    const input = document.getElementById('messageInput');
-    let emojiHtml = '<div style="background: white; border: 1px solid #ccc; border-radius: 8px; padding: 10px; position: absolute; z-index: 1000; display: flex; flex-wrap: wrap; gap: 5px; max-width: 200px;">';
-    emojis.forEach(emoji => {
-        emojiHtml += `<span style="cursor: pointer; padding: 5px; border-radius: 4px; hover: background: #f0f0f0;" onclick="addEmoji('${emoji}')">${emoji}</span>`;
+function joinRoom(roomId) {
+    if (roomId === currentRoom) return;
+    
+    currentRoom = roomId;
+    socket.emit('join', {
+        roomId: currentRoom,
+        userId: currentUser.id,
+        display_name: currentUser.display_name,
+        rank: currentUser.rank
     });
-    emojiHtml += '</div>';
-    // إضافة منتقي الرموز بجانب حقل الإدخال
-    const picker = document.createElement('div');
-    picker.innerHTML = emojiHtml;
-    picker.style.position = 'relative';
-    input.parentNode.appendChild(picker);
-    // إزالة المنتقي بعد 5 ثوان
-    setTimeout(() => {
-        picker.remove();
-    }, 5000);
+    
+    // تحديث واجهة الغرف
+    document.querySelectorAll('.room-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // مسح الرسائل وتحميل رسائل الغرفة الجديدة
+    document.getElementById('messagesContainer').innerHTML = '';
+    loadRoomMessages(roomId);
+    
+    // تحديث اسم الغرفة
+    const roomName = event.target.querySelector('strong').textContent;
+    document.getElementById('currentRoomName').textContent = roomName;
 }
 
-// إضافة رمز تعبيري
-function addEmoji(emoji) {
-    const input = document.getElementById('messageInput');
-    input.value += emoji;
-    input.focus();
-    // إزالة منتقي الرموز
-    const picker = input.parentNode.querySelector('div');
-    if (picker) picker.remove();
+async function loadRoomMessages(roomId) {
+    try {
+        const response = await fetch(`/api/messages/${roomId}`);
+        const messages = await response.json();
+        messages.forEach(displayMessage);
+    } catch (error) {
+        console.error('خطأ في تحميل رسائل الغرفة:', error);
+    }
 }
 
-// فتح منتقي الصور المتحركة
-function openGifPicker() {
-    showNotification('منتقي الصور المتحركة قيد التطوير', 'info');
+function updateUsersList(users) {
+    const container = document.getElementById('usersList');
+    container.innerHTML = users.map(user => `
+        <li class="rank-${user.rank}" onclick="openPrivateChatModal({id: ${user.id}, display_name: '${user.display_name}'})" data-user-id="${user.id}">
+            ${user.display_name} (${getRankText(user.rank)})
+        </li>
+    `).join('');
 }
 
-// اقتباس رسالة
-function quoteMessage(messageId, author, content) {
-    quotedMessage = { id: messageId, author, content };
-    const quotedDiv = document.getElementById('quotedMessage');
-    quotedDiv.style.display = 'flex';
-    quotedDiv.querySelector('.quoted-author').textContent = author;
-    quotedDiv.querySelector('.quoted-text').textContent = content.substring(0, 50) + (content.length > 50 ? '...' : '');
-    document.getElementById('messageInput').focus();
+function handleUserUpdate(user) {
+    if (user.id === currentUser.id) {
+        currentUser = { ...currentUser, ...user };
+        updateUserInterface();
+    }
+    
+    // تحديث قائمة المستخدمين
+    const userElement = document.querySelector(`[data-user-id="${user.id}"]`);
+    if (userElement) {
+        userElement.textContent = `${user.display_name} (${getRankText(user.rank)})`;
+        userElement.className = `rank-${user.rank}`;
+    }
 }
 
-// إلغاء الاقتباس
-function cancelQuote() {
-    quotedMessage = null;
-    document.getElementById('quotedMessage').style.display = 'none';
+function addRoomToList(room) {
+    const container = document.getElementById('roomsList');
+    const roomDiv = document.createElement('div');
+    roomDiv.className = 'room-item';
+    roomDiv.onclick = () => joinRoom(room.id);
+    roomDiv.innerHTML = `
+        <strong>${room.name}</strong>
+        ${room.description ? `<p>${room.description}</p>` : ''}
+    `;
+    container.appendChild(roomDiv);
 }
 
-// فتح صورة في مودال
+function removeRoomFromList(roomId) {
+    const roomElements = document.querySelectorAll('.room-item');
+    roomElements.forEach(element => {
+        if (element.onclick.toString().includes(roomId)) {
+            element.remove();
+        }
+    });
+}
+
+// وظائف إضافية للواجهة
 function openImageModal(imageUrl) {
     const modal = document.createElement('div');
-    modal.className = 'modal show';
+    modal.className = 'modal';
+    modal.style.display = 'block';
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 90vw; max-height: 90vh; padding: 0; background: transparent; border: none; box-shadow: none;">
-            <img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 12px;" onclick="this.parentElement.parentElement.remove()">
+        <div class="modal-content" style="max-width: 90%; text-align: center;">
+            <span class="close" onclick="this.parentElement.parentElement.remove()">&times;</span>
+            <img src="${imageUrl}" style="max-width: 100%; max-height: 80vh; border-radius: 8px;">
         </div>
     `;
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            modal.remove();
-        }
-    };
     document.body.appendChild(modal);
 }
 
-// مسح الدردشة
-async function clearChat() {
-    if (!hasPermission('delete_message') && currentUser?.role !== 'owner') {
-        showError('غير مسموح - للإداريين فقط');
-        return;
-    }
-    if (confirm('هل أنت متأكد من مسح جميع الرسائل في هذه الغرفة؟')) {
-        try {
-            const response = await fetch(`/api/rooms/${currentRoom}/clear`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-                }
-            });
-            if (response.ok) {
-                document.getElementById('messagesContainer').innerHTML = '';
-                showNotification('تم مسح الدردشة بنجاح', 'success');
-            } else {
-                showError('فشل في مسح الدردشة');
-            }
-        } catch (error) {
-            showError('حدث خطأ في مسح الدردشة');
-        }
-    }
-}
-
-// إظهار تبويبات تسجيل الدخول
-function showLoginTab(tabName) {
-    // إخفاء جميع النماذج
-    document.querySelectorAll('.auth-form').forEach(form => {
-        form.classList.remove('active');
-    });
-    // إزالة الفئة النشطة من جميع الأزرار
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    // عرض النموذج المحدد
-    document.getElementById(`${tabName}Form`).classList.add('active');
-    // تفعيل الزر المحدد
-    event.target.classList.add('active');
-}
-
-// التمرير لأسفل
-function scrollToBottom() {
-    const container = document.getElementById('messagesContainer');
-    container.scrollTop = container.scrollHeight;
-}
-
-// إظهار رسالة خطأ
-function showError(message) {
-    const errorDiv = document.getElementById('loginError');
-    if (errorDiv) {
-        errorDiv.textContent = message;
-        errorDiv.classList.add('show');
-        setTimeout(() => {
-            errorDiv.classList.remove('show');
-        }, 5000);
-    } else {
-        showNotification(message, 'error');
-    }
-}
-
-// إظهار حالة التحميل
-function showLoading(show) {
-    const spinner = document.getElementById('loadingSpinner');
-    if (spinner) {
-        spinner.style.display = show ? 'flex' : 'none';
-    }
-}
-
-// إظهار إشعار
-function showNotification(message, type = 'info') {
-    const container = document.getElementById('toastContainer');
-    if (!container) return;
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
-    // إزالة الإشعار بعد 5 ثوان
-    setTimeout(() => {
-        toast.remove();
-    }, 5000);
-}
-
-// إشعار رسالة خاصة
-function showPrivateMessageNotification(message) {
-    const notification = new Notification('رسالة خاصة جديدة', {
-        body: `${message.display_name}: ${message.message.substring(0, 50)}...`,
-        icon: 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
-    });
-    notification.onclick = function() {
-        window.focus();
-        startPrivateChat(message.user_id, message.display_name);
-        this.close();
-    };
-}
-
-// فتح مودال
-function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.add('show');
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-// إغلاق مودال
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('show');
-        document.body.style.overflow = 'auto';
-    }
-}
-
-// إغلاق جميع المودالات
-function closeAllModals() {
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.classList.remove('show');
-    });
-    document.body.style.overflow = 'auto';
-}
-
-// إغلاق إجراءات المستخدم
-function closeUserActionsModal() {
-    closeModal('userActionsModal');
-    selectedUserId = null;
-}
-
-// تهيئة الأصوات
-function initializeAudio() {
-    // تحميل الأصوات المحفوظة
-    const soundEnabled = localStorage.getItem('soundNotifications');
-    if (soundEnabled !== null) {
-        document.getElementById('soundNotifications').checked = soundEnabled === 'true';
-    }
-    
-    // طلب إذن الإشعارات
-    if (Notification.permission !== "granted") {
-        Notification.requestPermission();
-    }
-}
-
-// تشغيل صوت الإشعار
-function playNotificationSound() {
-    const soundEnabled = document.getElementById('soundNotifications')?.checked;
-    if (soundEnabled !== false) {
-        const audio = document.getElementById('notificationSound');
-        if (audio) {
-            audio.play().catch(() => {
-                // تجاهل الأخطاء إذا لم يتمكن من تشغيل الصوت
-            });
-        }
-    }
-}
-
-// تنظيف HTML
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// معالج الأخطاء العامة
-window.addEventListener('error', function(e) {
-    console.error('خطأ في التطبيق:', e.error);
-    showNotification('حدث خطأ غير متوقع', 'error');
-});
-
-// معالج الأخطاء غير المعالجة
-window.addEventListener('unhandledrejection', function(e) {
-    console.error('خطأ غير معالج:', e.reason);
-    showNotification('حدث خطأ في الشبكة', 'error');
-});
-
-// ==================== الميزات الجديدة ====================
-// متغيرات الإشعارات والميزات الجديدة
-let onlineUsersList = [];
-let allUsersList = [];
-let notificationsList = [];
-let privateChatMinimized = false;
-let currentPrivateChatUser = null;
-// متغيرات للميزات الجديدة
-var currentMusicPlayer = null;
-var isContestActive = false;
-var contestTimer = null;
-
-// وظائف إرسال الصور
-function openImagePicker() {
-    const imageInput = document.createElement('input');
-    imageInput.type = 'file';
-    imageInput.accept = 'image/*';
-    imageInput.multiple = true;
-    imageInput.onchange = function(event) {
-        const files = event.target.files;
-        if (files.length > 0) {
-            for (let i = 0; i < files.length; i++) {
-                uploadImage(files[i]);
-            }
-        }
-    };
-    imageInput.click();
-}
-
-function uploadImage(file) {
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
-        alert('حجم الصورة كبير جداً! الحد الأقصى 10 ميجابايت');
-        return;
-    }
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('roomId', currentRoom);
-    // عرض مؤشر التحميل
-    showUploadProgress('جاري رفع الصورة...');
-    fetch('/upload-image', {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + localStorage.getItem('chatToken')
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        hideUploadProgress();
-        if (data.success) {
-            // إرسال رسالة مع رابط الصورة
-            socket.emit('sendMessage', {
-                message: '',
-                imageUrl: data.imageUrl,
-                roomId: currentRoom,
-                type: 'image'
-            });
-        } else {
-            alert('فشل في رفع الصورة: ' + data.message);
-        }
-    })
-    .catch(error => {
-        hideUploadProgress();
-        console.error('خطأ في رفع الصورة:', error);
-        alert('حدث خطأ أثناء رفع الصورة');
-    });
-}
-
-function openPrivateImagePicker(receiverId) {
-    const imageInput = document.createElement('input');
-    imageInput.type = 'file';
-    imageInput.accept = 'image/*';
-    imageInput.onchange = function(event) {
-        const file = event.target.files[0];
-        if (file) {
-            uploadPrivateImage(file, receiverId);
-        }
-    };
-    imageInput.click();
-}
-
-function uploadPrivateImage(file, receiverId) {
-    if (file.size > 10 * 1024 * 1024) { 
-        alert('حجم الصورة كبير جداً! الحد الأقصى 10 ميجابايت');
-        return;
-    }
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('receiverId', receiverId);
-    showUploadProgress('جاري رفع الصورة الخاصة...');
-    fetch('/upload-private-image', {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + localStorage.getItem('chatToken')
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        hideUploadProgress();
-        if (data.success) {
-            socket.emit('sendPrivateMessage', {
-                message: '',
-                imageUrl: data.imageUrl,
-                receiverId: receiverId,
-                type: 'image'
-            });
-        } else {
-            alert('فشل في رفع الصورة: ' + data.message);
-        }
-    })
-    .catch(error => {
-        hideUploadProgress();
-        console.error('خطأ في رفع الصورة الخاصة:', error);
-        alert('حدث خطأ أثناء رفع الصورة');
-    });
-}
-
-function showUploadProgress(message) {
-    const progressDiv = document.createElement('div');
-    progressDiv.id = 'uploadProgress';
-    progressDiv.className = 'upload-progress';
-    progressDiv.innerHTML = `
-        <div class="upload-progress-content">
-            <div class="upload-spinner"></div>
-            <span>${message}</span>
-        </div>
+function openEmojiPicker() {
+    const emojis = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😢', '😡', '👍', '👎', '❤️', '💔', '🔥', '⭐', '🎉', '💯'];
+    const picker = document.createElement('div');
+    picker.className = 'emoji-picker';
+    picker.style.cssText = `
+        position: fixed;
+        bottom: 100px;
+        right: 20px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 5px;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     `;
-    document.body.appendChild(progressDiv);
-}
-
-function hideUploadProgress() {
-    const progressDiv = document.getElementById('uploadProgress');
-    if (progressDiv) {
-        progressDiv.remove();
-    }
-}
-
-// وظائف معاينة فيديو يوتيوب
-function detectAndProcessYouTubeLinks(message) {
-    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/g;
-    const matches = message.match(youtubeRegex);
-    if (matches) {
-        matches.forEach(match => {
-            const videoId = extractYouTubeVideoId(match);
-            if (videoId) {
-                message = message.replace(match, createYouTubeEmbed(videoId));
+    
+    emojis.forEach(emoji => {
+        const button = document.createElement('button');
+        button.textContent = emoji;
+        button.style.cssText = 'border: none; background: none; font-size: 20px; cursor: pointer; padding: 5px;';
+        button.onclick = () => {
+            const input = document.getElementById('messageInput');
+            input.value += emoji;
+            picker.remove();
+        };
+        picker.appendChild(button);
+    });
+    
+    document.body.appendChild(picker);
+    
+    // إزالة المنتقي عند النقر خارجه
+    setTimeout(() => {
+        document.addEventListener('click', function removePicker(e) {
+            if (!picker.contains(e.target)) {
+                picker.remove();
+                document.removeEventListener('click', removePicker);
             }
         });
-    }
-    return message;
+    }, 100);
 }
 
-function extractYouTubeVideoId(url) {
-    const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-    const match = url.match(regex);
-    return match ? match[1] : null;
-}
-
-function createYouTubeEmbed(videoId) {
-    return `
-        <div class="youtube-embed">
-            <iframe 
-                width="300" 
-                height="200" 
-                src="https://www.youtube.com/embed/${videoId}" 
-                frameborder="0" 
-                allowfullscreen>
-            </iframe>
-            <div class="youtube-info">
-                <span>🎥 فيديو يوتيوب</span>
-            </div>
-        </div>
-    `;
-}
-
-// وظائف حذف الرسائل
-function deleteMessage(messageId, messageElement) {
-    if (confirm('هل أنت متأكد من حذف هذه الرسالة؟')) {
-        fetch('/api/delete-message', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: JSON.stringify({ messageId: messageId })
+// تهيئة التطبيق عند تحميل الصفحة
+window.addEventListener('load', function() {
+    // فحص إذا كان المستخدم مسجل دخول مسبقاً
+    const token = localStorage.getItem('token');
+    if (token) {
+        // محاولة استرداد بيانات المستخدم
+        fetch('/api/user/profile', {
+            headers: { 'Authorization': `Bearer ${token}` }
         })
         .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                messageElement.innerHTML = '<em>تم حذف هذه الرسالة</em>';
-                messageElement.classList.add('deleted-message');
-                // تسجيل الإجراء في سجل الرقابة
-                logAuditAction('delete_message', currentUser?.id, 'حذف رسالة', messageId);
-            } else {
-                alert('فشل في حذف الرسالة: ' + data.message);
+        .then(user => {
+            if (user && !user.error) {
+                currentUser = user;
+                initializeChat();
             }
         })
-        .catch(error => {
-            console.error('خطأ في حذف الرسالة:', error);
+        .catch(() => {
+            // في حالة فشل استرداد البيانات، إزالة التوكن
+            localStorage.removeItem('token');
         });
     }
+});
+
+// وظائف إضافية مطلوبة
+function openHome() {
+    closeMenuModal();
+    // العودة للشات الرئيسي
 }
 
-// وظائف الطرد والكتم
-function kickUser(userId, userName) {
-    if (!hasPermission('ban_user')) {
-        showError('غير مسموح لك بتنفيذ هذا الإجراء');
-        return;
-    }
-    if (confirm(`هل تريد طرد ${userName} من الغرفة؟`)) {
-        socket.emit('kickUser', {
-            userId: userId,
-            roomId: currentRoom
-        });
-        // تسجيل الإجراء في سجل الرقابة
-        logAuditAction('kick', userId, 'طرد من الغرفة', currentRoom);
-    }
+function openAwards() {
+    closeMenuModal();
+    showNotification('قريباً: نظام الجوائز', 'info');
 }
 
-function muteUser(userId, userName) {
-    if (!hasPermission('mute_user')) {
-        showError('غير مسموح لك بتنفيذ هذا الإجراء');
-        return;
-    }
-    const duration = prompt(`كم دقيقة تريد كتم ${userName}؟ (اترك فارغاً للكتم الدائم)`, '10');
-    if (duration !== null) {
-        const muteMinutes = duration === '' ? null : parseInt(duration);
-        socket.emit('muteUser', {
-            userId: userId,
-            roomId: currentRoom,
-            duration: muteMinutes
-        });
-        // تسجيل الإجراء في سجل الرقابة
-        logAuditAction('mute', userId, 'كتم في الغرفة', `${duration} دقائق`);
-    }
+function openRanking() {
+    closeMenuModal();
+    showNotification('قريباً: نظام الترتيب', 'info');
 }
 
-function unmuteUser(userId, userName) {
-    if (!hasPermission('mute_user')) {
-        showError('غير مسموح لك بتنفيذ هذا الإجراء');
-        return;
-    }
-    if (confirm(`هل تريد إلغاء كتم ${userName}؟`)) {
-        socket.emit('unmuteUser', {
-            userId: userId,
-            roomId: currentRoom
-        });
-        // تسجيل الإجراء في سجل الرقابة
-        logAuditAction('unmute', userId, 'إلغاء كتم', currentRoom);
-    }
+function openFriends() {
+    closeMenuModal();
+    showNotification('قريباً: نظام الأصدقاء', 'info');
 }
 
-// وظائف إنشاء الغرف
-function openCreateRoomModal() {
-    if (!hasPermission('create_room') && currentUser?.role !== 'owner') {
-        showError('غير مسموح - للإداريين فقط');
-        return;
-    }
-    const modal = document.createElement('div');
-    modal.className = 'modal active';
-    modal.id = 'createRoomModal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <span class="close" onclick="closeCreateRoomModal()">&times;</span>
-            <h2>🏠 إنشاء غرفة جديدة</h2>
-            <div class="room-form">
-                <div class="form-group">
-                    <label>اسم الغرفة:</label>
-                    <input type="text" id="roomName" placeholder="ادخل اسم الغرفة" required>
-                </div>
-                <div class="form-group">
-                    <label>وصف الغرفة:</label>
-                    <textarea id="roomDescription" placeholder="ادخل وصف للغرفة"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>نوع الغرفة:</label>
-                    <select id="roomType">
-                        <option value="public">عامة</option>
-                        <option value="private">خاصة</option>
-                        <option value="quiz">مسابقة</option>
-                        <option value="music">موسيقى</option>
-                        <option value="game">ألعاب</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>الحد الأقصى للمستخدمين:</label>
-                    <input type="number" id="maxUsers" value="50" min="2" max="200">
-                </div>
-                <div class="form-group">
-                    <label>صلاحيات الدخول:</label>
-                    <select id="roomAccessRank">
-                        <option value="visitor">الجميع</option>
-                        <option value="bronze">برونزي فما فوق</option>
-                        <option value="silver">فضي فما فوق</option>
-                        <option value="gold">ذهبي فما فوق</option>
-                        <option value="diamond">الماس فما فوق</option>
-                        <option value="moderator">المشرفون فما فوق</option>
-                    </select>
-                </div>
-                <div class="room-actions">
-                    <button onclick="createRoom()" class="btn save-btn">إنشاء الغرفة</button>
-                    <button onclick="closeCreateRoomModal()" class="btn cancel-btn">إلغاء</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
+function openMessages() {
+    closeMenuModal();
+    openAllUsersModal();
 }
 
-function closeCreateRoomModal() {
-    const modal = document.getElementById('createRoomModal');
-    if (modal) {
-        modal.remove();
-    }
+function openSettings() {
+    closeMenuModal();
+    openProfileModal();
 }
 
-function createRoom() {
-    const roomName = document.getElementById('roomName').value.trim();
-    const roomDescription = document.getElementById('roomDescription').value.trim();
-    const roomType = document.getElementById('roomType').value;
-    const maxUsers = parseInt(document.getElementById('maxUsers').value);
-    const accessRank = document.getElementById('roomAccessRank').value;
-    
-    if (!roomName) {
-        alert('يرجى إدخال اسم الغرفة');
-        return;
-    }
-    
-    socket.emit('createRoom', {
-        name: roomName,
-        description: roomDescription,
-        type: roomType,
-        maxUsers: maxUsers,
-        accessRank: accessRank
-    });
-    
-    // تسجيل الإجراء في سجل الرقابة
-    logAuditAction('create_room', currentUser?.id, 'إنشاء غرفة جديدة', roomName);
-    
-    closeCreateRoomModal();
+function openSoundSettings() {
+    showNotification('قريباً: إعدادات الأصوات', 'info');
 }
 
-// ==================== وظائف الإشعارات ====================
-// فتح مودال إرسال إشعار
-function openSendNotificationModal() {
-    if (!hasPermission('send_global_notification') && currentUser?.role !== 'owner') {
-        showNotification('غير مسموح - للإداريين فقط', 'error');
-        return;
-    }
-    openModal('sendNotificationModal');
-    loadUsersForNotification();
-    closeMainMenu();
+function openAdminPanel() {
+    showNotification('قريباً: لوحة الإدارة المتقدمة', 'info');
 }
 
-// إغلاق مودال إرسال إشعار
-function closeSendNotificationModal() {
-    closeModal('sendNotificationModal');
-    document.getElementById('notificationMessage').value = '';
-    document.getElementById('notificationRecipient').value = '';
+function toggleChatMode() {
+    isPrivateMode = !isPrivateMode;
+    showNotification(isPrivateMode ? 'تم التبديل للوضع الخاص' : 'تم التبديل للوضع العام', 'info');
 }
 
-// تحميل المستخدمين لقائمة الإشعارات
-async function loadUsersForNotification() {
-    try {
-        const response = await fetch('/api/all-users-list', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            }
-        });
-        if (response.ok) {
-            const users = await response.json();
-            const select = document.getElementById('notificationRecipient');
-            select.innerHTML = '<option value="">اختر مستخدم...</option>';
-            users.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user.id;
-                option.textContent = `${user.display_name} (${RANKS[user.rank]?.name || 'زائر'})`;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل المستخدمين:', error);
-    }
+function openNotifications() {
+    showNotification('لا توجد إشعارات جديدة', 'info');
 }
 
-// إرسال إشعار للمستخدم
-async function sendNotificationToUser() {
-    const recipientId = document.getElementById('notificationRecipient').value;
-    const message = document.getElementById('notificationMessage').value.trim();
-    const type = document.getElementById('notificationType').value;
-    if (!recipientId) {
-        showNotification('يرجى اختيار مستخدم', 'warning');
-        return;
-    }
-    if (!message) {
-        showNotification('يرجى كتابة رسالة الإشعار', 'warning');
-        return;
-    }
-    try {
-        showLoading(true);
-        const response = await fetch('/api/send-notification', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: JSON.stringify({
-                recipientId: parseInt(recipientId),
-                message,
-                type
-            })
-        });
-        const data = await response.json();
-        if (response.ok) {
-            // تسجيل الإجراء في سجل الرقابة
-            logAuditAction('send_notification', currentUser?.id, 'إرسال إشعار', `إلى ${recipientId}: ${message}`);
-            showNotification('تم إرسال الإشعار بنجاح', 'success');
-            closeSendNotificationModal();
-        } else {
-            showNotification(data.error || 'فشل في إرسال الإشعار', 'error');
-        }
-    } catch (error) {
-        showNotification('حدث خطأ في إرسال الإشعار', 'error');
-    } finally {
-        showLoading(false);
-    }
+function showStats() {
+    showNotification('قريباً: الإحصائيات التفصيلية', 'info');
 }
 
-// ==================== قائمة المتصلين حالياً ====================
-// فتح مودال المتصلين حالياً
-function openOnlineUsersModal() {
-    openModal('onlineUsersModal');
-    displayOnlineUsers();
-    closeMainMenu();
+function scrollToTopPrivateChat() {
+    document.getElementById('privateChatMessages').scrollTop = 0;
 }
 
-// إغلاق مودال المتصلين حالياً
-function closeOnlineUsersModal() {
-    closeModal('onlineUsersModal');
+function toggleMaximizePrivateChat() {
+    const modal = document.getElementById('privateChatModal');
+    modal.classList.toggle('maximized');
 }
 
-// عرض المتصلين حالياً
-function displayOnlineUsers() {
-    const container = document.getElementById('onlineUsersList');
-    if (onlineUsersList.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">لا يوجد مستخدمين متصلين حالياً</p>';
-        return;
-    }
-    container.innerHTML = '';
-    onlineUsersList.forEach(user => {
-        if (user.userId === currentUser?.id) return; // لا نعرض المستخدم الحالي
-        const userDiv = document.createElement('div');
-        userDiv.className = 'online-user-item';
-        const rank = RANKS[user.rank] || RANKS.visitor;
-        userDiv.innerHTML = `
-            <div class="online-user-info">
-                <div class="online-status-indicator"></div>
-                <div class="user-details">
-                    <span class="user-name">${escapeHtml(user.displayName)}</span>
-                    <span class="user-rank">${rank.emoji} ${rank.name}</span>
-                </div>
-            </div>
-            <div class="online-user-actions">
-                <button onclick="startPrivateChat(${user.userId}, '${escapeHtml(user.displayName)}')" class="btn btn-sm btn-primary" title="دردشة خاصة">
-                    <i class="fas fa-comment"></i>
-                </button>
-                ${hasPermission('send_global_notification') ? `
-                    <button onclick="openNotificationModalForUser(${user.userId}, '${escapeHtml(user.displayName)}')" class="btn btn-sm btn-info" title="إرسال إشعار">
-                        <i class="fas fa-bell"></i>
-                    </button>
-                ` : ''}
-            </div>
-        `;
-        container.appendChild(userDiv);
-    });
-}
-
-// بدء دردشة خاصة
-function startPrivateChat(userId, userName) {
-    currentPrivateChatUser = { id: userId, name: userName };
-    openPrivateChatBox();
-    closeOnlineUsersModal();
-    // تحديث قائمة المستخدمين في صندوق الدردشة الخاصة
-    const select = document.getElementById('privateChatUserSelect');
-    select.value = userId;
-    // تحديث عنوان صندوق الدردشة
-    const titleSpan = document.querySelector('.chat-box-title span');
-    titleSpan.textContent = `دردشة خاصة مع ${userName}`;
-    // تحميل الرسائل الخاصة
-    loadPrivateMessages(userId);
-}
-
-// ==================== صندوق الدردشة الخاصة ====================
-// فتح صندوق الدردشة الخاصة
-function openPrivateChatBox() {
-    const chatBox = document.getElementById('privateChatBox');
-    chatBox.style.display = 'block';
-    privateChatMinimized = false;
-    // تحميل المستخدمين في القائمة
-    loadUsersForPrivateChat();
-    closeMainMenu();
-}
-
-// إغلاق صندوق الدردشة الخاصة
-function closePrivateChatBox() {
-    const chatBox = document.getElementById('privateChatBox');
-    chatBox.style.display = 'none';
-    currentPrivateChatUser = null;
-}
-
-// تصغير صندوق الدردشة الخاصة
-function minimizePrivateChatBox() {
-    const chatBox = document.getElementById('privateChatBox');
-    const body = chatBox.querySelector('.chat-box-body');
-    if (privateChatMinimized) {
-        body.style.display = 'block';
-        privateChatMinimized = false;
-    } else {
-        body.style.display = 'none';
-        privateChatMinimized = true;
-    }
-}
-
-// تحميل المستخدمين للدردشة الخاصة
-async function loadUsersForPrivateChat() {
-    try {
-        const response = await fetch('/api/all-users-list', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            }
-        });
-        if (response.ok) {
-            const users = await response.json();
-            const select = document.getElementById('privateChatUserSelect');
-            select.innerHTML = '<option value="">اختر مستخدم...</option>';
-            users.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user.id;
-                option.textContent = `${user.display_name} ${user.is_online ? '🟢' : '🔴'}`;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل المستخدمين:', error);
-    }
-}
-
-// إرسال رسالة خاصة
-function sendPrivateChatMessage() {
-    const input = document.getElementById('privateChatInput');
-    const userSelect = document.getElementById('privateChatUserSelect');
-    const message = input.value.trim();
-    const receiverId = userSelect.value;
-    if (!message) {
-        showNotification('يرجى كتابة رسالة', 'warning');
-        return;
-    }
-    if (!receiverId) {
-        showNotification('يرجى اختيار مستخدم', 'warning');
-        return;
-    }
-    if (socket) {
-        socket.emit('sendPrivateMessage', {
-            message: message,
-            receiverId: parseInt(receiverId)
-        });
-        input.value = '';
-    }
-}
-
-// عرض رسالة خاصة في صندوق الدردشة
-function displayPrivateMessage(message) {
-    const container = document.getElementById('privateChatMessages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `private-message ${message.user_id === currentUser?.id ? 'own' : ''}`;
-    const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    messageDiv.innerHTML = `
-        <div class="private-message-content">
-            <div class="private-message-header">
-                <span class="private-message-author">${escapeHtml(message.display_name)}</span>
-                <span class="private-message-time">${time}</span>
-            </div>
-            <div class="private-message-text">${escapeHtml(message.message)}</div>
-        </div>
-    `;
-    container.appendChild(messageDiv);
-    container.scrollTop = container.scrollHeight;
-}
-
-// تحميل الرسائل الخاصة
-async function loadPrivateMessages(userId) {
-    try {
-        const response = await fetch(`/api/private-messages/${userId}`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            }
-        });
-        if (response.ok) {
-            const messages = await response.json();
-            const container = document.getElementById('privateChatMessages');
-            container.innerHTML = '';
-            if (messages.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">لا توجد رسائل بعد، ابدأ المحادثة!</p>';
-            } else {
-                messages.forEach(message => {
-                    displayPrivateMessage(message);
-                });
-            }
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل الرسائل الخاصة:', error);
-    }
-}
-
-// تشغيل الأغنية تلقائياً في البروفايل
-function autoPlayProfileMusic(musicUrl) {
-    if (musicUrl) {
-        const audio = new Audio(musicUrl);
-        audio.volume = 0.3;
-        audio.loop = false;
-        // محاولة تشغيل الأغنية
-        audio.play().catch(error => {
-            console.log('لا يمكن تشغيل الأغنية تلقائياً:', error);
-            // إضافة زر تشغيل إذا فشل التشغيل التلقائي
-            addManualPlayButton(audio);
-        });
-        return audio;
-    }
-}
-
-function addManualPlayButton(audio) {
-    const playButton = document.createElement('button');
-    playButton.innerHTML = '🎵 تشغيل الأغنية';
-    playButton.className = 'play-music-btn';
-    playButton.onclick = () => {
-        audio.play();
-        playButton.style.display = 'none';
-    };
-    const profileModal = document.querySelector('.modal.active .modal-content');
-    if (profileModal) {
-        profileModal.appendChild(playButton);
-    }
-}
-
-// بلاغ عن رسالة
-function reportMessage(messageId) {
-    const reason = prompt('يرجى كتابة سبب البلاغ:');
-    if (reason) {
-        // إرسال البلاغ للإدارة
-        socket.emit('reportMessage', {
-            messageId: messageId,
-            reporterId: currentUser?.id,
-            reason: reason
-        });
-        showNotification('تم إرسال البلاغ للإدارة', 'success');
-        // تسجيل الإجراء في سجل الرقابة
-        logAuditAction('report_message', currentUser?.id, reason, messageId);
-    }
-}
-
-// إشعار حول رسالة
-function notifyAboutMessage(messageId, author) {
-    const message = prompt('اكتب رسالة الإشعار:');
-    if (message) {
-        socket.emit('notifyAboutMessage', {
-            messageId: messageId,
-            senderId: currentUser?.id,
-            message: message,
-            author: author
-        });
-        showNotification('تم إرسال الإشعار', 'success');
-    }
-}
-
-// فتح مودال إرسال إشعار لمستخدم محدد من قائمة المتصلين
-function openNotificationModalForUser(userId, userName) {
-    if (!hasPermission('send_global_notification')) {
-        showError('غير مسموح لك بتنفيذ هذا الإجراء');
-        return;
-    }
-    document.getElementById('notificationRecipient').value = userId;
-    openSendNotificationModal();
-}
-
-// تسجيل الإجراء في سجل الرقابة
-function logAuditAction(action, targetUserId, reason, details = null) {
-    const auditLog = {
-        timestamp: new Date().toISOString(),
-        adminId: currentUser?.id,
-        adminName: currentUser?.display_name,
-        action: action,
-        targetUserId: targetUserId,
-        reason: reason,
-        details: details
-    };
-
-    // إضافة إلى قائمة سجل الرقابة في الذاكرة
-    let auditLogs = JSON.parse(localStorage.getItem('auditLogs') || '[]');
-    auditLogs.push(auditLog);
-    localStorage.setItem('auditLogs', JSON.stringify(auditLogs));
-
-    // تحديث واجهة سجل الرقابة إذا كانت مفتوحة
-    updateAuditLogDisplay();
-}
-
-// تحديث عرض سجل الرقابة
-function updateAuditLogDisplay() {
-    const auditLogList = document.getElementById('auditLogList');
-    if (!auditLogList) return;
-
-    const logs = JSON.parse(localStorage.getItem('auditLogs') || '[]');
-    auditLogList.innerHTML = '';
-
-    logs.reverse().forEach(log => {
-        const item = document.createElement('div');
-        item.className = 'audit-item';
-        item.innerHTML = `
-            <span class="timestamp">[${new Date(log.timestamp).toLocaleString('ar-SA')}]</span>
-            <span class="admin">[المشرف: ${log.adminName}]</span>
-            <span class="action">${getActionText(log.action)} المستخدم [${log.targetUserId}] بسبب [${log.reason}] ${log.details ? `(${log.details})` : ''}</span>
-        `;
-        auditLogList.appendChild(item);
-    });
-}
-
-// الحصول على نص الإجراء
-function getActionText(action) {
-    const actions = {
-        'ban': 'حظر',
-        'mute': 'كتم',
-        'kick': 'طرد',
-        'assign_rank': 'تعيين رتبة',
-        'give_coins': 'إعطاء نقاط',
-        'create_room': 'إنشاء غرفة',
-        'delete_message': 'حذف رسالة',
-        'send_notification': 'إرسال إشعار',
-        'play_music': 'تشغيل موسيقى',
-        'report_message': 'بلاغ عن رسالة'
-    };
-    return actions[action] || action;
-}
-
-// تحميل سجل الرقابة
-function loadAuditLog() {
-    updateAuditLogDisplay();
+function openPrivateSettings() {
+    showNotification('قريباً: إعدادات الدردشة الخاصة', 'info');
 }
