@@ -15,15 +15,11 @@ const RANKS = {
     bronze: { name: 'عضو برونزي', emoji: '🥉', level: 1, color: '#cd7f32' },
     silver: { name: 'عضو فضي', emoji: '🥈', level: 2, color: '#c0c0c0' },
     gold: { name: 'عضو ذهبي', emoji: '🥇', level: 3, color: '#ffd700' },
-    diamond: { name: 'عضو الماس', emoji: '💎', level: 4, color: '#b9f2ff' },
-    crown: { name: 'برنس', emoji: '👑', level: 5, color: '#ff6b35' },
-    moderator: { name: 'مشرف', emoji: '🛡️', level: 6, color: '#00bfff' },
+    trophy: { name: 'مالك الموقع', emoji: '🏆', level: 4, color: '#ff6b35' },
+    diamond: { name: 'عضو الماس', emoji: '💎', level: 5, color: '#b9f2ff' },
+    prince: { name: 'برنس', emoji: '👑', level: 6, color: 'linear-gradient(45deg, #ffd700, #ff6b35)' },
     admin: { name: 'إداري', emoji: '⚡', level: 7, color: 'linear-gradient(45deg, #ff6b35, #f093fb)' },
-    super: { name: 'سوبر', emoji: '⭐', level: 8, color: '#ffd700' },
-    legend: { name: 'أسطورة', emoji: '🌟', level: 9, color: '#8a2be2' },
-    chat_star: { name: 'نجمة إدارة الشات', emoji: '🏆', level: 10, color: 'linear-gradient(45deg, #ffd700, #ff6b35)' }
 };
-
 
 // أسئلة المسابقات
 const QUIZ_QUESTIONS = [
