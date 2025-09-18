@@ -101,7 +101,6 @@
             <div id="loginError" class="error-message"></div>
         </div>
     </div>
-
     <!-- شاشة الحظر -->
     <div id="banScreen" class="screen">
         <div class="ban-container">
@@ -120,7 +119,6 @@
             </button>
         </div>
     </div>
-
     <!-- الشاشة الرئيسية -->
     <div id="mainScreen" class="screen">
         <!-- الشريط العلوي -->
@@ -146,7 +144,7 @@
                     <i class="fas fa-bell"></i>
                     <span id="notificationCount" class="notification-badge">0</span>
                 </button>
-                <button class="header-btn" onclick="openSettings()" title="الإعدادات">
+                <button class="header-btn" onclick="openProfileModal()" title="الملف الشخصي والإعدادات">
                     <i class="fas fa-cog"></i>
                 </button>
                 <div class="user-profile-mini" onclick="openProfileModal()">
@@ -158,7 +156,6 @@
                 </div>
             </div>
         </header>
-
         <!-- المحتوى الرئيسي -->
         <main class="main-content">
             <!-- منطقة الدردشة -->
@@ -218,7 +215,6 @@
                     <input type="file" id="voiceInput" accept="audio/*" style="display: none;">
                 </div>
             </div>
-
             <!-- الشريط الجانبي للمستخدمين -->
             <aside class="users-sidebar">
                 <div class="sidebar-header">
@@ -230,7 +226,6 @@
                 </div>
             </aside>
         </main>
-
         <!-- شريط التحكم السفلي -->
         <div class="bottom-control-bar">
             <button class="control-btn" onclick="reloadPage()" title="تحديث الصفحة">
@@ -254,7 +249,6 @@
             </div>
         </div>
     </div>
-
     <!-- القائمة الرئيسية -->
     <div id="mainMenuModal" class="modal">
         <div class="modal-content main-menu">
@@ -265,10 +259,10 @@
                 </button>
             </div>
             <div class="menu-items">
-                <div class="menu-item" onclick="openNewsSection()">
+                <div class="menu-item" onclick="openNewsModal()">
                     <i class="fas fa-newspaper"></i>
-                    <span>الأخبار</span>
-                    <p>انشر الأخبار والتحديثات</p>
+                    <span>القصص</span>
+                    <p>انشر قصتك وشاركها مع الجميع</p>
                 </div>
                 <div class="menu-item" onclick="openStoriesSection()">
                     <i class="fas fa-images"></i>
@@ -318,7 +312,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال الملف الشخصي -->
     <div id="profileModal" class="modal">
         <div class="modal-content profile-modal">
@@ -389,7 +382,6 @@
                                 الزخارف
                             </button>
                         </div>
-
                         <!-- تبويب المعلومات -->
                         <div id="profileInfoTab" class="profile-tab active">
                             <div class="info-section">
@@ -434,7 +426,6 @@
                                 حفظ التغييرات
                             </button>
                         </div>
-
                         <!-- تبويب الإعدادات -->
                         <div id="profileSettingsTab" class="profile-tab">
                             <div class="settings-section">
@@ -453,7 +444,6 @@
                                 <button onclick="uploadMessageBackground()" class="btn">تحديث الخلفية</button>
                             </div>
                         </div>
-
                         <!-- تبويب الموسيقى -->
                         <div id="profileMusicTab" class="profile-tab">
                             <div class="music-section">
@@ -467,7 +457,6 @@
                                 <p class="feature-note">متاح للرتب العالية فقط</p>
                             </div>
                         </div>
-
                         <!-- تبويب الزخارف -->
                         <div id="profileDecorationsTab" class="profile-tab">
                             <div class="decorations-section">
@@ -489,7 +478,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال عرض ملف شخصي آخر -->
     <div id="viewProfileModal" class="modal">
         <div class="modal-content profile-modal">
@@ -545,24 +533,23 @@
             </div>
         </div>
     </div>
-
-    <!-- مودال الأخبار -->
+    <!-- مودال الأخبار/القصص -->
     <div id="newsModal" class="modal">
         <div class="modal-content news-modal">
             <div class="modal-header">
-                <h2>📰 قناة الأخبار</h2>
+                <h2>📰 قناة القصص</h2>
                 <button class="close-btn" onclick="closeNewsModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="news-content">
                 <div class="news-post-form">
-                    <textarea id="newsContentInput" placeholder="اكتب خبرًا..." maxlength="500"></textarea>
+                    <textarea id="newsContentInput" placeholder="اكتب قصتك..." maxlength="500"></textarea>
                     <div class="news-form-actions">
-                        <input type="file" id="newsFileInput" accept="image/*,video/*" style="display: none;">
+                        <input type="file" id="newsFileInput" name="image" accept="image/*" style="display: none;">
                         <button onclick="document.getElementById('newsFileInput').click()" class="btn btn-secondary">
                             <i class="fas fa-image"></i>
-                            اختر صورة أو فيديو
+                            اختر صورة
                         </button>
                         <button onclick="postNews()" class="btn btn-primary">
                             <i class="fas fa-paper-plane"></i>
@@ -572,47 +559,10 @@
                 </div>
                 <div id="newsFeed" class="news-feed">
                     <!-- سيتم ملؤها بالجافاسكريبت -->
-                    <!-- مثال على منشور مع تفاعلات -->
-                    <!--
-                    <div class="news-post">
-                        <div class="post-header">
-                            <img src="avatar.jpg" class="post-avatar">
-                            <div class="post-info">
-                                <span class="post-author">اسم المستخدم</span>
-                                <span class="post-time">منذ 5 دقائق</span>
-                            </div>
-                        </div>
-                        <div class="post-content">
-                            <p>هذا مثال على منشور إخباري...</p>
-                            <img src="post-image.jpg" class="post-image">
-                        </div>
-                        <div class="post-reactions">
-                            <button class="reaction-btn" data-reaction="like"><i class="fas fa-thumbs-up"></i> <span>12</span></button>
-                            <button class="reaction-btn" data-reaction="love"><i class="fas fa-heart"></i> <span>5</span></button>
-                            <button class="reaction-btn" data-reaction="laugh"><i class="fas fa-laugh"></i> <span>3</span></button>
-                            <button class="reaction-btn" data-reaction="dislike"><i class="fas fa-thumbs-down"></i> <span>1</span></button>
-                        </div>
-                        <div class="post-comments">
-                            <div class="comment">
-                                <span class="comment-author">مستخدم1:</span>
-                                <span class="comment-text">تعليق رائع!</span>
-                            </div>
-                            <div class="comment">
-                                <span class="comment-author">مستخدم2:</span>
-                                <span class="comment-text">أوافق!</span>
-                            </div>
-                            <div class="add-comment">
-                                <input type="text" placeholder="أضف تعليق...">
-                                <button>إرسال</button>
-                            </div>
-                        </div>
-                    </div>
-                    -->
                 </div>
             </div>
         </div>
     </div>
-
     <!-- مودال القصص -->
     <div id="storiesModal" class="modal">
         <div class="modal-content stories-modal">
@@ -634,7 +584,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال إضافة قصة -->
     <div id="addStoryModal" class="modal">
         <div class="modal-content">
@@ -654,7 +603,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال غرفة المسابقات -->
     <div id="quizRoomModal" class="modal">
         <div class="modal-content quiz-room-modal">
@@ -679,12 +627,6 @@
                     <h3 id="questionText">مرحباً بك في غرفة المسابقات!</h3>
                     <div id="questionOptions" class="question-options">
                         <!-- سيتم ملؤها بالجافاسكريبت -->
-                        <!--
-                        <button class="option-btn" onclick="selectAnswer('A')">A. الإجابة الأولى</button>
-                        <button class="option-btn" onclick="selectAnswer('B')">B. الإجابة الثانية</button>
-                        <button class="option-btn" onclick="selectAnswer('C')">C. الإجابة الثالثة</button>
-                        <button class="option-btn" onclick="selectAnswer('D')">D. الإجابة الرابعة</button>
-                        -->
                     </div>
                     <div class="quiz-timer">
                         <span>الوقت المتبقي: </span>
@@ -699,19 +641,11 @@
                     <h4>لوحة المتصدرين</h4>
                     <div id="leaderboardList">
                         <!-- سيتم ملؤها بالجافاسكريبت -->
-                        <!--
-                        <div class="leaderboard-item">
-                            <span class="rank">1.</span>
-                            <span class="username">اللاعب الأول</span>
-                            <span class="score">150</span>
-                        </div>
-                        -->
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
     <!-- مودال لوحة الإدارة -->
     <div id="adminModal" class="modal">
         <div class="modal-content admin-modal">
@@ -752,7 +686,6 @@
                         سجل الرقابة
                     </button>
                 </div>
-
                 <!-- تبويب إدارة المستخدمين -->
                 <div id="adminUsersTab" class="admin-tab active">
                     <div class="admin-actions">
@@ -765,7 +698,6 @@
                         <!-- سيتم ملؤها بالجافاسكريبت -->
                     </div>
                 </div>
-
                 <!-- تبويب الرتب -->
                 <div id="adminRanksTab" class="admin-tab">
                     <div class="ranks-management">
@@ -780,7 +712,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- تبويب الغرف -->
                 <div id="adminRoomsTab" class="admin-tab">
                     <div class="rooms-management">
@@ -793,7 +724,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- تبويب الحظر والكتم -->
                 <div id="adminBansTab" class="admin-tab">
                     <div class="bans-management">
@@ -807,7 +737,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- تبويب النقاط -->
                 <div id="adminCoinsTab" class="admin-tab">
                     <div class="coins-management">
@@ -824,7 +753,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- تبويب الإشعارات -->
                 <div id="adminNotificationsTab" class="admin-tab">
                     <div class="notifications-management">
@@ -845,27 +773,18 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- تبويب سجل الرقابة (جديد حسب المواصفات) -->
                 <div id="adminAuditTab" class="admin-tab">
                     <div class="audit-management">
                         <h3>سجل الرقابة (Audit Log)</h3>
                         <div id="auditLogList" class="audit-log-list">
                             <!-- سيتم ملؤها بالجافاسكريبت -->
-                            <!--
-                            <div class="audit-item">
-                                <span class="timestamp">[2024-06-15 14:30]</span>
-                                <span class="admin">[المشرف: أحمد]</span>
-                                <span class="action">حظر المستخدم [محمد] بسبب [إساءة استخدام]</span>
-                            </div>
-                            -->
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
     <!-- مودال إجراءات المستخدم -->
     <div id="userActionsModal" class="modal">
         <div class="modal-content">
@@ -909,7 +828,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال حظر المستخدم -->
     <div id="banUserModal" class="modal">
         <div class="modal-content">
@@ -945,7 +863,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال كتم المستخدم (جديد حسب المواصفات) -->
     <div id="muteUserModal" class="modal">
         <div class="modal-content">
@@ -981,7 +898,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال تعيين الرتبة -->
     <div id="assignRankModal" class="modal">
         <div class="modal-content">
@@ -1023,7 +939,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال إنشاء رتبة جديدة (جديد حسب المواصفات) -->
     <div id="createRankModal" class="modal">
         <div class="modal-content">
@@ -1088,7 +1003,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال الإشعارات -->
     <div id="notificationsModal" class="modal">
         <div class="modal-content">
@@ -1100,22 +1014,9 @@
             </div>
             <div id="notificationsList" class="notifications-list">
                 <!-- سيتم ملؤها بالجافاسكريبت -->
-                <!--
-                <div class="notification-item">
-                    <div class="notification-icon">
-                        <i class="fas fa-envelope"></i>
-                    </div>
-                    <div class="notification-content">
-                        <div class="notification-title">رسالة خاصة من <strong>أحمد</strong></div>
-                        <div class="notification-message">مرحباً، كيف حالك؟</div>
-                        <div class="notification-time">منذ 2 دقيقة</div>
-                    </div>
-                </div>
-                -->
             </div>
         </div>
     </div>
-
     <!-- مودال الإعدادات -->
     <div id="settingsModal" class="modal">
         <div class="modal-content">
@@ -1183,7 +1084,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال مشغل الراديو -->
     <div id="radioPlayerModal" class="modal">
         <div class="modal-content">
@@ -1236,21 +1136,11 @@
                     </div>
                     <div id="searchResults" class="search-results">
                         <!-- سيتم ملؤها بالجافاسكريبت -->
-                        <!--
-                        <div class="search-result-item" onclick="playSearchedSong('رابط الأغنية', 'اسم الأغنية')">
-                            <img src="song-cover.jpg" class="result-cover">
-                            <div class="result-info">
-                                <div class="result-title">اسم الأغنية</div>
-                                <div class="result-artist">اسم الفنان</div>
-                            </div>
-                        </div>
-                        -->
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
     <!-- مودال إنشاء غرفة -->
     <div id="createRoomModal" class="modal">
         <div class="modal-content">
@@ -1302,7 +1192,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال إهداء النقاط -->
     <div id="giveCoinsModal" class="modal">
         <div class="modal-content">
@@ -1332,7 +1221,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال إرسال إشعار (تم توحيد النسختين) -->
     <div id="sendNotificationModal" class="modal">
         <div class="modal-content">
@@ -1376,7 +1264,6 @@
             </div>
         </div>
     </div>
-
     <!-- مودال المتصلين حالياً -->
     <div id="onlineUsersModal" class="modal">
         <div class="modal-content">
@@ -1393,7 +1280,6 @@
             </div>
         </div>
     </div>
-
     <!-- صندوق الدردشة الخاصة -->
     <div id="privateChatBox" class="private-chat-box" style="display: none;">
         <div class="chat-box-header">
@@ -1426,53 +1312,41 @@
             </div>
         </div>
     </div>
-
     <!-- Loading Spinner -->
     <div id="loadingSpinner" class="loading-spinner" style="display: none;">
         <div class="spinner"></div>
         <p>جاري التحميل...</p>
     </div>
-
     <!-- Toast Notifications -->
     <div id="toastContainer" class="toast-container"></div>
-
     <!-- Audio Elements -->
     <audio id="notificationSound" preload="auto">
-        <source src="audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hV......" type="audio/wav">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT" type="audio/wav">
     </audio>
-
     <!-- Socket.IO -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
-
     <!--
     ================================================
     ✅ ملاحظات التطوير القادمة (للمرحلة التالية):
     ================================================
-
     1. نظام الصلاحيات:
        - سيتم التحكم في عرض/إخفاء العناصر (مثل: roomsManagerBtn, adminPanelBtn) حسب رتبة المستخدم عبر الجافاسكريبت.
        - سيتم منع تنفيذ الإجراءات (مثل: الحظر، الإنشاء) إذا لم يكن المستخدم يملك الصلاحية.
-
     2. غرفة المسابقات:
        - إضافة منطق العداد (15 ثانية → تلميح → 10 ثواني إضافية → إجابة).
        - ربط لوحة المتصدرين بالنقاط الحقيقية.
-
     3. البحث عن الأغاني:
        - ربط واجهة البحث بـ YouTube API أو مصدر بث آخر.
        - إضافة زر "إضافة إلى قائمة الانتظار".
-
     4. نظام الاعتدال:
        - عند الكتم، منع المستخدم من إرسال رسائل في الغرفة.
        - عرض إشعار للمستخدم وللجميع عند تطبيق العقوبة.
        - تسجيل كل إجراء في سجل الرقابة (Audit Log).
-
     5. الفلاتر:
        - إضافة فلترة للسبام والكلمات غير اللائقة على مستوى السيرفر.
-
     6. المصادقة الثنائية (2FA):
        - إضافة خيار في الإعدادات لتفعيل 2FA للمالك.
-
     -->
 </body>
 </html>
