@@ -35,7 +35,6 @@ const storage = multer.diskStorage({
         cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
     }
 });
-
 const upload = multer({ 
     storage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
@@ -43,7 +42,6 @@ const upload = multer({
         const allowedTypes = /jpeg|jpg|png|gif|webm|mp4|mp3|wav|ogg/;
         const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
         const mimetype = allowedTypes.test(file.mimetype);
-        
         if (extname && mimetype) {
             return cb(null, true);
         } else {
@@ -123,6 +121,7 @@ let friends = [];
 let gifts = [];
 let musicQueue = [];
 let currentSong = null;
+
 let ranks = [
     { name: 'visitor', displayName: 'زائر', color: '#666666', permissions: ['chat', 'private_message'] },
     { name: 'member', displayName: 'عضو', color: '#3498db', permissions: ['chat', 'private_message', 'upload_image'] },
@@ -192,45 +191,35 @@ function parseDuration(duration) {
 // تسجيل الدخول
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
-    
     if (!email || !password) {
         return res.status(400).json({ error: 'يرجى إدخال البريد الإلكتروني وكلمة المرور' });
     }
-
     const user = users.find(u => u.email === email && u.password === password);
-    
     if (!user) {
         return res.status(401).json({ error: 'بيانات تسجيل الدخول غير صحيحة' });
     }
-
     // التحقق من الحظر
     if (isBanned(user.id)) {
         return res.status(403).json({ error: 'هذا الحساب محظور' });
     }
-
     const token = 'fake-token-' + user.id;
     user.last_seen = new Date();
     user.online = true;
-
     res.json({ token, user });
 });
 
 // إنشاء حساب جديد
 app.post('/api/register', (req, res) => {
     const { email, password, display_name } = req.body;
-    
     if (!email || !password || !display_name) {
         return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
     }
-
     if (users.find(u => u.email === email)) {
         return res.status(400).json({ error: 'البريد الإلكتروني موجود مسبقاً' });
     }
-
     if (users.find(u => u.display_name === display_name)) {
         return res.status(400).json({ error: 'اسم المستخدم موجود مسبقاً' });
     }
-
     const newUser = {
         id: users.length + 1,
         email,
@@ -251,10 +240,8 @@ app.post('/api/register', (req, res) => {
         online: true,
         permissions: []
     };
-
     users.push(newUser);
     const token = 'fake-token-' + newUser.id;
-    
     res.json({ token, user: newUser });
 });
 
@@ -262,11 +249,9 @@ app.post('/api/register', (req, res) => {
 app.get('/api/user/profile', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user) {
         return res.status(401).json({ error: 'غير مصرح له' });
     }
-
     res.json(user);
 });
 
@@ -278,27 +263,22 @@ app.put('/api/user/profile', upload.fields([
 ]), (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user) {
         return res.status(401).json({ error: 'غير مصرح له' });
     }
-
     const { display_name, age, gender, marital_status, about_me, country, bio } = req.body;
-    
     if (display_name && display_name !== user.display_name) {
         if (users.find(u => u.display_name === display_name && u.id !== user.id)) {
             return res.status(400).json({ error: 'اسم المستخدم موجود مسبقاً' });
         }
         user.display_name = display_name;
     }
-    
     if (age) user.age = parseInt(age);
     if (gender) user.gender = gender;
     if (marital_status) user.marital_status = marital_status;
     if (about_me) user.about_me = about_me;
     if (country) user.country = country;
     if (bio) user.bio = bio;
-
     if (req.files['profileImage1']) {
         user.profile_image1 = `/uploads/${req.files['profileImage1'][0].filename}`;
     }
@@ -308,7 +288,6 @@ app.put('/api/user/profile', upload.fields([
     if (req.files['messageBackground']) {
         user.message_background = `/uploads/${req.files['messageBackground'][0].filename}`;
     }
-
     res.json(user);
     io.emit('userUpdated', user);
 });
@@ -322,19 +301,14 @@ app.get('/api/rooms', (req, res) => {
 app.post('/api/rooms', upload.single('background'), (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user || user.role !== 'owner') {
         return res.status(403).json({ error: 'فقط مالك الشات يمكنه إنشاء الغرف' });
     }
-
     const { name, description, type = 'public', rules = [] } = req.body;
-    
     if (!name) {
         return res.status(400).json({ error: 'اسم الغرفة مطلوب' });
     }
-
     const background = req.file ? `/uploads/${req.file.filename}` : null;
-    
     const newRoom = {
         id: rooms.length + 1,
         name,
@@ -345,7 +319,6 @@ app.post('/api/rooms', upload.single('background'), (req, res) => {
         rules: Array.isArray(rules) ? rules : [],
         active: true
     };
-
     rooms.push(newRoom);
     io.emit('roomCreated', newRoom);
     res.json(newRoom);
@@ -355,18 +328,14 @@ app.post('/api/rooms', upload.single('background'), (req, res) => {
 app.delete('/api/rooms/:id', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user || user.role !== 'owner') {
         return res.status(403).json({ error: 'فقط مالك الشات يمكنه حذف الغرف' });
     }
-
     const roomId = parseInt(req.params.id);
     const roomIndex = rooms.findIndex(r => r.id === roomId);
-    
     if (roomIndex === -1) {
         return res.status(404).json({ error: 'الغرفة غير موجودة' });
     }
-
     rooms[roomIndex].active = false;
     io.emit('roomDeleted', roomId);
     res.json({ message: 'تم حذف الغرفة بنجاح' });
@@ -383,17 +352,14 @@ app.get('/api/messages/:roomId', (req, res) => {
 app.get('/api/private-messages/:userId', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const currentUser = getUserFromToken(token);
-    
     if (!currentUser) {
         return res.status(401).json({ error: 'غير مصرح له' });
     }
-
     const otherUserId = parseInt(req.params.userId);
     const userMessages = privateMessages.filter(pm => 
         (pm.senderId === currentUser.id && pm.receiverId === otherUserId) || 
         (pm.senderId === otherUserId && pm.receiverId === currentUser.id)
     ).slice(-50); // آخر 50 رسالة
-
     res.json(userMessages);
 });
 
@@ -415,7 +381,6 @@ app.get('/api/users', (req, res) => {
         online: u.online,
         last_seen: u.last_seen
     }));
-    
     res.json(userList);
 });
 
@@ -426,7 +391,6 @@ app.get('/api/news', (req, res) => {
         comments: comments.filter(c => c.postId === n.id),
         reactions: n.reactions || { likes: [], dislikes: [], hearts: [] }
     }));
-    
     res.json(newsWithDetails);
 });
 
@@ -434,24 +398,18 @@ app.get('/api/news', (req, res) => {
 app.post('/api/news', upload.single('media'), (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user) {
         return res.status(401).json({ error: 'غير مصرح له' });
     }
-
     if (isMuted(user.id)) {
         return res.status(403).json({ error: 'أنت مكتوم ولا يمكنك نشر الأخبار' });
     }
-
     const { content } = req.body;
-    
     if (!content && !req.file) {
         return res.status(400).json({ error: 'يجب إدخال محتوى أو ملف' });
     }
-
     const media = req.file ? `/uploads/${req.file.filename}` : null;
     const mediaType = req.file ? (req.file.mimetype.startsWith('image/') ? 'image' : 'video') : null;
-    
     const newNews = {
         id: news.length + 1,
         content: content || '',
@@ -465,7 +423,6 @@ app.post('/api/news', upload.single('media'), (req, res) => {
         reactions: { likes: [], dislikes: [], hearts: [] },
         pinned: false
     };
-
     news.unshift(newNews); // إضافة في المقدمة
     io.emit('newNews', newNews);
     res.json(newNews);
@@ -479,7 +436,6 @@ app.get('/api/stories', (req, res) => {
         const timeDiff = now - storyTime;
         return timeDiff < (24 * 60 * 60 * 1000); // 24 ساعة
     });
-    
     res.json(activeStories);
 });
 
@@ -487,15 +443,12 @@ app.get('/api/stories', (req, res) => {
 app.post('/api/stories', upload.single('image'), (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user) {
         return res.status(401).json({ error: 'غير مصرح له' });
     }
-
     if (!req.file) {
         return res.status(400).json({ error: 'يجب رفع صورة' });
     }
-
     const newStory = {
         id: stories.length + 1,
         image: `/uploads/${req.file.filename}`,
@@ -504,7 +457,6 @@ app.post('/api/stories', upload.single('image'), (req, res) => {
         profile_image: user.profile_image1,
         timestamp: new Date()
     };
-
     stories.push(newStory);
     io.emit('newStory', newStory);
     res.json(newStory);
@@ -514,26 +466,20 @@ app.post('/api/stories', upload.single('image'), (req, res) => {
 app.post('/api/assign-rank', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const admin = getUserFromToken(token);
-    
     if (!admin || admin.role !== 'owner') {
         return res.status(403).json({ error: 'فقط مالك الشات يمكنه تعيين الرتب' });
     }
-
     const { userId, rank, reason } = req.body;
     const user = users.find(u => u.id === parseInt(userId));
-    
     if (!user) {
         return res.status(404).json({ error: 'المستخدم غير موجود' });
     }
-
     if (!ranks.find(r => r.name === rank)) {
         return res.status(400).json({ error: 'الرتبة غير صحيحة' });
     }
-
     const oldRank = user.rank;
     user.rank = rank;
     user.role = rank === 'owner' ? 'owner' : (rank === 'admin' ? 'admin' : 'user');
-
     // إشعار بتغيير الرتبة
     const notification = {
         id: notifications.length + 1,
@@ -541,13 +487,11 @@ app.post('/api/assign-rank', (req, res) => {
         type: 'rank_change',
         title: 'تغيير الرتبة',
         message: `تم تغيير رتبتك من ${oldRank} إلى ${rank}`,
-        data: { oldRank, newRank: rank, reason },
+         { oldRank, newRank: rank, reason },
         timestamp: new Date(),
         read: false
     };
-    
     notifications.push(notification);
-    
     res.json({ message: 'تم تعيين الرتبة بنجاح' });
     io.emit('userUpdated', user);
     io.to(user.id.toString()).emit('notification', notification);
@@ -564,23 +508,18 @@ io.on('connection', (socket) => {
     socket.on('join', (data) => {
         const { token, roomId } = data;
         const user = getUserFromToken(token);
-        
         if (!user) {
             return socket.emit('error', 'توكن غير صحيح');
         }
-
         if (isBanned(user.id)) {
             return socket.emit('error', 'هذا الحساب محظور');
         }
-
         socket.user = user;
         socket.join(roomId.toString());
         socket.join(user.id.toString()); // للرسائل الخاصة والإشعارات
-
         user.online = true;
         user.last_seen = new Date();
         connectedUsers.set(socket.id, user.id);
-
         // إرسال قائمة المستخدمين المتصلين
         const onlineUsers = Array.from(connectedUsers.values()).map(userId => {
             const u = users.find(user => user.id === userId);
@@ -592,7 +531,6 @@ io.on('connection', (socket) => {
                 online: u.online
             } : null;
         }).filter(Boolean);
-
         io.emit('userList', onlineUsers);
         socket.emit('joinedRoom', { roomId, user });
     });
@@ -600,28 +538,21 @@ io.on('connection', (socket) => {
     // إرسال رسالة عامة
     socket.on('sendMessage', (data) => {
         if (!socket.user) return socket.emit('error', 'يجب تسجيل الدخول أولاً');
-
         const { roomId, content, type = 'text' } = data;
-
         if (isMuted(socket.user.id)) {
             return socket.emit('error', 'أنت مكتوم ولا يمكنك إرسال الرسائل');
         }
-
         if (!hasPermission(socket.user, 'chat')) {
             return socket.emit('error', 'ليس لديك صلاحية للدردشة');
         }
-
         // فحص الحماية من الفيضانات
         const userId = socket.user.id;
         const now = Date.now();
-
         if (!floodProtection.has(userId)) {
             floodProtection.set(userId, []);
         }
-
         const userMessages = floodProtection.get(userId);
         const recentMessages = userMessages.filter(time => now - time < 10000); // 10 ثواني
-
         if (recentMessages.length >= 5) {
             // كتم تلقائي لمدة 5 دقائق
             const muteEndTime = new Date(now + 5 * 60 * 1000);
@@ -635,7 +566,6 @@ io.on('connection', (socket) => {
                 by_system: true
             };
             mutes.push(mute);
-
             // رسالة نظام عن الكتم
             const systemMessage = {
                 id: messages.length + 1,
@@ -647,13 +577,10 @@ io.on('connection', (socket) => {
             };
             messages.push(systemMessage);
             io.to(roomId.toString()).emit('newMessage', systemMessage);
-
             return socket.emit('error', 'تم كتمك لمدة 5 دقائق بسبب الرسائل السريعة والمتكررة');
         }
-
         recentMessages.push(now);
         floodProtection.set(userId, recentMessages);
-
         const message = {
             id: messages.length + 1,
             roomId: parseInt(roomId),
@@ -667,7 +594,6 @@ io.on('connection', (socket) => {
             edited: false,
             deleted: false
         };
-
         messages.push(message);
         io.to(roomId.toString()).emit('newMessage', message);
     });
@@ -675,22 +601,17 @@ io.on('connection', (socket) => {
     // إرسال رسالة خاصة
     socket.on('sendPrivateMessage', (data) => {
         if (!socket.user) return socket.emit('error', 'يجب تسجيل الدخول أولاً');
-
         const { receiverId, content, type = 'text' } = data;
-
         if (isMuted(socket.user.id)) {
             return socket.emit('error', 'أنت مكتوم ولا يمكنك إرسال الرسائل');
         }
-
         if (!hasPermission(socket.user, 'private_message')) {
             return socket.emit('error', 'ليس لديك صلاحية للرسائل الخاصة');
         }
-
         const receiver = users.find(u => u.id === parseInt(receiverId));
         if (!receiver) {
             return socket.emit('error', 'المستخدم المستهدف غير موجود');
         }
-
         const message = {
             id: privateMessages.length + 1,
             senderId: socket.user.id,
@@ -703,13 +624,10 @@ io.on('connection', (socket) => {
             timestamp: new Date(),
             read: false
         };
-
         privateMessages.push(message);
-        
         // إرسال للمستقبل والمرسل
         io.to(receiverId.toString()).emit('newPrivateMessage', message);
         socket.emit('newPrivateMessage', message);
-
         // إشعار للمستقبل
         const notification = {
             id: notifications.length + 1,
@@ -721,7 +639,6 @@ io.on('connection', (socket) => {
             timestamp: new Date(),
             read: false
         };
-        
         notifications.push(notification);
         io.to(receiverId.toString()).emit('notification', notification);
     });
@@ -729,22 +646,17 @@ io.on('connection', (socket) => {
     // رفع ملف (صورة/صوت)
     socket.on('uploadFile', (data, callback) => {
         if (!socket.user) return callback({ error: 'يجب تسجيل الدخول أولاً' });
-
         if (isMuted(socket.user.id)) {
             return callback({ error: 'أنت مكتوم ولا يمكنك رفع الملفات' });
         }
-
         const { fileData, fileName, fileType, roomId, isPrivate, receiverId } = data;
-
         // التحقق من الصلاحيات
         if (fileType.startsWith('image/') && !hasPermission(socket.user, 'upload_image')) {
             return callback({ error: 'ليس لديك صلاحية لرفع الصور' });
         }
-
         if (fileType.startsWith('audio/') && !hasPermission(socket.user, 'upload_voice')) {
             return callback({ error: 'ليس لديك صلاحية لرفع الملفات الصوتية' });
         }
-
         try {
             // تحويل base64 إلى buffer
             const buffer = Buffer.from(fileData, 'base64');
@@ -752,12 +664,9 @@ io.on('connection', (socket) => {
             const extension = path.extname(fileName);
             const newFileName = 'file-' + uniqueSuffix + extension;
             const filePath = path.join('Uploads', newFileName);
-
             fs.writeFileSync(filePath, buffer);
-
             const fileUrl = `/uploads/${newFileName}`;
             const messageType = fileType.startsWith('image/') ? 'image' : 'voice';
-
             if (isPrivate && receiverId) {
                 // رسالة خاصة
                 const message = {
@@ -773,7 +682,6 @@ io.on('connection', (socket) => {
                     timestamp: new Date(),
                     read: false
                 };
-
                 privateMessages.push(message);
                 io.to(receiverId.toString()).emit('newPrivateMessage', message);
                 socket.emit('newPrivateMessage', message);
@@ -793,11 +701,9 @@ io.on('connection', (socket) => {
                     edited: false,
                     deleted: false
                 };
-
                 messages.push(message);
                 io.to(roomId.toString()).emit('newMessage', message);
             }
-
             callback({ success: true, fileUrl });
         } catch (error) {
             console.error('خطأ في رفع الملف:', error);
@@ -808,21 +714,16 @@ io.on('connection', (socket) => {
     // تفاعل مع منشور
     socket.on('reactToPost', (data) => {
         if (!socket.user) return;
-
         const { postId, reactionType } = data;
         const post = news.find(n => n.id === parseInt(postId));
-        
         if (!post) return;
-
         if (!post.reactions) {
             post.reactions = { likes: [], dislikes: [], hearts: [] };
         }
-
         // إزالة أي تفاعل سابق للمستخدم
         Object.keys(post.reactions).forEach(type => {
             post.reactions[type] = post.reactions[type].filter(r => r.user_id !== socket.user.id);
         });
-
         // إضافة التفاعل الجديد
         if (reactionType && post.reactions[reactionType]) {
             post.reactions[reactionType].push({
@@ -831,20 +732,16 @@ io.on('connection', (socket) => {
                 profile_image: socket.user.profile_image1
             });
         }
-
         io.emit('postReactionUpdated', { postId, reactions: post.reactions });
     });
 
     // إضافة تعليق
     socket.on('addComment', (data) => {
         if (!socket.user) return;
-
         const { postId, content, targetUserId } = data;
-
         if (isMuted(socket.user.id)) {
             return socket.emit('error', 'أنت مكتوم ولا يمكنك التعليق');
         }
-
         const newComment = {
             id: comments.length + 1,
             postId: parseInt(postId),
@@ -856,10 +753,8 @@ io.on('connection', (socket) => {
             targetUserId: targetUserId ? parseInt(targetUserId) : null,
             timestamp: new Date()
         };
-
         comments.push(newComment);
         io.emit('newComment', newComment);
-
         // إشعار للمستخدم المستهدف
         if (targetUserId && targetUserId !== socket.user.id) {
             const notification = {
@@ -868,11 +763,10 @@ io.on('connection', (socket) => {
                 type: 'comment',
                 title: 'تعليق جديد',
                 message: `علق ${socket.user.display_name} على منشور`,
-                data: { postId, commentId: newComment.id, content },
+                 { postId, commentId: newComment.id, content },
                 timestamp: new Date(),
                 read: false
             };
-            
             notifications.push(notification);
             io.to(targetUserId.toString()).emit('notification', notification);
         }
@@ -881,37 +775,29 @@ io.on('connection', (socket) => {
     // إرسال طلب صداقة
     socket.on('sendFriendRequest', (data) => {
         if (!socket.user) return;
-
         const { userId } = data;
         const targetUser = users.find(u => u.id === parseInt(userId));
-        
         if (!targetUser) {
             return socket.emit('error', 'المستخدم غير موجود');
         }
-
         if (targetUser.id === socket.user.id) {
             return socket.emit('error', 'لا يمكنك إرسال طلب صداقة لنفسك');
         }
-
         // التحقق من وجود طلب سابق
         const existingRequest = friendRequests.find(fr => 
             fr.senderId === socket.user.id && fr.receiverId === targetUser.id
         );
-
         if (existingRequest) {
             return socket.emit('error', 'تم إرسال طلب الصداقة مسبقاً');
         }
-
         // التحقق من الصداقة الموجودة
         const existingFriend = friends.find(f => 
             (f.user1Id === socket.user.id && f.user2Id === targetUser.id) ||
             (f.user1Id === targetUser.id && f.user2Id === socket.user.id)
         );
-
         if (existingFriend) {
             return socket.emit('error', 'أنتما أصدقاء بالفعل');
         }
-
         const friendRequest = {
             id: friendRequests.length + 1,
             senderId: socket.user.id,
@@ -921,9 +807,7 @@ io.on('connection', (socket) => {
             status: 'pending',
             timestamp: new Date()
         };
-
         friendRequests.push(friendRequest);
-
         // إشعار للمستقبل
         const notification = {
             id: notifications.length + 1,
@@ -931,31 +815,25 @@ io.on('connection', (socket) => {
             type: 'friend_request',
             title: 'طلب صداقة جديد',
             message: `${socket.user.display_name} أرسل لك طلب صداقة`,
-            data: { requestId: friendRequest.id, senderId: socket.user.id },
+             { requestId: friendRequest.id, senderId: socket.user.id },
             timestamp: new Date(),
             read: false
         };
-        
         notifications.push(notification);
         io.to(targetUser.id.toString()).emit('notification', notification);
         io.to(targetUser.id.toString()).emit('friendRequest', friendRequest);
-
         socket.emit('friendRequestSent', friendRequest);
     });
 
     // الرد على طلب الصداقة
     socket.on('respondToFriendRequest', (data) => {
         if (!socket.user) return;
-
         const { requestId, accept } = data;
         const request = friendRequests.find(fr => fr.id === parseInt(requestId));
-        
         if (!request || request.receiverId !== socket.user.id) {
             return socket.emit('error', 'طلب الصداقة غير صحيح');
         }
-
         request.status = accept ? 'accepted' : 'rejected';
-
         if (accept) {
             const friendship = {
                 id: friends.length + 1,
@@ -964,7 +842,6 @@ io.on('connection', (socket) => {
                 timestamp: new Date()
             };
             friends.push(friendship);
-
             // إشعار للمرسل
             const notification = {
                 id: notifications.length + 1,
@@ -976,17 +853,14 @@ io.on('connection', (socket) => {
                 timestamp: new Date(),
                 read: false
             };
-            
             notifications.push(notification);
             io.to(request.senderId.toString()).emit('notification', notification);
         }
-
         io.to(request.senderId.toString()).emit('friendRequestResponse', {
             requestId,
             accepted: accept,
             responderName: socket.user.display_name
         });
-
         socket.emit('friendRequestResponded', { requestId, accepted: accept });
     });
 
@@ -995,9 +869,7 @@ io.on('connection', (socket) => {
         if (!socket.user || !hasPermission(socket.user, 'all')) {
             return socket.emit('error', 'ليس لديك صلاحية لبدء المسابقات');
         }
-
         const { title, questions, duration = 60 } = data;
-
         const competition = {
             id: competitions.length + 1,
             title,
@@ -1009,10 +881,8 @@ io.on('connection', (socket) => {
             currentQuestionIndex: 0,
             scores: {}
         };
-
         competitions.push(competition);
         io.emit('competitionStarted', competition);
-
         // بدء المسابقة
         if (competition.questions.length > 0) {
             startQuestionTimer(competition);
@@ -1022,15 +892,11 @@ io.on('connection', (socket) => {
     // إجابة على سؤال المسابقة
     socket.on('answerQuestion', (data) => {
         if (!socket.user) return;
-
         const { competitionId, answer } = data;
         const competition = competitions.find(c => c.id === parseInt(competitionId) && c.active);
-        
         if (!competition) return;
-
         const currentQuestion = competition.questions[competition.currentQuestionIndex];
         if (!currentQuestion) return;
-
         // تسجيل المشارك
         if (!competition.participants.includes(socket.user.id)) {
             competition.participants.push(socket.user.id);
@@ -1041,7 +907,6 @@ io.on('connection', (socket) => {
                 answers: []
             };
         }
-
         const userScore = competition.scores[socket.user.id];
         const answerData = {
             questionIndex: competition.currentQuestionIndex,
@@ -1049,12 +914,9 @@ io.on('connection', (socket) => {
             timestamp: new Date(),
             correct: answer === currentQuestion.correctAnswer
         };
-
         userScore.answers.push(answerData);
-
         if (answerData.correct) {
             userScore.score += 10; // 10 نقاط لكل إجابة صحيحة
-            
             // إشعار الإجابة الصحيحة
             io.emit('correctAnswer', {
                 competitionId,
@@ -1063,20 +925,16 @@ io.on('connection', (socket) => {
                 questionIndex: competition.currentQuestionIndex
             });
         }
-
         socket.emit('answerRecorded', { correct: answerData.correct, score: userScore.score });
     });
 
     // إدارة الموسيقى
     socket.on('addToMusicQueue', (data) => {
         if (!socket.user) return;
-
         if (!hasPermission(socket.user, 'upload_voice') && socket.user.role !== 'owner' && socket.user.role !== 'admin') {
             return socket.emit('error', 'ليس لديك صلاحية لإضافة الموسيقى');
         }
-
         const { songTitle, songUrl, artist } = data;
-
         const song = {
             id: musicQueue.length + 1,
             title: songTitle,
@@ -1086,10 +944,8 @@ io.on('connection', (socket) => {
             addedById: socket.user.id,
             timestamp: new Date()
         };
-
         musicQueue.push(song);
         io.emit('musicQueueUpdated', musicQueue);
-
         // تشغيل تلقائي إذا لم تكن هناك أغنية قيد التشغيل
         if (!currentSong && musicQueue.length === 1) {
             playNextSong();
@@ -1100,7 +956,6 @@ io.on('connection', (socket) => {
         if (!socket.user || (!hasPermission(socket.user, 'all') && socket.user.role !== 'admin')) {
             return socket.emit('error', 'ليس لديك صلاحية لتخطي الأغاني');
         }
-
         playNextSong();
     });
 
@@ -1109,18 +964,14 @@ io.on('connection', (socket) => {
         if (!socket.user || !hasPermission(socket.user, 'kick')) {
             return socket.emit('error', 'ليس لديك صلاحية للطرد');
         }
-
         const { userId, reason, roomId } = data;
         const targetUser = users.find(u => u.id === parseInt(userId));
-        
         if (!targetUser) {
             return socket.emit('error', 'المستخدم غير موجود');
         }
-
         if (targetUser.role === 'owner' || (targetUser.role === 'admin' && socket.user.role !== 'owner')) {
             return socket.emit('error', 'لا يمكنك طرد هذا المستخدم');
         }
-
         // إخراج المستخدم من الغرفة
         io.sockets.sockets.forEach(s => {
             if (s.user && s.user.id === targetUser.id) {
@@ -1128,7 +979,6 @@ io.on('connection', (socket) => {
                 s.emit('kicked', { reason, by: socket.user.display_name, roomId });
             }
         });
-
         // رسالة نظام
         const systemMessage = {
             id: messages.length + 1,
@@ -1138,7 +988,6 @@ io.on('connection', (socket) => {
             timestamp: new Date(),
             system: true
         };
-        
         messages.push(systemMessage);
         io.to(roomId.toString()).emit('newMessage', systemMessage);
     });
@@ -1147,21 +996,16 @@ io.on('connection', (socket) => {
         if (!socket.user || !hasPermission(socket.user, 'mute')) {
             return socket.emit('error', 'ليس لديك صلاحية للكتم');
         }
-
         const { userId, reason, duration = '5m' } = data;
         const targetUser = users.find(u => u.id === parseInt(userId));
-        
         if (!targetUser) {
             return socket.emit('error', 'المستخدم غير موجود');
         }
-
         if (targetUser.role === 'owner' || (targetUser.role === 'admin' && socket.user.role !== 'owner')) {
             return socket.emit('error', 'لا يمكنك كتم هذا المستخدم');
         }
-
         const durationMs = parseDuration(duration);
         const endTime = durationMs === Infinity ? null : new Date(Date.now() + durationMs);
-
         const mute = {
             id: mutes.length + 1,
             user_id: targetUser.id,
@@ -1172,9 +1016,7 @@ io.on('connection', (socket) => {
             by_user_id: socket.user.id,
             by_user_name: socket.user.display_name
         };
-
         mutes.push(mute);
-
         // إشعار للمستخدم المكتوم
         io.to(targetUser.id.toString()).emit('muted', {
             reason: mute.reason,
@@ -1182,7 +1024,6 @@ io.on('connection', (socket) => {
             by: socket.user.display_name,
             endTime
         });
-
         socket.emit('userMuted', { 
             userName: targetUser.display_name, 
             reason: mute.reason, 
@@ -1194,21 +1035,16 @@ io.on('connection', (socket) => {
         if (!socket.user || !hasPermission(socket.user, 'ban')) {
             return socket.emit('error', 'ليس لديك صلاحية للحظر');
         }
-
         const { userId, reason, duration = '24h' } = data;
         const targetUser = users.find(u => u.id === parseInt(userId));
-        
         if (!targetUser) {
             return socket.emit('error', 'المستخدم غير موجود');
         }
-
         if (targetUser.role === 'owner' || (targetUser.role === 'admin' && socket.user.role !== 'owner')) {
             return socket.emit('error', 'لا يمكنك حظر هذا المستخدم');
         }
-
         const durationMs = parseDuration(duration);
         const endTime = durationMs === Infinity ? null : new Date(Date.now() + durationMs);
-
         const ban = {
             id: bans.length + 1,
             user_id: targetUser.id,
@@ -1219,9 +1055,7 @@ io.on('connection', (socket) => {
             by_user_id: socket.user.id,
             by_user_name: socket.user.display_name
         };
-
         bans.push(ban);
-
         // قطع اتصال المستخدم
         io.sockets.sockets.forEach(s => {
             if (s.user && s.user.id === targetUser.id) {
@@ -1234,7 +1068,6 @@ io.on('connection', (socket) => {
                 s.disconnect();
             }
         });
-
         socket.emit('userBanned', { 
             userName: targetUser.display_name, 
             reason: ban.reason, 
@@ -1245,22 +1078,17 @@ io.on('connection', (socket) => {
     // حذف رسالة
     socket.on('deleteMessage', (data) => {
         if (!socket.user) return;
-
         const { messageId } = data;
         const message = messages.find(m => m.id === parseInt(messageId));
-        
         if (!message) {
             return socket.emit('error', 'الرسالة غير موجودة');
         }
-
         // يمكن حذف الرسالة إذا كانت للمستخدم نفسه أو إذا كان لديه صلاحية حذف الرسائل
         if (message.user_id !== socket.user.id && !hasPermission(socket.user, 'delete_messages')) {
             return socket.emit('error', 'ليس لديك صلاحية لحذف هذه الرسالة');
         }
-
         message.deleted = true;
         message.content = 'تم حذف هذه الرسالة';
-
         io.to(message.roomId.toString()).emit('messageDeleted', { messageId, deletedBy: socket.user.display_name });
     });
 
@@ -1269,19 +1097,16 @@ io.on('connection', (socket) => {
         if (!socket.user || socket.user.role !== 'owner') {
             return socket.emit('error', 'فقط مالك الشات يمكنه إرسال الإشعارات العامة');
         }
-
         const { title, message, targetUsers = 'all' } = data;
-
         const notification = {
             id: notifications.length + 1,
             type: 'global',
             title,
             message,
-            data: { from: socket.user.display_name },
+             { from: socket.user.display_name },
             timestamp: new Date(),
             read: false
         };
-
         if (targetUsers === 'all') {
             // إرسال لجميع المستخدمين
             users.forEach(user => {
@@ -1297,19 +1122,16 @@ io.on('connection', (socket) => {
                 io.to(userId.toString()).emit('notification', userNotification);
             });
         }
-
         socket.emit('globalNotificationSent', { title, recipientCount: targetUsers === 'all' ? users.length : targetUsers.length });
     });
 
     // قراءة الإشعارات
     socket.on('markNotificationRead', (data) => {
         if (!socket.user) return;
-
         const { notificationId } = data;
         const notification = notifications.find(n => 
             n.id === parseInt(notificationId) && n.user_id === socket.user.id
         );
-
         if (notification) {
             notification.read = true;
             socket.emit('notificationRead', { notificationId });
@@ -1319,24 +1141,20 @@ io.on('connection', (socket) => {
     // الحصول على الإشعارات
     socket.on('getNotifications', () => {
         if (!socket.user) return;
-
         const userNotifications = notifications
             .filter(n => n.user_id === socket.user.id)
             .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
             .slice(0, 50); // آخر 50 إشعار
-
         socket.emit('notifications', userNotifications);
     });
 
     // قطع الاتصال
     socket.on('disconnect', () => {
         console.log('مستخدم منقطع:', socket.id);
-        
         if (socket.user) {
             socket.user.online = false;
             socket.user.last_seen = new Date();
             connectedUsers.delete(socket.id);
-
             // تحديث قائمة المستخدمين المتصلين
             const onlineUsers = Array.from(connectedUsers.values()).map(userId => {
                 const u = users.find(user => user.id === userId);
@@ -1348,7 +1166,6 @@ io.on('connection', (socket) => {
                     online: u.online
                 } : null;
             }).filter(Boolean);
-
             io.emit('userList', onlineUsers);
         }
     });
@@ -1365,7 +1182,6 @@ function startQuestionTimer(competition) {
         const results = Object.values(competition.scores)
             .sort((a, b) => b.score - a.score)
             .slice(0, 10); // أفضل 10 نتائج
-
         io.emit('competitionEnded', { 
             competitionId: competition.id, 
             results,
@@ -1373,9 +1189,7 @@ function startQuestionTimer(competition) {
         });
         return;
     }
-
     const currentQuestion = competition.questions[competition.currentQuestionIndex];
-    
     // إرسال السؤال
     io.emit('newQuestion', {
         competitionId: competition.id,
@@ -1384,22 +1198,18 @@ function startQuestionTimer(competition) {
         options: currentQuestion.options,
         timeLimit: 15
     });
-
     // مؤقت الإجابة (15 ثانية)
     setTimeout(() => {
         if (!competition.active) return;
-
         // إرسال تلميح
         io.emit('questionHint', {
             competitionId: competition.id,
             questionIndex: competition.currentQuestionIndex,
             hint: currentQuestion.hint || 'لا يوجد تلميح'
         });
-
         // مؤقت إضافي (10 ثواني)
         setTimeout(() => {
             if (!competition.active) return;
-
             // إظهار الإجابة الصحيحة
             io.emit('questionAnswer', {
                 competitionId: competition.id,
@@ -1407,11 +1217,9 @@ function startQuestionTimer(competition) {
                 correctAnswer: currentQuestion.correctAnswer,
                 explanation: currentQuestion.explanation || ''
             });
-
             // الانتقال للسؤال التالي بعد 3 ثواني
             setTimeout(() => {
                 if (!competition.active) return;
-
                 competition.currentQuestionIndex++;
                 startQuestionTimer(competition);
             }, 3000);
@@ -1425,11 +1233,9 @@ function playNextSong() {
         io.emit('musicStopped');
         return;
     }
-
     currentSong = musicQueue.shift();
     io.emit('nowPlaying', currentSong);
     io.emit('musicQueueUpdated', musicQueue);
-
     // محاكاة انتهاء الأغنية (في التطبيق الحقيقي، هذا يعتمد على مشغل الموسيقى)
     setTimeout(() => {
         if (currentSong && currentSong.id === (currentSong?.id)) {
@@ -1445,7 +1251,6 @@ function playNextSong() {
 // تنظيف البيانات المؤقتة
 setInterval(() => {
     const now = Date.now();
-    
     // تنظيف حماية الفيضانات
     for (const [userId, messages] of floodProtection.entries()) {
         const recentMessages = messages.filter(time => now - time < 60000);
@@ -1455,7 +1260,6 @@ setInterval(() => {
             floodProtection.set(userId, recentMessages);
         }
     }
-
     // تنظيف الكتم والحظر المنتهي
     const currentTime = new Date();
     mutes = mutes.filter(mute => {
@@ -1471,7 +1275,6 @@ setInterval(() => {
         }
         return true;
     });
-
     bans = bans.filter(ban => {
         if (ban.endTime && currentTime > new Date(ban.endTime)) {
             // إشعار بانتهاء الحظر
@@ -1485,11 +1288,9 @@ setInterval(() => {
         }
         return true;
     });
-
     // تنظيف الستوريات القديمة (أكثر من 24 ساعة)
     const dayAgo = new Date(now - 24 * 60 * 60 * 1000);
     stories = stories.filter(story => new Date(story.timestamp) > dayAgo);
-
     // تنظيف الرسائل القديمة (الاحتفاظ بآخر 1000 رسالة لكل غرفة)
     rooms.forEach(room => {
         const roomMessages = messages.filter(m => m.roomId === room.id);
@@ -1498,7 +1299,6 @@ setInterval(() => {
             messages = messages.filter(m => m.roomId !== room.id).concat(messagesToKeep);
         }
     });
-
 }, 60000); // كل دقيقة
 
 // تنظيف شامل كل ساعة
@@ -1506,13 +1306,11 @@ setInterval(() => {
     // تنظيف الإشعارات القديمة (أكثر من 30 يوم)
     const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     notifications = notifications.filter(n => new Date(n.timestamp) > monthAgo);
-
     // تنظيف طلبات الصداقة المرفوضة القديمة
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     friendRequests = friendRequests.filter(fr => 
         fr.status === 'pending' || new Date(fr.timestamp) > weekAgo
     );
-
     console.log('تم تنظيف البيانات القديمة');
 }, 60 * 60 * 1000); // كل ساعة
 
@@ -1529,15 +1327,12 @@ app.get('/api/ranks', (req, res) => {
 app.get('/api/friend-requests', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user) {
         return res.status(401).json({ error: 'غير مصرح له' });
     }
-
     const userRequests = friendRequests.filter(fr => 
         fr.receiverId === user.id && fr.status === 'pending'
     );
-
     res.json(userRequests);
 });
 
@@ -1545,11 +1340,9 @@ app.get('/api/friend-requests', (req, res) => {
 app.get('/api/friends', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user) {
         return res.status(401).json({ error: 'غير مصرح له' });
     }
-
     const userFriends = friends.filter(f => 
         f.user1Id === user.id || f.user2Id === user.id
     ).map(f => {
@@ -1564,7 +1357,6 @@ app.get('/api/friends', (req, res) => {
             last_seen: friend.last_seen
         } : null;
     }).filter(Boolean);
-
     res.json(userFriends);
 });
 
@@ -1594,17 +1386,13 @@ app.get('/api/comments/:postId', (req, res) => {
 app.post('/api/gifts', upload.single('giftImage'), (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
         return res.status(403).json({ error: 'ليس لديك صلاحية لإنشاء الهدايا' });
     }
-
     const { name, description, price = 0 } = req.body;
-    
     if (!name || !req.file) {
         return res.status(400).json({ error: 'اسم الهدية والصورة مطلوبان' });
     }
-
     const gift = {
         id: gifts.length + 1,
         name,
@@ -1615,7 +1403,6 @@ app.post('/api/gifts', upload.single('giftImage'), (req, res) => {
         timestamp: new Date(),
         active: true
     };
-
     gifts.push(gift);
     res.json(gift);
 });
@@ -1630,24 +1417,18 @@ app.get('/api/gifts', (req, res) => {
 app.post('/api/send-gift', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const sender = getUserFromToken(token);
-    
     if (!sender) {
         return res.status(401).json({ error: 'غير مصرح له' });
     }
-
     const { receiverId, giftId, message } = req.body;
-    
     const receiver = users.find(u => u.id === parseInt(receiverId));
     const gift = gifts.find(g => g.id === parseInt(giftId) && g.active);
-    
     if (!receiver) {
         return res.status(404).json({ error: 'المستقبل غير موجود' });
     }
-    
     if (!gift) {
         return res.status(404).json({ error: 'الهدية غير موجودة' });
     }
-
     const giftSent = {
         id: Date.now(), // استخدام timestamp كـ ID مؤقت
         giftId: gift.id,
@@ -1660,11 +1441,9 @@ app.post('/api/send-gift', (req, res) => {
         message: message || '',
         timestamp: new Date()
     };
-
     // إضافة الهدية لقائمة هدايا المستقبل (يمكن إنشاء جدول منفصل للهدايا المرسلة)
     if (!receiver.receivedGifts) receiver.receivedGifts = [];
     receiver.receivedGifts.push(giftSent);
-
     // إشعار للمستقبل
     const notification = {
         id: notifications.length + 1,
@@ -1672,15 +1451,13 @@ app.post('/api/send-gift', (req, res) => {
         type: 'gift_received',
         title: 'هدية جديدة',
         message: `${sender.display_name} أرسل لك هدية: ${gift.name}`,
-        data: { giftId: gift.id, senderId: sender.id, message },
+         { giftId: gift.id, senderId: sender.id, message },
         timestamp: new Date(),
         read: false
     };
-    
     notifications.push(notification);
     io.to(receiver.id.toString()).emit('notification', notification);
     io.to(receiver.id.toString()).emit('giftReceived', giftSent);
-
     res.json({ message: 'تم إرسال الهدية بنجاح', gift: giftSent });
 });
 
@@ -1688,24 +1465,18 @@ app.post('/api/send-gift', (req, res) => {
 app.post('/api/news/:id/pin', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
         return res.status(403).json({ error: 'ليس لديك صلاحية لتثبيت المنشورات' });
     }
-
     const postId = parseInt(req.params.id);
     const post = news.find(n => n.id === postId);
-    
     if (!post) {
         return res.status(404).json({ error: 'المنشور غير موجود' });
     }
-
     // إلغاء تثبيت المنشورات الأخرى
     news.forEach(n => n.pinned = false);
-    
     // تثبيت المنشور الحالي
     post.pinned = true;
-
     io.emit('postPinned', { postId, pinnedBy: user.display_name });
     res.json({ message: 'تم تثبيت المنشور بنجاح' });
 });
@@ -1714,20 +1485,15 @@ app.post('/api/news/:id/pin', (req, res) => {
 app.delete('/api/news/:id/pin', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
         return res.status(403).json({ error: 'ليس لديك صلاحية لإلغاء تثبيت المنشورات' });
     }
-
     const postId = parseInt(req.params.id);
     const post = news.find(n => n.id === postId);
-    
     if (!post) {
         return res.status(404).json({ error: 'المنشور غير موجود' });
     }
-
     post.pinned = false;
-
     io.emit('postUnpinned', { postId, unpinnedBy: user.display_name });
     res.json({ message: 'تم إلغاء تثبيت المنشور بنجاح' });
 });
@@ -1736,30 +1502,22 @@ app.delete('/api/news/:id/pin', (req, res) => {
 app.delete('/api/news/:id', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user) {
         return res.status(401).json({ error: 'غير مصرح له' });
     }
-
     const postId = parseInt(req.params.id);
     const postIndex = news.findIndex(n => n.id === postId);
-    
     if (postIndex === -1) {
         return res.status(404).json({ error: 'المنشور غير موجود' });
     }
-
     const post = news[postIndex];
-    
     // يمكن الحذف إذا كان صاحب المنشور أو إدارة/مالك
     if (post.user_id !== user.id && user.role !== 'admin' && user.role !== 'owner') {
         return res.status(403).json({ error: 'ليس لديك صلاحية لحذف هذا المنشور' });
     }
-
     news.splice(postIndex, 1);
-    
     // حذف التعليقات المرتبطة
     comments = comments.filter(c => c.postId !== postId);
-
     io.emit('postDeleted', { postId, deletedBy: user.display_name });
     res.json({ message: 'تم حذف المنشور بنجاح' });
 });
@@ -1768,11 +1526,9 @@ app.delete('/api/news/:id', (req, res) => {
 app.get('/api/stats', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user || user.role !== 'owner') {
         return res.status(403).json({ error: 'فقط مالك الشات يمكنه الوصول للإحصائيات' });
     }
-
     const stats = {
         totalUsers: users.length,
         onlineUsers: users.filter(u => u.online).length,
@@ -1789,7 +1545,6 @@ app.get('/api/stats', (req, res) => {
         musicQueueLength: musicQueue.length,
         isPlayingMusic: currentSong !== null
     };
-
     res.json(stats);
 });
 
@@ -1797,11 +1552,9 @@ app.get('/api/stats', (req, res) => {
 app.get('/api/activity-logs', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user || user.role !== 'owner') {
         return res.status(403).json({ error: 'فقط مالك الشات يمكنه الوصول لسجلات النشاط' });
     }
-
     const logs = [
         ...mutes.map(m => ({
             id: m.id,
@@ -1830,7 +1583,6 @@ app.get('/api/activity-logs', (req, res) => {
             timestamp: new Date()
         }))
     ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 100);
-
     res.json(logs);
 });
 
@@ -1838,25 +1590,19 @@ app.get('/api/activity-logs', (req, res) => {
 app.put('/api/rooms/:id', upload.single('background'), (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user || user.role !== 'owner') {
         return res.status(403).json({ error: 'فقط مالك الشات يمكنه تعديل الغرف' });
     }
-
     const roomId = parseInt(req.params.id);
     const room = rooms.find(r => r.id === roomId);
-    
     if (!room) {
         return res.status(404).json({ error: 'الغرفة غير موجودة' });
     }
-
     const { name, description, rules } = req.body;
-    
     if (name) room.name = name;
     if (description) room.description = description;
     if (rules) room.rules = Array.isArray(rules) ? rules : JSON.parse(rules || '[]');
     if (req.file) room.background = `/uploads/${req.file.filename}`;
-
     io.emit('roomUpdated', room);
     res.json(room);
 });
@@ -1865,28 +1611,22 @@ app.put('/api/rooms/:id', upload.single('background'), (req, res) => {
 app.post('/api/ranks', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user || user.role !== 'owner') {
         return res.status(403).json({ error: 'فقط مالك الشات يمكنه إنشاء رتب جديدة' });
     }
-
     const { name, displayName, color, permissions } = req.body;
-    
     if (!name || !displayName || !color) {
         return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
     }
-
     if (ranks.find(r => r.name === name)) {
         return res.status(400).json({ error: 'اسم الرتبة موجود مسبقاً' });
     }
-
     const newRank = {
         name,
         displayName,
         color,
         permissions: Array.isArray(permissions) ? permissions : []
     };
-
     ranks.push(newRank);
     io.emit('rankCreated', newRank);
     res.json(newRank);
@@ -1896,28 +1636,21 @@ app.post('/api/ranks', (req, res) => {
 app.put('/api/ranks/:name', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user || user.role !== 'owner') {
         return res.status(403).json({ error: 'فقط مالك الشات يمكنه تعديل الرتب' });
     }
-
     const rankName = req.params.name;
     const rank = ranks.find(r => r.name === rankName);
-    
     if (!rank) {
         return res.status(404).json({ error: 'الرتبة غير موجودة' });
     }
-
     if (rankName === 'owner') {
         return res.status(403).json({ error: 'لا يمكن تعديل رتبة المالك' });
     }
-
     const { displayName, color, permissions } = req.body;
-    
     if (displayName) rank.displayName = displayName;
     if (color) rank.color = color;
     if (permissions) rank.permissions = Array.isArray(permissions) ? permissions : [];
-
     io.emit('rankUpdated', rank);
     res.json(rank);
 });
@@ -1926,32 +1659,24 @@ app.put('/api/ranks/:name', (req, res) => {
 app.delete('/api/ranks/:name', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = getUserFromToken(token);
-    
     if (!user || user.role !== 'owner') {
         return res.status(403).json({ error: 'فقط مالك الشات يمكنه حذف الرتب' });
     }
-
     const rankName = req.params.name;
-    
     if (['owner', 'admin', 'visitor'].includes(rankName)) {
         return res.status(403).json({ error: 'لا يمكن حذف الرتب الأساسية' });
     }
-
     const rankIndex = ranks.findIndex(r => r.name === rankName);
-    
     if (rankIndex === -1) {
         return res.status(404).json({ error: 'الرتبة غير موجودة' });
     }
-
     ranks.splice(rankIndex, 1);
-    
     // تحديث المستخدمين الذين يملكون هذه الرتبة إلى زائر
     users.forEach(u => {
         if (u.rank === rankName) {
             u.rank = 'visitor';
         }
     });
-
     io.emit('rankDeleted', { rankName });
     res.json({ message: 'تم حذف الرتبة بنجاح' });
 });
@@ -1959,11 +1684,9 @@ app.delete('/api/ranks/:name', (req, res) => {
 // البحث في المستخدمين
 app.get('/api/search/users', (req, res) => {
     const { q } = req.query;
-    
     if (!q || q.length < 2) {
         return res.status(400).json({ error: 'يجب أن يكون البحث على الأقل حرفين' });
     }
-
     const searchResults = users.filter(u => 
         u.display_name.toLowerCase().includes(q.toLowerCase())
     ).map(u => ({
@@ -1974,7 +1697,6 @@ app.get('/api/search/users', (req, res) => {
         online: u.online,
         last_seen: u.last_seen
     })).slice(0, 20); // أقصى 20 نتيجة
-
     res.json(searchResults);
 });
 
@@ -1982,7 +1704,6 @@ app.get('/api/search/users', (req, res) => {
 // خدمة الملفات الثابتة وHTML
 // =================
 
-// صفحة الشات الرئيسية (يمكن استبدالها بـ React/Vue/Angular app)
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -1990,7 +1711,7 @@ app.get('/', (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>شات متطور</title>
+        <title>🦂 شات وتين العقرب</title>
         <style>
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: #1a1a1a; color: white; }
             .container { max-width: 1200px; margin: 0 auto; }
@@ -2003,6 +1724,7 @@ app.get('/', (req, res) => {
             .method { color: #4CAF50; font-weight: bold; }
             .status { text-align: center; padding: 20px; background: #2a2a2a; border-radius: 10px; margin-top: 20px; }
         </style>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     </head>
     <body>
         <div class="container">
@@ -2010,7 +1732,6 @@ app.get('/', (req, res) => {
                 <h1>🎉 نظام الشات المتطور</h1>
                 <p>نظام دردشة شامل مع جميع الميزات المطلوبة</p>
             </div>
-
             <div class="features">
                 <div class="feature">
                     <h3>🔐 نظام المصادقة</h3>
@@ -2037,10 +1758,8 @@ app.get('/', (req, res) => {
                     <p>كتم وحظر وإدارة المستخدمين</p>
                 </div>
             </div>
-
             <div class="api-list">
                 <h2>📡 نقاط الـ API المتاحة</h2>
-                
                 <div class="api-endpoint">
                     <span class="method">POST</span> /api/login - تسجيل الدخول
                 </div>
@@ -2066,7 +1785,6 @@ app.get('/', (req, res) => {
                     <span class="method">WebSocket</span> - اتصال مباشر للدردشة
                 </div>
             </div>
-
             <div class="status">
                 <h3>✅ الخادم يعمل بنجاح!</h3>
                 <p>جميع الميزات المطلوبة تم تنفيذها وهي جاهزة للاستخدام</p>
@@ -2074,17 +1792,14 @@ app.get('/', (req, res) => {
                 <p><strong>WebSocket:</strong> متصل ✓</p>
             </div>
         </div>
-
         <script src="/socket.io/socket.io.js"></script>
         <script>
             // اختبار اتصال WebSocket
             const socket = io();
-            
             socket.on('connect', () => {
                 console.log('✅ اتصال WebSocket نجح!');
                 document.querySelector('.status h3').innerHTML = '✅ الخادم والـ WebSocket يعملان بنجاح!';
             });
-
             socket.on('disconnect', () => {
                 console.log('❌ انقطع اتصال WebSocket');
             });
@@ -2113,9 +1828,7 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`
     🎉 خادم الشات المتطور يعمل على المنفذ ${PORT}
-    
     🌐 الرابط: http://localhost:${PORT}
-    
     ✨ الميزات المفعلة:
     ✅ نظام المصادقة والأمان
     ✅ الدردشة العامة والخاصة
@@ -2131,7 +1844,6 @@ server.listen(PORT, () => {
     ✅ حماية من الفيضانات
     ✅ لوحة تحكم المالك
     ✅ الإحصائيات والسجلات
-    
     📝 ملاحظات مهمة:
     - المالك الافتراضي: owner@chat.com / owner123
     - تأكد من وجود مجلد Uploads لحفظ الملفات
