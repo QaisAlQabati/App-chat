@@ -341,75 +341,43 @@ app.post('/api/login', (req, res) => {
 });
 
 
-// --- API الترقية الجديد والمحسن ---
-app.post('/api/promote-user', (req, res) => {
-    // الخطوة 1: التحقق من هوية المُرقِّي (الشخص الذي يرسل الطلب)
+// --- API جديد للتحكم الكامل بالرتب (خاص بالمالك فقط) ---
+app.post('/api/set-rank', (req, res) => {
+    // الخطوة 1: التحقق من هوية من يرسل الطلب
     const token = req.headers.authorization?.split(' ')[1];
-    console.log(`[API الترقية] تم استلام طلب بالتوكن: ${token}`); // للتتبع
-    if (!token) {
-        return res.status(401).json({ error: 'الرجاء تسجيل الدخول أولاً' });
-    }
-    const promoter = users.find(u => u.token === token);
-    if (!promoter) {
-        return res.status(403).json({ error: 'رمز الدخول غير صالح أو أنك غير مسجل' });
+    if (!token) return res.status(401).json({ error: 'الرجاء تسجيل الدخول أولاً' });
+    
+    const requester = users.find(u => u.token === token);
+    if (!requester) return res.status(403).json({ error: 'رمز الدخول غير صالح' });
+
+    // --- الشرط الأساسي والوحيد: هل هذا الشخص هو المالك؟ ---
+    if (requester.email !== 'njdj9985@mail.com') {
+        return res.status(403).json({ error: 'ليس لديك الصلاحية المطلقة لتغيير الرتب.' });
     }
 
-    // الخطوة 2: الحصول على بيانات الطلب (هوية المستخدم المستهدف والرتبة الجديدة)
+    // الخطوة 2: الحصول على بيانات الطلب
     const { targetUserId, newRankKey } = req.body;
     if (!targetUserId || !newRankKey) {
         return res.status(400).json({ error: 'الطلب ناقص، الرجاء تحديد المستخدم والرتبة الجديدة' });
     }
 
     const targetUser = users.find(u => u.id === parseInt(targetUserId));
-    if (!targetUser) {
-        return res.status(404).json({ error: 'المستخدم المستهدف غير موجود' });
-    }
-
-    // الخطوة 3: جلب بيانات الرتب للتحقق منها
-    const promoterRankInfo = RANKS[promoter.rank];
-    const targetUserRankInfo = RANKS[targetUser.rank];
-    const newRankInfo = RANKS[newRankKey];
-
-    if (!newRankInfo) {
-        return res.status(400).json({ error: 'الرتبة الجديدة المختارة غير صالحة' });
-    }
-
-    // --- الخطوة 4: تطبيق منطق وشروط الترقية ---
-
-    // الشرط الأول: هل يملك المُرقِّي صلاحية استخدام النظام؟ (برنس وما فوق)
-    if (promoterRankInfo.level < 5) {
-        return res.status(403).json({ error: 'رتبتك الحالية لا تسمح لك بترقية الآخرين' });
-    }
-
-    // الشرط الثاني (مهم جداً): هل مستوى المُرقِّي أعلى من مستوى الرتبة الجديدة؟
-    if (promoterRankInfo.level <= newRankInfo.level) {
-        return res.status(403).json({ error: 'لا يمكنك الترقية إلى رتبة تساوي رتبتك أو أعلى منها' });
-    }
-
-    // الشرط الثالث: هل الرتبة الجديدة أعلى من رتبة المستخدم الحالية؟
-    if (newRankInfo.level <= targetUserRankInfo.level) {
-        return res.status(400).json({ error: 'يجب أن تكون الرتبة الجديدة أعلى من رتبة المستخدم الحالية' });
-    }
-
-    // الشرط الرابع: هل يملك المُرقِّي نقاطاً كافية؟
-    if (promoter.points < newRankInfo.cost) {
-        return res.status(402).json({ error: `ليس لديك نقاط كافية. التكلفة: ${newRankInfo.cost} نقطة` });
-    }
-
-    // --- الخطوة 5: تنفيذ الترقية إذا نجحت كل الشروط ---
+    if (!targetUser) return res.status(404).json({ error: 'المستخدم المستهدف غير موجود' });
     
-    // 1. خصم النقاط من المُرقِّي
-    promoter.points -= newRankInfo.cost;
+    if (!RANKS[newRankKey]) return res.status(400).json({ error: 'الرتبة الجديدة المختارة غير صالحة' });
 
-    // 2. تحديث رتبة المستخدم المستهدف
+    // الخطوة 3: تنفيذ الأمر مباشرة بدون أي شروط أخرى
+    const oldRankName = RANKS[targetUser.rank].name;
+    const newRankName = RANKS[newRankKey].name;
+
     targetUser.rank = newRankKey;
 
-    // 3. إرسال رسالة نجاح
-    res.json({ message: `تمت ترقية ${targetUser.username} إلى ${newRankInfo.name} بنجاح!` });
+    console.log(`[صلاحية المالك] قام ${requester.username} بتغيير رتبة ${targetUser.username} من '${oldRankName}' إلى '${newRankName}'.`);
 
-    // --- الخطوة 6: إعلام جميع المستخدمين بالتغييرات في الوقت الفعلي ---
+    res.json({ message: `تم تحديث رتبة ${targetUser.username} إلى ${newRankName} بنجاح.` });
+
+    // الخطوة 4: إعلام جميع المستخدمين بالتغيير
     io.emit('userUpdated', { id: targetUser.id, rank: targetUser.rank });
-    io.emit('userUpdated', { id: promoter.id, points: promoter.points });
 });
 
 
@@ -418,6 +386,7 @@ const PORT = 3000;
 server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
+
 
 
 // API للحصول على قائمة المستخدمين
