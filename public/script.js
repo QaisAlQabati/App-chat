@@ -4455,9 +4455,536 @@ function viewStory(story) {
 
 // فتح قسم الألعاب
 function openGamesSection() {
-    showNotification('الألعاب قيد التطوير', 'info');
+    openModal('gamesModal');
+    loadGames();
     closeMainMenu();
 }
+
+// تحميل قائمة الألعاب
+function loadGames() {
+    const container = document.getElementById('gamesContainer');
+    if (!container) {
+        console.error('عنصر gamesContainer غير موجود');
+        return;
+    }
+    container.innerHTML = `
+        <h2>قسم الألعاب 🎮</h2>
+        <p>العب واربح نقاط! كلما فزت أكثر، كلما حصلت على نقاط أعلى!</p>
+        <div class="games-grid">
+            <button class="game-btn" onclick="startGuessGame()">
+                🎯 تخمين الرقم<br>
+                <small>اربح 10 نقاط</small>
+            </button>
+            <button class="game-btn" onclick="startRPSGame()">
+                ✂️ حجر-ورقة-مقص<br>
+                <small>اربح 5 نقاط</small>
+            </button>
+            <button class="game-btn" onclick="startTicTacToe()">
+                ⭕ X و O<br>
+                <small>اربح 15 نقطة!</small>
+            </button>
+        </div>
+        <div class="points-section">
+            <p>نقاطك الحالية: <span id="pointsDisplay" class="points-value">${getPoints()}</span></p>
+            <p>إجمالي الألعاب المكتملة: <span id="totalGames">${getTotalGames()}</span></p>
+        </div>
+        <div class="leaderboard">
+            <h4>قائمة الأفضل</h4>
+            <div id="leaderboardList"></div>
+        </div>
+    `;
+    
+    loadLeaderboard();
+}
+
+// بدء لعبة تخمين الرقم
+function startGuessGame() {
+    const secretNumber = Math.floor(Math.random() * 10) + 1;
+    let attempts = 3;
+    
+    openModal('guessGameModal');
+    const gameContainer = document.getElementById('guessGameContainer');
+    if (!gameContainer) {
+        console.error('عنصر guessGameContainer غير موجود');
+        return;
+    }
+    gameContainer.innerHTML = `
+        <h3>تخمين الرقم (1-10)</h3>
+        <p>لديك ${attempts} محاولات</p>
+        <input type="number" id="guessInput" min="1" max="10">
+        <button onclick="submitGuess(${secretNumber}, ${attempts})">تخمين</button>
+        <p id="guessResult"></p>
+    `;
+    incrementGamesCount();
+}
+
+// تقديم التخمين
+function submitGuess(secret, attempts) {
+    const guess = parseInt(document.getElementById('guessInput').value);
+    const result = document.getElementById('guessResult');
+    
+    if (isNaN(guess) || guess < 1 || guess > 10) {
+        result.textContent = 'أدخل رقمًا بين 1 و10';
+        return;
+    }
+    
+    attempts--;
+    if (guess === secret) {
+        result.textContent = 'مبروك! فزت!';
+        addPoints(10); // إضافة 10 نقاط
+        updatePointsDisplay();
+        setTimeout(() => closeModal('guessGameModal'), 2000);
+    } else if (attempts > 0) {
+        result.textContent = `خطأ! المحاولات المتبقية: ${attempts}. ${guess > secret ? 'أصغر' : 'أكبر'}`;
+        document.getElementById('guessGameContainer').innerHTML = `
+            <h3>تخمين الرقم (1-10)</h3>
+            <p>لديك ${attempts} محاولات</p>
+            <input type="number" id="guessInput" min="1" max="10">
+            <button onclick="submitGuess(${secret}, ${attempts})">تخمين</button>
+            <p id="guessResult">${result.textContent}</p>
+        `;
+    } else {
+        result.textContent = `خسرت! الرقم كان ${secret}`;
+        setTimeout(() => closeModal('guessGameModal'), 2000);
+    }
+}
+
+// بدء لعبة حجر-ورقة-مقص
+function startRPSGame() {
+    openModal('rpsGameModal');
+    const gameContainer = document.getElementById('rpsGameContainer');
+    if (!gameContainer) {
+        console.error('عنصر rpsGameContainer غير موجود');
+        return;
+    }
+    gameContainer.innerHTML = `
+        <h3>حجر-ورقة-مقص</h3>
+        <button onclick="playRPS('rock')">حجر</button>
+        <button onclick="playRPS('paper')">ورقة</button>
+        <button onclick="playRPS('scissors')">مقص</button>
+        <p id="rpsResult"></p>
+    `;
+    incrementGamesCount();
+}
+
+// لعب دور في حجر-ورقة-مقص
+function playRPS(playerChoice) {
+    const choices = ['rock', 'paper', 'scissors'];
+    const computerChoice = choices[Math.floor(Math.random() * 3)];
+    const result = document.getElementById('rpsResult');
+    
+    if (playerChoice === computerChoice) {
+        result.textContent = 'تعادل!';
+    } else if (
+        (playerChoice === 'rock' && computerChoice === 'scissors') ||
+        (playerChoice === 'paper' && computerChoice === 'rock') ||
+        (playerChoice === 'scissors' && computerChoice === 'paper')
+    ) {
+        result.textContent = `فزت! الكمبيوتر اختار ${computerChoice}`;
+        addPoints(5); // إضافة 5 نقاط
+        updatePointsDisplay();
+    } else {
+        result.textContent = `خسرت! الكمبيوتر اختار ${computerChoice}`;
+    }
+    
+    setTimeout(() => closeModal('rpsGameModal'), 3000);
+}
+
+// بدء لعبة X و O
+function startTicTacToe() {
+    openModal('ticTacToeModal');
+    const gameContainer = document.getElementById('ticTacToeContainer');
+    if (!gameContainer) {
+        console.error('عنصر ticTacToeContainer غير موجود');
+        return;
+    }
+    
+    // إنشاء لوحة اللعبة
+    gameContainer.innerHTML = `
+        <h3>لعبة X و O</h3>
+        <p>أنت: X | الكمبيوتر: O</p>
+        <div id="gameBoard" class="game-board">
+            ${Array(9).fill('').map((_, i) => `<div class="cell" onclick="makeMove(${i})" data-index="${i}"></div>`).join('')}
+        </div>
+        <p id="gameStatus">دورك - اختر مربع!</p>
+        <p>نقاطك: <span id="gamePoints">0</span></p>
+        <button onclick="resetTicTacToe()">لعب مرة أخرى</button>
+    `;
+    
+    // تهيئة اللعبة
+    gameBoard = ['', '', '', '', '', '', '', '', ''];
+    currentPlayer = 'X';
+    gameActive = true;
+    playerScore = 0;
+    computerScore = 0;
+    updatePointsDisplay();
+    incrementGamesCount();
+}
+
+// لوحة اللعبة ومتغيراتها لـ X و O
+let gameBoard = ['', '', '', '', '', '', '', '', ''];
+let currentPlayer = 'X';
+let gameActive = true;
+let playerScore = 0;
+let computerScore = 0;
+
+// التحقق من الفائز في X و O
+function checkWinner() {
+    const winningConditions = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8], // صفوف
+        [0, 3, 6], [1, 4, 7], [2, 5, 8], // أعمدة
+        [0, 4, 8], [2, 4, 6] // قطري
+    ];
+    
+    for (let condition of winningConditions) {
+        const [a, b, c] = condition;
+        if (gameBoard[a] && gameBoard[a] === gameBoard[b] && gameBoard[a] === gameBoard[c]) {
+            return gameBoard[a];
+        }
+    }
+    
+    // التحقق من التعادل
+    if (!gameBoard.includes('')) {
+        return 'draw';
+    }
+    
+    return null;
+}
+
+// تحديث لوحة X و O
+function updateBoard() {
+    const cells = document.querySelectorAll('.cell');
+    cells.forEach((cell, index) => {
+        cell.textContent = gameBoard[index];
+        cell.className = `cell ${gameBoard[index]}`;
+    });
+    
+    const status = document.getElementById('gameStatus');
+    const winner = checkWinner();
+    
+    if (winner === 'X') {
+        status.textContent = 'مبروك! فزت باللعبة! 🎉';
+        gameActive = false;
+        playerScore++;
+        addPoints(15); // إضافة 15 نقاط للفوز
+        updateGameScore();
+    } else if (winner === 'O') {
+        status.textContent = 'خسرت! الكمبيوتر فاز 😅';
+        gameActive = false;
+        computerScore++;
+        updateGameScore();
+    } else if (winner === 'draw') {
+        status.textContent = 'تعادل! لعبت جيدًا 🤝';
+        gameActive = false;
+        addPoints(5); // 5 نقاط للتعادل
+        updateGameScore();
+    } else {
+        status.textContent = `دور ${currentPlayer === 'X' ? 'X' : 'O'}`;
+    }
+}
+
+// إجراء حركة اللاعب في X و O
+function makeMove(index) {
+    if (gameActive && currentPlayer === 'X' && gameBoard[index] === '') {
+        gameBoard[index] = 'X';
+        currentPlayer = 'O';
+        updateBoard();
+        
+        // حركة الكمبيوتر بعد حركة اللاعب
+        if (gameActive && currentPlayer === 'O') {
+            setTimeout(computerMove, 500); // تأخير بسيط للكمبيوتر
+        }
+    }
+}
+
+// حركة الكمبيوتر في X و O
+function computerMove() {
+    let availableMoves = [];
+    for (let i = 0; i < 9; i++) {
+        if (gameBoard[i] === '') {
+            availableMoves.push(i);
+        }
+    }
+    
+    let move;
+    // التحقق من الفوز المباشر
+    for (let i = 0; i < 9; i++) {
+        if (gameBoard[i] === '') {
+            gameBoard[i] = 'O';
+            if (checkWinner() === 'O') {
+                move = i;
+                break;
+            }
+            gameBoard[i] = '';
+        }
+    }
+    
+    // التحقق من منع فوز اللاعب
+    if (!move) {
+        for (let i = 0; i < 9; i++) {
+            if (gameBoard[i] === '') {
+                gameBoard[i] = 'X';
+                if (checkWinner() === 'X') {
+                    move = i;
+                    break;
+                }
+                gameBoard[i] = '';
+            }
+        }
+    }
+    
+    // إذا لم توجد استراتيجية، اختيار عشوائي
+    if (!move && availableMoves.length > 0) {
+        move = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+    }
+    
+    if (move !== undefined) {
+        gameBoard[move] = 'O';
+        currentPlayer = 'X';
+        updateBoard();
+    }
+}
+
+// إعادة تعيين لعبة X و O
+function resetTicTacToe() {
+    gameBoard = ['', '', '', '', '', '', '', '', ''];
+    currentPlayer = 'X';
+    gameActive = true;
+    playerScore = 0;
+    computerScore = 0;
+    updateBoard();
+    updateGameScore();
+}
+
+// تحديث عرض النتائج في X و O
+function updateGameScore() {
+    const pointsDisplay = document.getElementById('gamePoints');
+    if (pointsDisplay) {
+        pointsDisplay.textContent = getPoints();
+    }
+    
+    const status = document.getElementById('gameStatus');
+    if (status) {
+        status.innerHTML += `<br>نتيجة اللعبة: أنت ${playerScore} - الكمبيوتر ${computerScore}`;
+    }
+}
+
+// إدارة النقاط
+function getPoints() {
+    return parseInt(localStorage.getItem('userPoints') || '0');
+}
+
+function addPoints(amount) {
+    const current = getPoints();
+    localStorage.setItem('userPoints', current + amount);
+    // يمكن إضافة API لاحقًا: await fetch('/api/points', { method: 'POST', body: JSON.stringify({amount}) });
+    updatePointsDisplay();
+}
+
+// تحديث عرض النقاط
+function updatePointsDisplay() {
+    const displays = document.querySelectorAll('#pointsDisplay, #gamePoints');
+    displays.forEach(display => {
+        if (display) display.textContent = getPoints();
+    });
+}
+
+// إدارة عداد الألعاب
+function getTotalGames() {
+    return parseInt(localStorage.getItem('totalGamesPlayed') || '0');
+}
+
+function incrementGamesCount() {
+    const current = getTotalGames();
+    localStorage.setItem('totalGamesPlayed', current + 1);
+    updateTotalGamesDisplay();
+}
+
+function updateTotalGamesDisplay() {
+    const display = document.getElementById('totalGames');
+    if (display) display.textContent = getTotalGames();
+}
+
+// تحميل قائمة الأفضل
+function loadLeaderboard() {
+    const leaderboardList = document.getElementById('leaderboardList');
+    if (!leaderboardList) return;
+    
+    // محاكاة بيانات قائمة الأفضل
+    const mockLeaderboard = [
+        { name: 'أحمد محمد', points: 245, games: 12 },
+        { name: 'فاطمة علي', points: 198, games: 9 },
+        { name: 'عمر خالد', points: 167, games: 15 },
+        { name: 'نورا سعيد', points: 134, games: 8 },
+        { name: 'خالد حسن', points: 89, games: 11 }
+    ];
+    
+    leaderboardList.innerHTML = mockLeaderboard.map((player, index) => `
+        <div class="leaderboard-item">
+            <span class="rank">#${index + 1}</span>
+            <span class="name">${player.name}</span>
+            <span class="points">${player.points} نقطة</span>
+            <span class="games">${player.games} لعبة</span>
+        </div>
+    `).join('');
+}
+
+// إغلاق مودال الألعاب
+function closeGamesModal() {
+    closeModal('gamesModal');
+}
+
+// إضافة CSS للتصميم
+function addGameStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .game-btn {
+            padding: 20px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            text-align: center;
+        }
+        
+        .game-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .game-btn small {
+            font-size: 12px;
+            opacity: 0.8;
+            display: block;
+            margin-top: 5px;
+        }
+        
+        .points-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .points-value {
+            color: #28a745;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            width: 240px;
+            height: 240px;
+            margin: 20px auto;
+            background: #333;
+            padding: 2px;
+            border-radius: 10px;
+        }
+        
+        .cell {
+            width: 80px;
+            height: 80px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .cell:hover {
+            background: #f0f0f0;
+        }
+        
+        .cell.X {
+            color: #dc3545;
+        }
+        
+        .cell.O {
+            color: #007bff;
+        }
+        
+        .leaderboard {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+        
+        .rank {
+            font-weight: bold;
+            color: #ffc107;
+            min-width: 30px;
+        }
+        
+        .name {
+            flex: 1;
+            font-weight: 500;
+        }
+        
+        .points, .games {
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .modal-content {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        input[type="number"], button {
+            padding: 10px;
+            margin: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        
+        button {
+            background: #28a745;
+            color: white;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #218838;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// تهيئة الألعاب عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', addGameStyles);
 
 // فتح غرفة المسابقات
 function openQuizRoom() {
