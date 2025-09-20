@@ -5533,9 +5533,10 @@ async function sendNotificationToUser() {
     const recipientId = document.getElementById('notificationRecipient').value;
     const message = document.getElementById('notificationMessage').value.trim();
     const type = document.getElementById('notificationType').value;
-    
+
+    // تحقق من الحقول
     if (!recipientId) {
-        showNotification('يرجى اختيار مستخدم', 'warning');
+        showNotification('يرجى اختيار مستخدم صحيح', 'warning');
         return;
     }
     
@@ -5543,10 +5544,21 @@ async function sendNotificationToUser() {
         showNotification('يرجى كتابة رسالة الإشعار', 'warning');
         return;
     }
-    
+
+    if (!type) {
+        showNotification('يرجى اختيار نوع الإشعار', 'warning');
+        return;
+    }
+
     try {
         showLoading(true);
-        
+
+        console.log('إرسال إشعار:', {
+            recipientId: parseInt(recipientId),
+            message,
+            type
+        });
+
         const response = await fetch('/api/send-notification', {
             method: 'POST',
             headers: {
@@ -5559,21 +5571,26 @@ async function sendNotificationToUser() {
                 type
             })
         });
-        
+
         const data = await response.json();
-        
+        console.log('رد السيرفر:', data);
+
         if (response.ok) {
             showNotification('تم إرسال الإشعار بنجاح', 'success');
             closeSendNotificationModal();
         } else {
-            showNotification(data.error || 'فشل في إرسال الإشعار', 'error');
+            // عرض سبب فشل الإرسال مباشرة
+            showNotification(data.error || 'فشل في إرسال الإشعار، تحقق من بيانات المستلم', 'error');
         }
+
     } catch (error) {
-        showNotification('حدث خطأ في إرسال الإشعار', 'error');
+        console.error('خطأ عند الإرسال:', error);
+        showNotification('حدث خطأ أثناء إرسال الإشعار', 'error');
     } finally {
         showLoading(false);
     }
 }
+
 
 // ==================== قائمة المتصلين حالياً ====================
 
