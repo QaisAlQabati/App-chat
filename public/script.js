@@ -3519,34 +3519,55 @@ function showBanScreen(reason) {
     document.getElementById('banReason').innerHTML = `<p>${reason}</p>`;
 }
 
-// التحقق من حالة الحظر
+// التحقق من حالة الحظر مع عرض السبب ومنع الدخول إذا محظور
 async function checkBanStatus() {
     const token = localStorage.getItem('chatToken');
     if (!token) {
         showLoginScreen();
         return;
     }
-    
+
     try {
         const response = await fetch('/api/user/profile', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
+
         if (response.ok) {
             const user = await response.json();
             currentUser = user;
+
+            if (user.isBanned) {
+                // المستخدم محظور، عرض سبب الحظر ومنعه من الدخول
+                showBanScreen(user.banReason);
+                return;
+            }
+
+            // المستخدم مسموح له بالدخول
             showMainScreen();
             initializeSocket();
             showNotification('تم رفع الحظر', 'success');
+
         } else {
-            showNotification('لا يزال الحظر ساري المفعول', 'error');
+            showError('تعذر التحقق من المستخدم');
         }
+
     } catch (error) {
         showError('حدث خطأ في التحقق من حالة الحظر');
     }
 }
+
+// دالة عرض شاشة الحظر مع السبب
+function showBanScreen(reason) {
+    document.body.innerHTML = `
+        <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
+            <h1 style="color:red;">أنت محظور</h1>
+            <p>السبب: ${reason}</p>
+        </div>
+    `;
+}
+
 
 // تحميل الغرف
 async function loadRooms() {
