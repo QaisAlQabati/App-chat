@@ -5406,10 +5406,12 @@ function unmuteUser(userId, userName) {
         });
     }
 }
-// فتح نافذة إنشاء الغرفة
+// وظيفة لفتح نافذة إنشاء الغرفة
 function openCreateRoomModal() {
-    // منع تكرار النافذة
-    if (document.getElementById('createRoomModal')) return;
+    // التحقق مما إذا كان هناك نافذة منبثقة موجودة بالفعل
+    if (document.getElementById('createRoomModal')) {
+        return; // إذا كانت موجودة، لا تفتح واحدة جديدة
+    }
 
     const modal = document.createElement('div');
     modal.className = 'modal active';
@@ -5419,18 +5421,15 @@ function openCreateRoomModal() {
         <div class="modal-content">
             <span class="close" onclick="closeCreateRoomModal()">&times;</span>
             <h2>🏠 إنشاء غرفة جديدة</h2>
-            
             <div class="room-form">
                 <div class="form-group">
                     <label>اسم الغرفة:</label>
-                    <input type="text" id="roomName" placeholder="ادخل اسم الغرفة">
+                    <input type="text" id="roomName" placeholder="ادخل اسم الغرفة" required>
                 </div>
-                
                 <div class="form-group">
                     <label>وصف الغرفة:</label>
                     <textarea id="roomDescription" placeholder="ادخل وصف للغرفة"></textarea>
                 </div>
-                
                 <div class="form-group">
                     <label>نوع الغرفة:</label>
                     <select id="roomType">
@@ -5439,26 +5438,92 @@ function openCreateRoomModal() {
                         <option value="contest">مسابقات</option>
                     </select>
                 </div>
-                
                 <div class="form-group">
                     <label>الحد الأقصى للمستخدمين:</label>
-                    <input type="number" id="maxUsers" value="50" min="2" max="200">
+                    <input type="number" id="maxUsers" value="50" min="2" max="200" required>
                 </div>
-                
                 <div class="room-actions">
                     <button onclick="createRoom()" class="btn save-btn">إنشاء الغرفة</button>
                     <button onclick="closeCreateRoomModal()" class="btn cancel-btn">إلغاء</button>
                 </div>
+                <div id="errorMessage" class="error-message" style="color: red; display: none;"></div>
             </div>
         </div>
     `;
     
     document.body.appendChild(modal);
+}
 
-    // إغلاق عند الضغط خارج المحتوى
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) closeCreateRoomModal();
+// وظيفة لإغلاق النافذة المنبثقة
+function closeCreateRoomModal() {
+    const modal = document.getElementById('createRoomModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// وظيفة لإنشاء الغرفة
+function createRoom() {
+    const roomName = document.getElementById('roomName').value.trim();
+    const roomDescription = document.getElementById('roomDescription').value.trim();
+    const roomType = document.getElementById('roomType').value;
+    const maxUsers = parseInt(document.getElementById('maxUsers').value);
+    const errorMessage = document.getElementById('errorMessage');
+
+    // إعادة إخفاء رسالة الخطأ إن وجدت
+    if (errorMessage) {
+        errorMessage.style.display = 'none';
+        errorMessage.textContent = '';
+    }
+
+    // التحقق من المدخلات
+    if (!roomName) {
+        showError('يرجى إدخال اسم الغرفة');
+        return;
+    }
+    if (isNaN(maxUsers) || maxUsers < 2 || maxUsers > 200) {
+        showError('يرجى إدخال عدد مستخدمين بين 2 و200');
+        return;
+    }
+
+    // التحقق من تعريف socket
+    if (typeof socket === 'undefined' || !socket.connected) {
+        showError('خطأ في الاتصال بالخادم، يرجى المحاولة لاحقًا');
+        return;
+    }
+
+    // إرسال بيانات الغرفة إلى الخادم
+    socket.emit('createRoom', {
+        name: roomName,
+        description: roomDescription,
+        type: roomType,
+        maxUsers: maxUsers
     });
+
+    // الاستماع إلى استجابة الخادم
+    socket.on('roomCreated', (response) => {
+        if (response.success) {
+            closeCreateRoomModal();
+            alert('تم إنشاء الغرفة بنجاح!');
+        } else {
+            showError(response.message || 'فشل إنشاء الغرفة، يرجى المحاولة مرة أخرى');
+        }
+    });
+
+    socket.on('error', (error) => {
+        showError('خطأ: ' + error.message);
+    });
+}
+
+// وظيفة لعرض رسائل الخطأ
+function showError(message) {
+    const errorMessage = document.getElementById('errorMessage');
+    if (errorMessage) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+    } else {
+        alert(message);
+    }
 }
 
 // إغلاق نافذة إنشاء الغرفة
