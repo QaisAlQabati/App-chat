@@ -351,7 +351,8 @@ app.post('/api/set-rank', (req, res) => {
     if (!requester) return res.status(403).json({ error: 'رمز الدخول غير صالح' });
 
     // --- الشرط الأساسي والوحيد: هل هذا الشخص هو المالك؟ ---
-    if (requester.email !== 'njdj9985@mail.com') {
+    // تعديل: تمت إضافة تحقق إضافي باستخدام معرّف المستخدم (ID) لضمان التعرف على المالك دائمًا
+    if (requester.id !== 1 && requester.email !== 'njdj9985@mail.com') {
         return res.status(403).json({ error: 'ليس لديك الصلاحية المطلقة لتغيير الرتب.' });
     }
 
