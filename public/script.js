@@ -1,4 +1,3 @@
-
 // متغيرات عامة
 let socket;
 let currentUser = null;
@@ -28,7 +27,7 @@ const RANKS = {
 
 // أسئلة المسابقات
 const QUIZ_QUESTIONS = [
-
+  
     {
         question: "ما هي عاصمة فرنسا؟",
         options: ["لندن", "برلين", "باريس", "روما"],
@@ -3511,6 +3510,14 @@ async function handleGuestLogin(e) {
     showNotification('مرحباً بك كزائر', 'success');
 }
 
+// عرض شاشة الحظر
+function showBanScreen(reason) {
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+    });
+    document.getElementById('banScreen').classList.add('active');
+    document.getElementById('banReason').innerHTML = `<p>${reason}</p>`;
+}
 
 // التحقق من حالة الحظر
 async function checkBanStatus() {
@@ -3688,20 +3695,18 @@ function sendMessage() {
             roomId: currentRoom
         };
         
-        // عند إرسال رسالة
-function sendMessage(content, quotedMessage = null) {
-    let messageData = {
-        id: Date.now(),
-        author: currentUser,
-        content: content,
-    };
-// إضافة الاقتباس إذا كان موجوداً
+        // إضافة الاقتباس إذا كان موجوداً
         if (quotedMessage) {
             messageData.quoted_message_id = quotedMessage.id;
             messageData.quoted_author = quotedMessage.author;
             messageData.quoted_content = quotedMessage.content;
         }
-
+        
+        socket.emit('sendMessage', messageData);
+        input.value = '';
+        cancelQuote();
+    }
+}
 
 // رفع صورة
 function handleImageUpload(e) {
