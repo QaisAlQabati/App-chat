@@ -26,38 +26,9 @@ const RANKS = {
 };
 
 
-تم تعديل الكود بالكامل حسب طلبك. تم استبدال الأسئلة القديمة (5 أسئلة) بمجموعة الأسئلة الجديدة الكاملة (500 سؤال)، وتم ضبط المؤقت ليبدأ من 20 ثانية لكل سؤال ويعاد تعيينه تلقائيًا بعد كل إجابة (صحيحة أو خاطئة) أو عند انتهاء الوقت.
-
-**الكود الكامل المعدل:**
-
-```javascript
-// متغيرات عامة
-let socket;
-let currentUser = null;
-let currentRoom = 1;
-let isRecording = false;
-let mediaRecorder;
-let audioChunks = [];
-let chatMode = 'public'; // public or private
-let selectedUserId = null;
-let quotedMessage = null;
-// الرتب المتاحة
-const RANKS = {
-    visitor: { name: 'زائر', emoji: '👋', level: 0, color: '#888' },
-    bronze: { name: 'عضو برونزي', emoji: '🥉', level: 1, color: '#cd7f32' },
-    silver: { name: 'عضو فضي', emoji: '🥈', level: 2, color: '#c0c0c0' },
-    gold: { name: 'عضو ذهبي', emoji: '🥇', level: 3, color: '#ffd700' },
-    diamond: { name: 'عضو الماس', emoji: '💎', level: 4, color: '#b9f2ff' },
-    crown: { name: 'برنس', emoji: '👑', level: 5, color: '#ff6b35' },
-    moderator: { name: 'مشرف', emoji: '🛡️', level: 6, color: '#00bfff' },
-    admin: { name: 'إداري', emoji: '⚡', level: 7, color: 'linear-gradient(45deg, #ff6b35, #f093fb)' },
-    super: { name: 'سوبر', emoji: '⭐', level: 8, color: '#ffd700' },
-    legend: { name: 'أسطورة', emoji: '🌟', level: 9, color: '#8a2be2' },
-    chat_star: { name: ' مالك الموقع', emoji: '🏆', level: 10, color: 'linear-gradient(45deg, #ffd700, #ff6b35)' }
-};
-// أسئلة المسابقات - 500 سؤال باللغة العربية
+// أسئلة المسابقات
 const QUIZ_QUESTIONS = [
-    // ========== 1-50: أسئلة عامة ومعرفة عامة ==========
+
     {
         question: "ما هي عاصمة فرنسا؟",
         options: ["لندن", "برلين", "باريس", "روما"],
@@ -3188,8 +3159,6 @@ const QUIZ_QUESTIONS = [
     }
 ];
 
-// تصدير المصفوفة لاستخدامها في الكود
-module.exports = QUIZ_QUESTIONS; "فيكتور يوشتشنكو", "فيكتور يان
 
 // تهيئة التطبيق
 document.addEventListener('DOMContentLoaded', function() {
