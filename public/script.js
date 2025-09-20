@@ -5406,8 +5406,11 @@ function unmuteUser(userId, userName) {
     }
 }
 
-// وظائف إنشاء الغرف
+// فتح نافذة إنشاء الغرفة
 function openCreateRoomModal() {
+    // منع تكرار النافذة
+    if (document.getElementById('createRoomModal')) return;
+
     const modal = document.createElement('div');
     modal.className = 'modal active';
     modal.id = 'createRoomModal';
@@ -5451,35 +5454,47 @@ function openCreateRoomModal() {
     `;
     
     document.body.appendChild(modal);
+
+    // إغلاق عند الضغط خارج المحتوى
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeCreateRoomModal();
+    });
 }
 
+// إغلاق نافذة إنشاء الغرفة
 function closeCreateRoomModal() {
     const modal = document.getElementById('createRoomModal');
-    if (modal) {
-        modal.remove();
-    }
+    if (modal) modal.remove();
 }
 
+// إنشاء الغرفة وإرسالها للسيرفر
 function createRoom() {
-    const roomName = document.getElementById('roomName').value.trim();
-    const roomDescription = document.getElementById('roomDescription').value.trim();
-    const roomType = document.getElementById('roomType').value;
-    const maxUsers = parseInt(document.getElementById('maxUsers').value);
-    
+    const roomName = document.getElementById('roomName')?.value.trim();
+    const roomDescription = document.getElementById('roomDescription')?.value.trim();
+    const roomType = document.getElementById('roomType')?.value;
+    const maxUsers = parseInt(document.getElementById('maxUsers')?.value);
+
     if (!roomName) {
         alert('يرجى إدخال اسم الغرفة');
         return;
     }
-    
+
+    // التأكد من أن الـ socket موجود
+    if (!socket) {
+        alert('لم يتم الاتصال بالسيرفر بعد!');
+        return;
+    }
+
     socket.emit('createRoom', {
         name: roomName,
         description: roomDescription,
         type: roomType,
         maxUsers: maxUsers
     });
-    
+
     closeCreateRoomModal();
 }
+
 
 // ==================== وظائف الإشعارات ====================
 
