@@ -309,12 +309,34 @@ const RANKS = {
 };
 
 // --- بيانات المستخدمين (كمثال، في تطبيق حقيقي ستكون في قاعدة بيانات) ---
+// تحذير أمني خطير: لا تقم أبداً بتخزين كلمات المرور كنص عادي في كود حقيقي!
+// هذا فقط لغرض التوضيح.
 let users = [
-    { id: 1, username: 'مالك', rank: 'chat_star', points: 99999, token: 'fake-token-1' },
-    { id: 2, username: 'برنس', rank: 'crown', points: 3000, token: 'fake-token-2' },
-    { id: 3, username: 'ذهبي', rank: 'gold', points: 600, token: 'fake-token-3' },
-    { id: 4, username: 'زائر', rank: 'visitor', points: 50, token: 'fake-token-4' }
+    { id: 1, username: 'مالك الشات', email: 'njdj9985@gmail.com', password: 'Zxcvbnm.88', rank: 'chat_star', points: 99999, token: 'fake-token-1' },
+    { id: 2, username: 'برنس',       email: 'crown@example.com',    password: 'password123', rank: 'crown',     points: 3000,  token: 'fake-token-2' },
+    { id: 3, username: 'ذهبي',       email: 'gold@example.com',     password: 'password123', rank: 'gold',      points: 600,   token: 'fake-token-3' },
+    { id: 4, username: 'زائر',       email: 'visitor@example.com',  password: 'password123', rank: 'visitor',   points: 50,    token: 'fake-token-4' }
 ];
+
+// --- API جديد لتسجيل الدخول ---
+app.post('/api/login', (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ error: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور' });
+    }
+
+    // البحث عن المستخدم باستخدام البريد الإلكتروني وكلمة المرور
+    const user = users.find(u => u.email === email && u.password === password);
+
+    if (!user) {
+        return res.status(401).json({ error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
+    }
+
+    // عند نجاح الدخول، أرسل بيانات المستخدم (بدون كلمة المرور) مع التوكن الخاص به
+    const { password: userPassword, ...userData } = user;
+    res.json({ message: 'تم تسجيل الدخول بنجاح', user: userData });
+});
+
 
 // --- API الترقية الجديد والمحسن ---
 app.post('/api/promote-user', (req, res) => {
@@ -392,6 +414,7 @@ const PORT = 3000;
 server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
+
 
 // API للحصول على قائمة المستخدمين
 app.get('/api/users', (req, res) => {
