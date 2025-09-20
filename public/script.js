@@ -5530,9 +5530,9 @@ async function loadUsersForNotification() {
 
 // إرسال إشعار للمستخدم
 async function sendNotificationToUser() {
-    const recipientId = document.getElementById('notificationRecipient').value;
-    const message = document.getElementById('notificationMessage').value.trim();
-    const type = document.getElementById('notificationType').value;
+    const recipientId = document.getElementById('notificationRecipient')?.value;
+    const message = document.getElementById('notificationMessage')?.value.trim();
+    const type = document.getElementById('notificationType')?.value;
 
     // تحقق من الحقول
     if (!recipientId) {
@@ -5553,6 +5553,7 @@ async function sendNotificationToUser() {
     try {
         showLoading(true);
 
+        // طباعة القيم للتحقق أثناء التطوير
         console.log('إرسال إشعار:', {
             recipientId: parseInt(recipientId),
             message,
@@ -5579,7 +5580,6 @@ async function sendNotificationToUser() {
             showNotification('تم إرسال الإشعار بنجاح', 'success');
             closeSendNotificationModal();
         } else {
-            // عرض سبب فشل الإرسال مباشرة
             showNotification(data.error || 'فشل في إرسال الإشعار، تحقق من بيانات المستلم', 'error');
         }
 
@@ -5590,6 +5590,7 @@ async function sendNotificationToUser() {
         showLoading(false);
     }
 }
+
 
 
 // ==================== قائمة المتصلين حالياً ====================
