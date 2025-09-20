@@ -3411,15 +3411,21 @@ async function handleLogin(e) {
         if (response.ok) {
             localStorage.setItem('chatToken', data.token);
             currentUser = data.user;
+
+            // إذا المستخدم محظور، أظهر له رسالة تنبيه فقط
+            if (currentUser.isBanned) {
+                showNotification(`أنت محظور! السبب: ${currentUser.banReason}`, 'error');
+                // لا تمنعه من تسجيل الدخول إذا تريد، أو تمنعه حسب رغبتك
+                return; 
+            }
+
+            // المستخدم غير محظور، يدخل الشات مباشرة
             showMainScreen();
             initializeSocket();
             showNotification('تم تسجيل الدخول بنجاح', 'success');
+
         } else {
-            if (data.error.includes('محظور')) {
-                showBanScreen(data.banReason || 'لم يتم تحديد سبب الحظر');
-            } else {
-                showError(data.error);
-            }
+            showError(data.error);
         }
     } catch (error) {
         showError('حدث خطأ في الاتصال');
