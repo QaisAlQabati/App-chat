@@ -127,37 +127,9 @@ app.put('/api/user/profile', upload.fields([
 // API للحصول على قائمة الغرف
 app.get('/api/rooms', (req, res) => res.json(rooms));
 
-// API لإنشاء غرفة جديدة
-app.post('/api/rooms', upload.single('roomBackground'), (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
-
-    const { name, description } = req.body;
-    const background = req.file ? `/Uploads/${req.file.filename}` : null;
-    const newRoom = { id: rooms.length + 1, name, description, background };
-    rooms.push(newRoom);
-    io.emit('roomCreated', newRoom);
-    res.json(newRoom);
-});
-
-// API لحذف غرفة
-app.delete('/api/rooms/:id', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
-
-    const roomId = parseInt(req.params.id);
-    rooms = rooms.filter(r => r.id !== roomId);
-    io.emit('roomDeleted', roomId);
-    res.json({ message: 'تم حذف الغرفة' });
-});
-
-// API للحصول على رسائل الغرفة
-app.get('/api/messages/:roomId', (req, res) => {
-    res.json(messages.filter(m => m.roomId === parseInt(req.params.roomId)));
-});
-
+if (!name || name.trim() === '') {
+    return res.status(400).json({ error: 'اسم الغرفة مطلوب' });
+}
 // API للحصول على الرسائل الخاصة
 app.get('/api/private-messages/:userId', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
