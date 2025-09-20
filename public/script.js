@@ -3688,18 +3688,71 @@ function sendMessage() {
             roomId: currentRoom
         };
         
-        // إضافة الاقتباس إذا كان موجوداً
-        if (quotedMessage) {
-            messageData.quoted_message_id = quotedMessage.id;
-            messageData.quoted_author = quotedMessage.author;
-            messageData.quoted_content = quotedMessage.content;
-        }
+        // عند إرسال رسالة
+function sendMessage(content, quotedMessage = null) {
+    let messageData = {
+        id: Date.now(),
+        author: currentUser,
+        content: content,
+    };
+
+    // إذا كان فيه اقتباس
+    if (quotedMessage) {
+        messageData.quoted = {
+            id: quotedMessage.id,
+            author: quotedMessage.author,
+            content: quotedMessage.content
+        };
+    }
+
+    // إرسال الرسالة للسيرفر أو عرضها بالشات
+    displayMessage(messageData);
+}
+
+// عرض الرسالة في واجهة الشات
+function displayMessage(messageData) {
+    let messageBox = document.createElement("div");
+    messageBox.className = "message";
+
+    // لو الرسالة مقتبسة
+    if (messageData.quoted) {
+        let quoteBox = document.createElement("div");
+        quoteBox.className = "quote";
         
-        socket.emit('sendMessage', messageData);
-        input.value = '';
-        cancelQuote();
+        // الاسم باللون الأزرق السماوي
+        let author = document.createElement("span");
+        author.className = "quote-author";
+        author.innerText = messageData.quoted.author;
+        author.onclick = () => highlightMessage(messageData.quoted.id);
+
+        let content = document.createElement("span");
+        content.className = "quote-content";
+        content.innerText = messageData.quoted.content;
+
+        quoteBox.appendChild(author);
+        quoteBox.appendChild(document.createTextNode(": "));
+        quoteBox.appendChild(content);
+        messageBox.appendChild(quoteBox);
+    }
+
+    // المحتوى الأساسي
+    let mainContent = document.createElement("div");
+    mainContent.className = "main-content";
+    mainContent.innerText = messageData.content;
+
+    messageBox.appendChild(mainContent);
+    document.getElementById("chat").appendChild(messageBox);
+}
+
+// لما يضغط على الاسم الأزرق
+function highlightMessage(messageId) {
+    let target = document.getElementById("msg-" + messageId);
+    if (target) {
+        target.classList.add("highlight");
+        setTimeout(() => target.classList.remove("highlight"), 2000);
     }
 }
+
 
 // رفع صورة
 function handleImageUpload(e) {
