@@ -5373,66 +5373,39 @@ function deleteMessage(messageId, messageElement) {
     }
 }
 
-// طرد المستخدم من الغرفة
-function kickUser(userId, userName) {
-    if (!socket || !currentRoomId) {
-        alert('لم يتم الاتصال بالغرفة بعد!');
-        return;
-    }
 
+// وظائف الطرد والكتم
+function kickUser(userId, userName) {
     if (confirm(`هل تريد طرد ${userName} من الغرفة؟`)) {
         socket.emit('kickUser', {
             userId: userId,
             roomId: currentRoomId
         });
-        showNotification(`${userName} تم طرده من الغرفة`, 'success');
     }
 }
 
-// كتم المستخدم
 function muteUser(userId, userName) {
-    if (!socket || !currentRoomId) {
-        alert('لم يتم الاتصال بالغرفة بعد!');
-        return;
-    }
-
     const duration = prompt(`كم دقيقة تريد كتم ${userName}؟ (اترك فارغاً للكتم الدائم)`, '10');
     
     if (duration !== null) {
         const muteMinutes = duration === '' ? null : parseInt(duration);
-
-        if (muteMinutes !== null && isNaN(muteMinutes)) {
-            alert('الرجاء إدخال رقم صالح للدقائق');
-            return;
-        }
-
+        
         socket.emit('muteUser', {
             userId: userId,
             roomId: currentRoomId,
             duration: muteMinutes
         });
-
-        showNotification(`${userName} تم كتمه ${muteMinutes ? `لمدة ${muteMinutes} دقيقة` : 'دائماً'}`, 'success');
     }
 }
 
-// إلغاء كتم المستخدم
 function unmuteUser(userId, userName) {
-    if (!socket || !currentRoomId) {
-        alert('لم يتم الاتصال بالغرفة بعد!');
-        return;
-    }
-
     if (confirm(`هل تريد إلغاء كتم ${userName}؟`)) {
         socket.emit('unmuteUser', {
             userId: userId,
             roomId: currentRoomId
         });
-        showNotification(`${userName} تم إلغاء الكتم عنه`, 'success');
     }
 }
-
-
 // فتح نافذة إنشاء الغرفة
 function openCreateRoomModal() {
     // منع تكرار النافذة
