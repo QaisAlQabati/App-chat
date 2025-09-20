@@ -4034,7 +4034,9 @@ async function loadNews() {
     try {
         const response = await fetch('/api/news');
         if (response.ok) {
-            const news = await response.json();
+            let news = await response.json();
+            // فرز المنشورات: المثبتة أولاً
+            news = news.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
             displayNews(news);
         }
     } catch (error) {
@@ -4055,8 +4057,35 @@ function displayNews(news) {
     news.forEach(item => {
         const newsDiv = document.createElement('div');
         newsDiv.className = 'news-item';
+        if (item.pinned) newsDiv.classList.add('pinned'); // إضافة كلاس للتثبيت للتصميم
         
         const time = new Date(item.timestamp).toLocaleString('ar-SA');
+        const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('userRole') === 'owner';
+        
+        let reactionsHTML = `
+            <div class="reactions">
+                <span class="reaction" onclick="addReaction('${item.id}', '❤️')">❤️ ${item.reactions?.heart || 0}</span>
+                <span class="reaction" onclick="addReaction('${item.id}', '👍')">👍 ${item.reactions?.thumbsUp || 0}</span>
+                <span class="reaction" onclick="addReaction('${item.id}', '👎')">👎 ${item.reactions?.thumbsDown || 0}</span>
+                <span class="reaction" onclick="addReaction('${item.id}', '😅')">😅 ${item.reactions?.laugh || 0}</span>
+            </div>
+            <div class="reaction-details" id="reactionDetails_${item.id}"></div>
+        `;
+        
+        let commentsHTML = `
+            <div class="comments-section" id="comments_${item.id}">
+                <!-- سيتم تحميل التعليقات هنا -->
+            </div>
+            <input type="text" id="commentInput_${item.id}" placeholder="أضف تعليق...">
+            <button onclick="addComment('${item.id}', document.getElementById('commentInput_${item.id}').value)">نشر التعليق</button>
+        `;
+        
+        let adminControls = '';
+        if (isAdmin) {
+            adminControls = `
+                <button onclick="pinNews('${item.id}', ${!item.pinned})">${item.pinned ? 'إزالة التثبيت' : 'تثبيت'}</button>
+            `;
+        }
         
         newsDiv.innerHTML = `
             <div class="news-header-info">
@@ -4064,14 +4093,156 @@ function displayNews(news) {
                 <div class="news-author-info">
                     <h4>${escapeHtml(item.display_name)}</h4>
                     <span class="news-time">${time}</span>
+                    ${item.pinned ? '<span class="pinned-label">مثبت</span>' : ''}
                 </div>
             </div>
             <div class="news-content">${escapeHtml(item.content)}</div>
             ${item.media ? `<div class="news-media"><img src="${item.media}" alt="صورة الخبر"></div>` : ''}
+            ${reactionsHTML}
+            ${commentsHTML}
+            ${adminControls}
         `;
         
         container.appendChild(newsDiv);
+        loadComments(item.id); // تحميل التعليقات لكل منشور
+        loadReactionDetails(item.id); // تحميل تفاصيل التفاعلات
     });
+}
+
+// إضافة تفاعل
+async function addReaction(newsId, emoji) {
+    try {
+        const response = await fetch(`/api/news/${newsId}/reactions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({ emoji })
+        });
+        if (response.ok) {
+            loadNews(); // إعادة تحميل لتحديث العدد
+            loadReactionDetails(newsId); // تحديث التفاصيل
+        }
+    } catch (error) {
+        console.error('خطأ في إضافة التفاعل:', error);
+    }
+}
+
+// تحميل تفاصيل التفاعلات (من تفاعل)
+async function loadReactionDetails(newsId) {
+    try {
+        const response = await fetch(`/api/news/${newsId}/reactions`);
+        if (response.ok) {
+            const details = await response.json();
+            const container = document.getElementById(`reactionDetails_${newsId}`);
+            container.innerHTML = '';
+            Object.entries(details).forEach(([emoji, users]) => {
+                const userList = users.map(user => user.display_name).join(', ');
+                container.innerHTML += `<p>${emoji}: ${users.length} (${userList})</p>`;
+            });
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل تفاصيل التفاعلات:', error);
+    }
+}
+
+// إضافة تعليق
+async function addComment(newsId, text) {
+    if (!text.trim()) return;
+    try {
+        const response = await fetch(`/api/news/${newsId}/comments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({ text })
+        });
+        if (response.ok) {
+            loadComments(newsId);
+        }
+    } catch (error) {
+        console.error('خطأ في إضافة التعليق:', error);
+    }
+}
+
+// تحميل التعليقات
+async function loadComments(newsId) {
+    try {
+        const response = await fetch(`/api/news/${newsId}/comments`);
+        if (response.ok) {
+            const comments = await response.json();
+            const container = document.getElementById(`comments_${newsId}`);
+            container.innerHTML = '';
+            const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('userRole') === 'owner';
+            comments.forEach(comment => {
+                const commentDiv = document.createElement('div');
+                commentDiv.className = 'comment';
+                commentDiv.innerHTML = `
+                    <p><strong>${escapeHtml(comment.display_name)}:</strong> ${escapeHtml(comment.text)}</p>
+                    ${isAdmin ? `<button onclick="deleteComment('${newsId}', '${comment.id}')">حذف</button>
+                    <button onclick="banUserFromComments('${comment.user_id}')">منع المستخدم</button>` : ''}
+                `;
+                container.appendChild(commentDiv);
+            });
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل التعليقات:', error);
+    }
+}
+
+// حذف تعليق (للإدارة)
+async function deleteComment(newsId, commentId) {
+    try {
+        const response = await fetch(`/api/news/${newsId}/comments/${commentId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            }
+        });
+        if (response.ok) {
+            loadComments(newsId);
+        }
+    } catch (error) {
+        console.error('خطأ في حذف التعليق:', error);
+    }
+}
+
+// منع مستخدم من التعليق (للإدارة)
+async function banUserFromComments(userId) {
+    try {
+        const response = await fetch(`/api/users/${userId}/ban-comments`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            }
+        });
+        if (response.ok) {
+            showNotification('تم منع المستخدم من التعليق', 'success');
+        }
+    } catch (error) {
+        console.error('خطأ في منع المستخدم:', error);
+    }
+}
+
+// تثبيت منشور (للإدارة)
+async function pinNews(newsId, pin) {
+    try {
+        const response = await fetch(`/api/news/${newsId}/pin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({ pin })
+        });
+        if (response.ok) {
+            loadNews();
+        }
+    } catch (error) {
+        console.error('خطأ في التثبيت:', error);
+    }
 }
 
 // نشر خبر
@@ -4102,7 +4273,7 @@ async function postNews() {
         if (response.ok) {
             document.getElementById('newsContentInput').value = '';
             fileInput.value = '';
-            loadNews();
+            await loadNews(); // إعادة تحميل فوري للظهور المباشر
             showNotification('تم نشر الخبر بنجاح', 'success');
         } else {
             const data = await response.json();
@@ -4127,12 +4298,15 @@ function openStoriesSection() {
     closeMainMenu();
 }
 
-// تحميل القصص
+// تحميل القصص (مع فلترة بعد 24 ساعة، لكن محفوظة دائمًا في الأرشيف)
 async function loadStories() {
     try {
         const response = await fetch('/api/stories');
         if (response.ok) {
-            const stories = await response.json();
+            let stories = await response.json();
+            // فلترة الستوري النشطة (أقل من 24 ساعة)
+            const now = Date.now();
+            stories = stories.filter(story => now - new Date(story.timestamp).getTime() < 24 * 60 * 60 * 1000);
             displayStories(stories);
         }
     } catch (error) {
@@ -4140,7 +4314,7 @@ async function loadStories() {
     }
 }
 
-// عرض القصص
+// عرض القصص (مماثل للأخبار مع إضافة تفاعلات وتعليقات)
 function displayStories(stories) {
     const container = document.getElementById('storiesContainer');
     container.innerHTML = '';
@@ -4155,9 +4329,64 @@ function displayStories(stories) {
         storyDiv.className = 'story-item';
         storyDiv.onclick = () => viewStory(story);
         
-        storyDiv.innerHTML = `<img src="${story.image}" alt="قصة ${story.display_name}">`;
+        const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('userRole') === 'owner';
+        
+        let mediaHTML = story.video ? `<video src="${story.video}" controls></video>` : `<img src="${story.image}" alt="قصة ${story.display_name}">`;
+        
+        let reactionsHTML = `
+            <div class="reactions">
+                <span class="reaction" onclick="addReaction('${story.id}', '❤️')">❤️ ${story.reactions?.heart || 0}</span>
+                <span class="reaction" onclick="addReaction('${story.id}', '👍')">👍 ${story.reactions?.thumbsUp || 0}</span>
+                <span class="reaction" onclick="addReaction('${story.id}', '👎')">👎 ${story.reactions?.thumbsDown || 0}</span>
+                <span class="reaction" onclick="addReaction('${story.id}', '😅')">😅 ${story.reactions?.laugh || 0}</span>
+            </div>
+            <div class="reaction-details" id="reactionDetails_${story.id}"></div>
+        `;
+        
+        let commentsHTML = `
+            <div class="comments-section" id="comments_${story.id}">
+                <!-- سيتم تحميل التعليقات هنا -->
+            </div>
+            <input type="text" id="commentInput_${story.id}" placeholder="أضف تعليق...">
+            <button onclick="addComment('${story.id}', document.getElementById('commentInput_${story.id}').value)">نشر التعليق</button>
+        `;
+        
+        let adminControls = '';
+        if (isAdmin) {
+            adminControls = `
+                <button onclick="pinStory('${story.id}', ${!story.pinned})">${story.pinned ? 'إزالة التثبيت' : 'تثبيت'}</button>
+            `;
+        }
+        
+        storyDiv.innerHTML = `
+            ${mediaHTML}
+            ${reactionsHTML}
+            ${commentsHTML}
+            ${adminControls}
+        `;
         container.appendChild(storyDiv);
+        loadComments(story.id); // تحميل التعليقات
+        loadReactionDetails(story.id); // تحميل تفاصيل التفاعلات
     });
+}
+
+// تثبيت ستوري (مماثل للأخبار)
+async function pinStory(storyId, pin) {
+    try {
+        const response = await fetch(`/api/stories/${storyId}/pin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({ pin })
+        });
+        if (response.ok) {
+            loadStories();
+        }
+    } catch (error) {
+        console.error('خطأ في التثبيت:', error);
+    }
 }
 
 // فتح مودال إضافة قصة
@@ -4170,7 +4399,7 @@ function closeAddStoryModal() {
     closeModal('addStoryModal');
 }
 
-// إضافة قصة
+// إضافة قصة (مع دعم فيديو)
 async function addStory() {
     const fileInput = document.getElementById('storyMediaInput');
     const text = document.getElementById('storyTextInput').value.trim();
@@ -4181,7 +4410,7 @@ async function addStory() {
     }
     
     const formData = new FormData();
-    formData.append('storyImage', fileInput.files[0]);
+    formData.append('storyMedia', fileInput.files[0]); // يدعم صورة أو فيديو
     if (text) formData.append('text', text);
     
     try {
@@ -4197,7 +4426,7 @@ async function addStory() {
         
         if (response.ok) {
             closeAddStoryModal();
-            loadStories();
+            await loadStories(); // إعادة تحميل فوري
             showNotification('تم إضافة القصة بنجاح', 'success');
         } else {
             const data = await response.json();
@@ -4213,6 +4442,15 @@ async function addStory() {
 // إغلاق مودال القصص
 function closeStoriesModal() {
     closeModal('storiesModal');
+}
+
+// عرض ستوري مفصل (مع تحديث للتفاعلات والتعليقات)
+function viewStory(story) {
+    // يمكن توسيع هذا لعرض ستوري كامل مع التفاعلات والتعليقات
+    // للآن، نفترض أنه يفتح مودال أو يعرض
+    console.log('عرض الستوري:', story);
+    loadReactionDetails(story.id);
+    loadComments(story.id);
 }
 
 // فتح قسم الألعاب
