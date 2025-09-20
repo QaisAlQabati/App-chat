@@ -276,19 +276,121 @@ app.post('/api/competitions', (req, res) => {
     res.json(newCompetition);
 });
 
-// API لتعيين رتبة
-app.post('/api/assign-rank', (req, res) => {
+/*
+ * هذا الملف يمثل الكود الخاص بالخادم (Backend)
+ * وهو يحتوي على منطق ترقية المستخدمين مع الشروط الجديدة
+ */
+
+// --- الإعدادات الأساسية (يمكنك تجاهلها إذا كانت موجودة لديك) ---
+const express = require('express');
+const http = require('http');
+const { Server } = require("socket.io");
+
+const app = express();
+const server = http.createServer(app);
+// افترض أن متغير io معرف لديك للتحكم بـ Socket.IO
+const io = new Server(server);
+
+app.use(express.json()); // للسماح باستقبال بيانات JSON في الطلبات
+
+// --- تعريف الرتب مع المستوى والتكلفة ---
+const RANKS = {
+    visitor:   { name: 'زائر',        emoji: '👋', level: 0, cost: 0 },
+    bronze:    { name: 'عضو برونزي',  emoji: '🥉', level: 1, cost: 100 },
+    silver:    { name: 'عضو فضي',    emoji: '🥈', level: 2, cost: 250 },
+    gold:      { name: 'عضو ذهبي',    emoji: '🥇', level: 3, cost: 500 },
+    diamond:   { name: 'عضو الماس',   emoji: '💎', level: 4, cost: 1000 },
+    crown:     { name: 'برنس',        emoji: '👑', level: 5, cost: 2500 },
+    moderator: { name: 'مشرف',        emoji: '🛡️', level: 6, cost: 5000 },
+    admin:     { name: 'إداري',        emoji: '⚡', level: 7, cost: 10000 },
+    super:     { name: 'سوبر',        emoji: '⭐', level: 8, cost: 20000 },
+    legend:    { name: 'أسطورة',      emoji: '🌟', level: 9, cost: 50000 },
+    chat_star: { name: 'مالك الموقع', emoji: '🏆', level: 10, cost: Infinity } // لا يمكن شراؤها
+};
+
+// --- بيانات المستخدمين (كمثال، في تطبيق حقيقي ستكون في قاعدة بيانات) ---
+let users = [
+    { id: 1, username: 'مالك', rank: 'chat_star', points: 99999, token: 'fake-token-1' },
+    { id: 2, username: 'برنس', rank: 'crown', points: 3000, token: 'fake-token-2' },
+    { id: 3, username: 'ذهبي', rank: 'gold', points: 600, token: 'fake-token-3' },
+    { id: 4, username: 'زائر', rank: 'visitor', points: 50, token: 'fake-token-4' }
+];
+
+// --- API الترقية الجديد والمحسن ---
+app.post('/api/promote-user', (req, res) => {
+    // الخطوة 1: التحقق من هوية المُرقِّي (الشخص الذي يرسل الطلب)
     const token = req.headers.authorization?.split(' ')[1];
-    const admin = users.find(u => 'fake-token-' + u.id === token);
-    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
+    if (!token) {
+        return res.status(401).json({ error: 'الرجاء تسجيل الدخول أولاً' });
+    }
+    const promoter = users.find(u => u.token === token);
+    if (!promoter) {
+        return res.status(403).json({ error: 'رمز الدخول غير صالح أو أنك غير مسجل' });
+    }
 
-    const { userId, rank, reason } = req.body;
-    const user = users.find(u => u.id === parseInt(userId));
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+    // الخطوة 2: الحصول على بيانات الطلب (هوية المستخدم المستهدف والرتبة الجديدة)
+    const { targetUserId, newRankKey } = req.body;
+    if (!targetUserId || !newRankKey) {
+        return res.status(400).json({ error: 'الطلب ناقص، الرجاء تحديد المستخدم والرتبة الجديدة' });
+    }
 
-    user.rank = rank;
-    res.json({ message: 'تم تعيين الرتبة' });
-    io.emit('userUpdated', user);
+    const targetUser = users.find(u => u.id === parseInt(targetUserId));
+    if (!targetUser) {
+        return res.status(404).json({ error: 'المستخدم المستهدف غير موجود' });
+    }
+
+    // الخطوة 3: جلب بيانات الرتب للتحقق منها
+    const promoterRankInfo = RANKS[promoter.rank];
+    const targetUserRankInfo = RANKS[targetUser.rank];
+    const newRankInfo = RANKS[newRankKey];
+
+    if (!newRankInfo) {
+        return res.status(400).json({ error: 'الرتبة الجديدة المختارة غير صالحة' });
+    }
+
+    // --- الخطوة 4: تطبيق منطق وشروط الترقية ---
+
+    // الشرط الأول: هل يملك المُرقِّي صلاحية استخدام النظام؟ (برنس وما فوق)
+    if (promoterRankInfo.level < 5) {
+        return res.status(403).json({ error: 'رتبتك الحالية لا تسمح لك بترقية الآخرين' });
+    }
+
+    // الشرط الثاني (مهم جداً): هل مستوى المُرقِّي أعلى من مستوى الرتبة الجديدة؟
+    if (promoterRankInfo.level <= newRankInfo.level) {
+        return res.status(403).json({ error: 'لا يمكنك الترقية إلى رتبة تساوي رتبتك أو أعلى منها' });
+    }
+
+    // الشرط الثالث: هل الرتبة الجديدة أعلى من رتبة المستخدم الحالية؟
+    if (newRankInfo.level <= targetUserRankInfo.level) {
+        return res.status(400).json({ error: 'يجب أن تكون الرتبة الجديدة أعلى من رتبة المستخدم الحالية' });
+    }
+
+    // الشرط الرابع: هل يملك المُرقِّي نقاطاً كافية؟
+    if (promoter.points < newRankInfo.cost) {
+        return res.status(402).json({ error: `ليس لديك نقاط كافية. التكلفة: ${newRankInfo.cost} نقطة` });
+    }
+
+    // --- الخطوة 5: تنفيذ الترقية إذا نجحت كل الشروط ---
+    
+    // 1. خصم النقاط من المُرقِّي
+    promoter.points -= newRankInfo.cost;
+
+    // 2. تحديث رتبة المستخدم المستهدف
+    targetUser.rank = newRankKey;
+
+    // 3. إرسال رسالة نجاح
+    res.json({ message: `تمت ترقية ${targetUser.username} إلى ${newRankInfo.name} بنجاح!` });
+
+    // --- الخطوة 6: إعلام جميع المستخدمين بالتغييرات في الوقت الفعلي ---
+    io.emit('userUpdated', { id: targetUser.id, rank: targetUser.rank });
+    io.emit('userUpdated', { id: promoter.id, points: promoter.points });
+});
+
+
+// --- تشغيل السيرفر (كمثال) ---
+const PORT = 3000;
+server.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 });
 
 // API للحصول على قائمة المستخدمين
