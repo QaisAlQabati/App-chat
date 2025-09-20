@@ -8,7 +8,6 @@ let audioChunks = [];
 let chatMode = 'public'; // public or private
 let selectedUserId = null;
 let quotedMessage = null;
-
 // الرتب المتاحة
 const RANKS = {
     visitor: { name: 'زائر', emoji: '👋', level: 0, color: '#888' },
@@ -2688,3 +2687,4 @@ function addManualPlayButton(audio) {
     if (profileModal) {
         profileModal.appendChild(playButton);
     }
+}
