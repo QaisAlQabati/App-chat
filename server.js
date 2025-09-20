@@ -249,115 +249,560 @@ app.post('/api/competitions', (req, res) => {
 });
 
 /*
- * هذا الملف يمثل الكود الخاص بالخادم (Backend)
- * وهو يحتوي على منطق ترقية المستخدمين مع الشروط الجديدة
+ * نظام الرتب المتقدم - خادم الشات مع تحكم كامل للمالك
+ * المالك: njdj9985@gmail.com | ZXcvbnm.8
+ * تحكم كامل في الرتب + مميزات خاصة لكل رتبة
  */
 
-// --- الإعدادات الأساسية (يمكنك تجاهلها إذا كانت موجودة لديك) ---
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-// افترض أن متغير io معرف لديك للتحكم بـ Socket.IO
-const io = new Server(server);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
-app.use(express.json()); // للسماح باستقبال بيانات JSON في الطلبات
+app.use(express.json());
 
-// --- تعريف الرتب مع المستوى والتكلفة ---
+// === تعريف الرتب مع المميزات الخاصة ===
 const RANKS = {
-    visitor:   { name: 'زائر',        emoji: '👋', level: 0, cost: 0 },
-    bronze:    { name: 'عضو برونزي',  emoji: '🥉', level: 1, cost: 100 },
-    silver:    { name: 'عضو فضي',    emoji: '🥈', level: 2, cost: 250 },
-    gold:      { name: 'عضو ذهبي',    emoji: '🥇', level: 3, cost: 500 },
-    diamond:   { name: 'عضو الماس',   emoji: '💎', level: 4, cost: 1000 },
-    crown:     { name: 'برنس',        emoji: '👑', level: 5, cost: 2500 },
-    moderator: { name: 'مشرف',        emoji: '🛡️', level: 6, cost: 5000 },
-    admin:     { name: 'إداري',        emoji: '⚡', level: 7, cost: 10000 },
-    super:     { name: 'سوبر',        emoji: '⭐', level: 8, cost: 20000 },
-    legend:    { name: 'أسطورة',      emoji: '🌟', level: 9, cost: 50000 },
-    chat_star: { name: 'مالك الموقع', emoji: '🏆', level: 10, cost: Infinity } // لا يمكن شراؤها
+    // رتبة الزائر (الافتراضي)
+    visitor: { 
+        name: 'زائر', 
+        emoji: '👋', 
+        level: 0, 
+        color: '#6c757d',
+        features: [
+            'الدردشة العادية',
+            'عرض الأخبار',
+            'مشاهدة الستوري'
+        ]
+    },
+    
+    // رتبة العضو العادي
+    member: { 
+        name: 'عضو', 
+        emoji: '👤', 
+        level: 1, 
+        color: '#17a2b8',
+        features: [
+            'الدردشة العادية',
+            'عرض الأخبار',
+            'مشاهدة الستوري',
+            'إرسال صور في الشات'
+        ]
+    },
+    
+    // رتبة VIP
+    vip: { 
+        name: 'VIP', 
+        emoji: '⭐', 
+        level: 2, 
+        color: '#ffc107',
+        features: [
+            'كل مميزات العضو',
+            'إرسال فيديو قصير',
+            'تخصيص اسم ملون',
+            'أولوية في الشات'
+        ]
+    },
+    
+    // رتبة برونزي
+    bronze: { 
+        name: 'برونزي', 
+        emoji: '🥉', 
+        level: 3, 
+        color: '#cd7f32',
+        features: [
+            'كل مميزات VIP',
+            'إرسال ملفات',
+            'تغيير صورة الملف الشخصي',
+            'رسائل خاصة'
+        ]
+    },
+    
+    // رتبة فضي
+    silver: { 
+        name: 'فضي', 
+        emoji: '🥈', 
+        level: 4, 
+        color: '#c0c0c0',
+        features: [
+            'كل مميزات برونزي',
+            'إرسال صوتيات',
+            'إنشاء غرف دردشة',
+            'إحصائيات الشات'
+        ]
+    },
+    
+    // رتبة ذهبي
+    gold: { 
+        name: 'ذهبي', 
+        emoji: '🥇', 
+        level: 5, 
+        color: '#ffd700',
+        features: [
+            'كل مميزات فضي',
+            'إرسال هدايا',
+            'تخصيص الألوان',
+            'إدارة الرسائل المؤقتة'
+        ]
+    },
+    
+    // رتبة الماس
+    diamond: { 
+        name: 'الماس', 
+        emoji: '💎', 
+        level: 6, 
+        color: '#b9f2ff',
+        features: [
+            'كل مميزات ذهبي',
+            'إنشاء استطلاعات',
+            'تثبيت الرسائل',
+            'إخفاء الإعلانات'
+        ]
+    },
+    
+    // رتبة البرنس
+    crown: { 
+        name: 'برنس', 
+        emoji: '👑', 
+        level: 7, 
+        color: '#ff6b6b',
+        features: [
+            'كل مميزات الماس',
+            'حذف رسائل الآخرين',
+            'تعديل الإعدادات',
+            'إدارة المستخدمين'
+        ]
+    },
+    
+    // رتبة المشرف
+    moderator: { 
+        name: 'مشرف', 
+        emoji: '🛡️', 
+        level: 8, 
+        color: '#28a745',
+        features: [
+            'كل مميزات البرنس',
+            'حظر المستخدمين',
+            'مراجعة المحتوى',
+            'إدارة الغرف'
+        ]
+    },
+    
+    // رتبة الأدمن
+    admin: { 
+        name: 'أدمن', 
+        emoji: '⚡', 
+        level: 9, 
+        color: '#dc3545',
+        features: [
+            'كل مميزات المشرف',
+            'تغيير رتب الآخرين',
+            'إدارة النظام',
+            'عرض السجلات'
+        ]
+    },
+    
+    // رتبة السوبر أدمن
+    super_admin: { 
+        name: 'سوبر أدمن', 
+        emoji: '🌟', 
+        level: 10, 
+        color: '#6f42c1',
+        features: [
+            'كل مميزات الأدمن',
+            'إدارة قاعدة البيانات',
+            'تعديل النظام',
+            'الوصول للكود المصدري'
+        ]
+    },
+    
+    // رتبة المالك (أنت - أعلى رتبة)
+    owner: { 
+        name: '🏆 مالك النظام', 
+        emoji: '🏆', 
+        level: 11, 
+        color: '#ff1493',
+        features: [
+            'التحكم الكامل في النظام',
+            'تغيير رتب أي مستخدم',
+            'إدارة جميع الإعدادات',
+            'الوصول لكل البيانات',
+            'إيقاف/تشغيل السيرفر',
+            'تعديل الأسعار والمميزات'
+        ]
+    }
 };
 
-// --- بيانات المستخدمين (كمثال، في تطبيق حقيقي ستكون في قاعدة بيانات) ---
-// تحذير أمني خطير: لا تقم أبداً بتخزين كلمات المرور كنص عادي في كود حقيقي!
-// هذا فقط لغرض التوضيح.
+// === بيانات المستخدمين (مع بياناتك كمالك) ===
 let users = [
-    { id: 1, username: 'مالك الشات', email: 'njdj9985@mail.com', password: 'Zxcvbnm.8', rank: 'chat_star', points: 99999, token: 'fake-token-1' },
-    { id: 2, username: 'برنس',       email: 'crown@example.com',    password: 'password123', rank: 'crown',     points: 3000,  token: 'fake-token-2' },
-    { id: 3, username: 'ذهبي',       email: 'gold@example.com',     password: 'password123', rank: 'gold',      points: 600,   token: 'fake-token-3' },
-    { id: 4, username: 'زائر',       email: 'visitor@example.com',  password: 'password123', rank: 'visitor',   points: 50,    token: 'fake-token-4' }
+    // أنت - المالك (أعلى رتبة)
+    { 
+        id: 1, 
+        username: 'مالك الشات', 
+        email: 'njdj9985@gmail.com', 
+        password: 'ZXcvbnm.8', 
+        rank: 'owner', 
+        points: 999999, 
+        token: 'owner-token-1',
+        isOnline: false,
+        lastLogin: new Date().toISOString(),
+        permissions: ['all'] // صلاحيات كاملة
+    },
+    
+    // مستخدمين تجريبيين
+    { 
+        id: 2, 
+        username: 'أحمد الـVIP', 
+        email: 'vip@example.com', 
+        password: '123456', 
+        rank: 'vip', 
+        points: 1500, 
+        token: 'fake-token-2',
+        isOnline: false,
+        lastLogin: new Date().toISOString()
+    },
+    { 
+        id: 3, 
+        username: 'فاطمة الذهبية', 
+        email: 'gold@example.com', 
+        password: '123456', 
+        rank: 'gold', 
+        points: 800, 
+        token: 'fake-token-3',
+        isOnline: false,
+        lastLogin: new Date().toISOString()
+    },
+    { 
+        id: 4, 
+        username: 'زائر جديد', 
+        email: 'visitor@example.com', 
+        password: '123456', 
+        rank: 'visitor', 
+        points: 0, 
+        token: 'fake-token-4',
+        isOnline: false,
+        lastLogin: new Date().toISOString()
+    },
+    { 
+        id: 5, 
+        username: 'مشرف الشات', 
+        email: 'mod@example.com', 
+        password: '123456', 
+        rank: 'moderator', 
+        points: 5000, 
+        token: 'fake-token-5',
+        isOnline: false,
+        lastLogin: new Date().toISOString()
+    }
 ];
 
-// --- API جديد لتسجيل الدخول ---
+// === API تسجيل الدخول ===
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
-    console.log(`[محاولة تسجيل دخول] البريد الإلكتروني: ${email}`); // للتتبع
+    console.log(`🔐 محاولة تسجيل دخول: ${email}`);
+    
     if (!email || !password) {
         return res.status(400).json({ error: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور' });
     }
 
-    // البحث عن المستخدم باستخدام البريد الإلكتروني وكلمة المرور
     const user = users.find(u => u.email === email && u.password === password);
-
     if (!user) {
-        console.log(`[فشل تسجيل الدخول] بيانات غير صحيحة للبريد: ${email}`); // للتتبع
+        console.log(`❌ فشل تسجيل الدخول: ${email}`);
         return res.status(401).json({ error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
     }
 
-    // عند نجاح الدخول، أرسل بيانات المستخدم (بدون كلمة المرور) مع التوكن الخاص به
-    console.log(`[نجاح تسجيل الدخول] تم دخول المستخدم '${user.username}'.`); // للتتبع
-    const { password: userPassword, ...userData } = user;
-    res.json({ message: 'تم تسجيل الدخول بنجاح', user: userData });
+    // تحديث آخر تسجيل دخول
+    user.lastLogin = new Date().toISOString();
+    user.isOnline = true;
+
+    // إنشاء توكن جديد
+    user.token = `user-token-${Date.now()}-${user.id}`;
+    
+    console.log(`✅ نجح تسجيل الدخول: ${user.username} (${user.rank})`);
+    
+    // إرسال بيانات المستخدم مع الرتبة والمميزات
+    const { password: _, ...userData } = user;
+    const userRank = RANKS[user.rank] || RANKS.visitor;
+    
+    res.json({ 
+        success: true,
+        message: 'تم تسجيل الدخول بنجاح',
+        user: {
+            ...userData,
+            rankInfo: userRank,
+            features: userRank.features,
+            rankColor: userRank.color
+        },
+        token: user.token
+    });
+
+    // إعلام الجميع بأن المستخدم دخل
+    io.emit('userStatusUpdate', { 
+        userId: user.id, 
+        username: user.username, 
+        status: 'online',
+        rank: user.rank 
+    });
 });
 
-
-// --- API جديد للتحكم الكامل بالرتب (خاص بالمالك فقط) ---
-app.post('/api/set-rank', (req, res) => {
-    // الخطوة 1: التحقق من هوية من يرسل الطلب
+// === API التحكم الكامل بالرتب (للمالك فقط) ===
+app.post('/api/set-user-rank', async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'الرجاء تسجيل الدخول أولاً' });
     
     const requester = users.find(u => u.token === token);
     if (!requester) return res.status(403).json({ error: 'رمز الدخول غير صالح' });
 
-    // --- الشرط الأساسي والوحيد: هل هذا الشخص هو المالك؟ ---
-    // تعديل: تمت إضافة تحقق إضافي باستخدام معرّف المستخدم (ID) لضمان التعرف على المالك دائمًا
-    if (requester.id !== 1 && requester.email !== 'njdj9985@mail.com') {
-        return res.status(403).json({ error: 'ليس لديك الصلاحية المطلقة لتغيير الرتب.' });
+    // === التحقق من صلاحيات المالك ===
+    const isOwner = (requester.email === 'njdj9985@gmail.com' && requester.rank === 'owner') || 
+                    requester.permissions?.includes('all') || 
+                    requester.id === 1;
+    
+    if (!isOwner) {
+        console.log(`🚫 محاولة غير مصرح بها لتغيير الرتب بواسطة: ${requester.username}`);
+        return res.status(403).json({ 
+            error: 'ليس لديك الصلاحية لتغيير الرتب. فقط المالك يمكنه ذلك.' 
+        });
     }
 
-    // الخطوة 2: الحصول على بيانات الطلب
-    const { targetUserId, newRankKey } = req.body;
-    if (!targetUserId || !newRankKey) {
-        return res.status(400).json({ error: 'الطلب ناقص، الرجاء تحديد المستخدم والرتبة الجديدة' });
+    const { targetUserId, newRank, reason } = req.body;
+    
+    if (!targetUserId || !newRank) {
+        return res.status(400).json({ error: 'الطلب ناقص - يجب تحديد المستخدم والرتبة' });
     }
 
     const targetUser = users.find(u => u.id === parseInt(targetUserId));
-    if (!targetUser) return res.status(404).json({ error: 'المستخدم المستهدف غير موجود' });
+    if (!targetUser) {
+        return res.status(404).json({ error: 'المستخدم المستهدف غير موجود' });
+    }
+
+    if (!RANKS[newRank]) {
+        return res.status(400).json({ 
+            error: `الرتبة غير صالحة. الرتب المتاحة: ${Object.keys(RANKS).join(', ')}` 
+        });
+    }
+
+    // حفظ الرتبة السابقة
+    const oldRankInfo = RANKS[targetUser.rank] || RANKS.visitor;
+    const newRankInfo = RANKS[newRank];
     
-    if (!RANKS[newRankKey]) return res.status(400).json({ error: 'الرتبة الجديدة المختارة غير صالحة' });
+    // تحديث الرتبة
+    targetUser.rank = newRank;
+    targetUser.rankUpdatedAt = new Date().toISOString();
+    targetUser.rankUpdatedBy = requester.username;
+    
+    // حفظ سجل التغييرات
+    targetUser.rankHistory = targetUser.rankHistory || [];
+    targetUser.rankHistory.push({
+        oldRank: targetUser.rank,
+        newRank: newRank,
+        changedBy: requester.username,
+        reason: reason || 'تغيير رتبة بواسطة المالك',
+        timestamp: new Date().toISOString()
+    });
 
-    // الخطوة 3: تنفيذ الأمر مباشرة بدون أي شروط أخرى
-    const oldRankName = RANKS[targetUser.rank].name;
-    const newRankName = RANKS[newRankKey].name;
+    console.log(`👑 [MALIK] ${requester.username} غيّر رتبة ${targetUser.username} من "${oldRankInfo.name}" إلى "${newRankInfo.name}"`);
+    
+    // إرسال التحديث للجميع
+    io.emit('userRankUpdated', { 
+        userId: targetUser.id, 
+        username: targetUser.username, 
+        oldRank: oldRankInfo.name,
+        newRank: newRankInfo.name,
+        rank: newRank,
+        rankInfo: newRankInfo,
+        updatedBy: requester.username
+    });
 
-    targetUser.rank = newRankKey;
-
-    console.log(`[صلاحية المالك] قام ${requester.username} بتغيير رتبة ${targetUser.username} من '${oldRankName}' إلى '${newRankName}'.`);
-
-    res.json({ message: `تم تحديث رتبة ${targetUser.username} إلى ${newRankName} بنجاح.` });
-
-    // الخطوة 4: إعلام جميع المستخدمين بالتغيير
-    io.emit('userUpdated', { id: targetUser.id, rank: targetUser.rank });
+    res.json({ 
+        success: true,
+        message: `تم تغيير رتبة ${targetUser.username} من "${oldRankInfo.name}" إلى "${newRankInfo.name}" بنجاح`,
+        user: {
+            id: targetUser.id,
+            username: targetUser.username,
+            oldRank: oldRankInfo.name,
+            newRank: newRankInfo.name,
+            rankInfo: newRankInfo
+        },
+        action: reason || 'تغيير رتبة'
+    });
 });
 
+// === API لإزالة رتبة (إرجاع للزائر) ===
+app.post('/api/remove-user-rank', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'الرجاء تسجيل الدخول أولاً' });
+    
+    const requester = users.find(u => u.token === token);
+    if (!requester) return res.status(403).json({ error: 'رمز الدخول غير صالح' });
 
-// --- تشغيل السيرفر (كمثال) ---
-const PORT = 3000;
+    // التحقق من صلاحيات المالك
+    const isOwner = (requester.email === 'njdj9985@gmail.com' && requester.rank === 'owner') || 
+                    requester.permissions?.includes('all') || 
+                    requester.id === 1;
+    
+    if (!isOwner) {
+        return res.status(403).json({ error: 'فقط المالك يمكنه إزالة الرتب' });
+    }
+
+    const { targetUserId, reason } = req.body;
+    if (!targetUserId) {
+        return res.status(400).json({ error: 'يجب تحديد المستخدم المستهدف' });
+    }
+
+    const targetUser = users.find(u => u.id === parseInt(targetUserId));
+    if (!targetUser) {
+        return res.status(404).json({ error: 'المستخدم غير موجود' });
+    }
+
+    const oldRankInfo = RANKS[targetUser.rank] || RANKS.visitor;
+    
+    // إرجاع المستخدم لرتبة الزائر
+    targetUser.rank = 'visitor';
+    targetUser.rankUpdatedAt = new Date().toISOString();
+    targetUser.rankUpdatedBy = requester.username;
+    
+    // حفظ سجل الإزالة
+    targetUser.rankHistory = targetUser.rankHistory || [];
+    targetUser.rankHistory.push({
+        oldRank: targetUser.rank,
+        newRank: 'visitor',
+        changedBy: requester.username,
+        reason: reason || 'إزالة الرتبة بواسطة المالك',
+        timestamp: new Date().toISOString()
+    });
+
+    console.log(`🗑️ [MALIK] ${requester.username} أزال رتبة ${targetUser.username} (${oldRankInfo.name})`);
+    
+    io.emit('userRankUpdated', { 
+        userId: targetUser.id, 
+        username: targetUser.username, 
+        oldRank: oldRankInfo.name,
+        newRank: 'زائر',
+        rank: 'visitor',
+        rankInfo: RANKS.visitor,
+        updatedBy: requester.username,
+        action: 'removed'
+    });
+
+    res.json({ 
+        success: true,
+        message: `تم إزالة رتبة ${targetUser.username} (${oldRankInfo.name}) وإرجاعه للزائر`,
+        user: {
+            id: targetUser.id,
+            username: targetUser.username,
+            oldRank: oldRankInfo.name,
+            newRank: 'زائر'
+        }
+    });
+});
+
+// === API لجلب قائمة الرتب مع المميزات ===
+app.get('/api/ranks', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'الرجاء تسجيل الدخول' });
+    
+    const user = users.find(u => u.token === token);
+    if (!user) return res.status(403).json({ error: 'رمز غير صالح' });
+
+    // إرسال جميع الرتب مع المميزات
+    res.json({
+        success: true,
+        ranks: RANKS,
+        currentUserRank: user.rank,
+        currentUserFeatures: (RANKS[user.rank] || RANKS.visitor).features
+    });
+});
+
+// === API للتحقق من صلاحيات المستخدم ===
+app.get('/api/user-permissions', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'الرجاء تسجيل الدخول' });
+    
+    const user = users.find(u => u.token === token);
+    if (!user) return res.status(403).json({ error: 'رمز غير صالح' });
+
+    const rankInfo = RANKS[user.rank] || RANKS.visitor;
+    const isOwner = user.email === 'njdj9985@gmail.com' && user.rank === 'owner';
+    
+    res.json({
+        success: true,
+        user: {
+            id: user.id,
+            username: user.username,
+            rank: user.rank,
+            rankName: rankInfo.name,
+            level: rankInfo.level,
+            features: rankInfo.features,
+            color: rankInfo.color,
+            isOwner: isOwner,
+            permissions: isOwner ? ['all'] : ['basic']
+        }
+    });
+});
+
+// === API لجلب جميع المستخدمين (للمالك فقط) ===
+app.get('/api/users', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'الرجاء تسجيل الدخول' });
+    
+    const user = users.find(u => u.token === token);
+    if (!user) return res.status(403).json({ error: 'رمز غير صالح' });
+
+    // فقط المالك يمكنه رؤية جميع المستخدمين
+    if (user.email !== 'njdj9985@gmail.com' || user.rank !== 'owner') {
+        return res.status(403).json({ error: 'غير مصرح لك برؤية قائمة المستخدمين' });
+    }
+
+    // إضافة معلومات الرتب لكل مستخدم
+    const usersWithRanks = users.map(u => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        rank: u.rank,
+        rankInfo: RANKS[u.rank] || RANKS.visitor,
+        points: u.points,
+        isOnline: u.isOnline,
+        lastLogin: u.lastLogin,
+        rankHistory: u.rankHistory || []
+    }));
+
+    res.json({
+        success: true,
+        users: usersWithRanks,
+        totalUsers: users.length,
+        onlineUsers: users.filter(u => u.isOnline).length
+    });
+});
+
+// === Socket.IO للتحديثات الفورية ===
+io.on('connection', (socket) => {
+    console.log('👤 مستخدم جديد متصل:', socket.id);
+
+    socket.on('join', (userId) => {
+        socket.join(`user_${userId}`);
+        console.log(`👋 ${userId} انضم للشات`);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('🔌 انقطع اتصال:', socket.id);
+    });
+});
+
+// === تشغيل السيرفر ===
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`🚀 السيرفر يعمل على http://localhost:${PORT}`);
+    console.log(`🏆 المالك: njdj9985@gmail.com | رتبة: owner`);
+    console.log(`📊 إجمالي المستخدمين: ${users.length}`);
 });
 
 
