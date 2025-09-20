@@ -8,7 +8,7 @@ let audioChunks = [];
 let chatMode = 'public'; // public or private
 let selectedUserId = null;
 let quotedMessage = null;
-
+let currentQuizTimer = null; // متغير عالمي جديد لتخزين معرّف المؤقت الحالي
 // الرتب المتاحة
 const RANKS = {
     visitor: { name: 'زائر', emoji: '👋', level: 0, color: '#888' },
@@ -23,8 +23,6 @@ const RANKS = {
     legend: { name: 'أسطورة', emoji: '🌟', level: 9, color: '#8a2be2' },
     chat_star: { name: ' مالك الموقع', emoji: '🏆', level: 10, color: 'linear-gradient(45deg, #ffd700, #ff6b35)' }
 };
-
-
 // أسئلة المسابقات
 const QUIZ_QUESTIONS = [
     {
@@ -53,35 +51,29 @@ const QUIZ_QUESTIONS = [
         correct: 0
     }
 ];
-
 // تهيئة التطبيق
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
     setupEventListeners();
     checkAuthStatus();
 });
-
 // تهيئة التطبيق
 function initializeApp() {
     // إخفاء جميع الشاشات
     document.querySelectorAll('.screen').forEach(screen => {
         screen.classList.remove('active');
     });
-    
     // عرض شاشة تسجيل الدخول
     document.getElementById('loginScreen').classList.add('active');
-    
     // تهيئة الأصوات
     initializeAudio();
 }
-
 // إعداد مستمعي الأحداث
 function setupEventListeners() {
     // تسجيل الدخول
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
     document.getElementById('registerForm').addEventListener('submit', handleRegister);
     document.getElementById('guestForm').addEventListener('submit', handleGuestLogin);
-    
     // إرسال الرسائل
     document.getElementById('messageInput').addEventListener('keypress', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -89,13 +81,10 @@ function setupEventListeners() {
             sendMessage();
         }
     });
-    
     // رفع الصور
     document.getElementById('imageInput').addEventListener('change', handleImageUpload);
-    
     // تغيير الغرفة
     document.getElementById('roomSelect').addEventListener('change', changeRoom);
-    
     // إغلاق المودالات عند النقر خارجها
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal')) {
@@ -103,7 +92,6 @@ function setupEventListeners() {
         }
     });
 }
-
 // التحقق من حالة المصادقة
 function checkAuthStatus() {
     const token = localStorage.getItem('chatToken');
@@ -133,7 +121,6 @@ function checkAuthStatus() {
         showLoginScreen();
     }
 }
-
 // عرض شاشة تسجيل الدخول
 function showLoginScreen() {
     document.querySelectorAll('.screen').forEach(screen => {
@@ -141,53 +128,42 @@ function showLoginScreen() {
     });
     document.getElementById('loginScreen').classList.add('active');
 }
-
 // عرض الشاشة الرئيسية
 function showMainScreen() {
     document.querySelectorAll('.screen').forEach(screen => {
         screen.classList.remove('active');
     });
     document.getElementById('mainScreen').classList.add('active');
-    
     // تحديث معلومات المستخدم في الواجهة
     updateUserInterface();
-    
     // تحميل الغرف
     loadRooms();
-    
     // تحميل الرسائل
     loadMessages();
 }
-
 // تحديث واجهة المستخدم
 function updateUserInterface() {
     if (!currentUser) return;
-    
     // تحديث معلومات المستخدم في الشريط العلوي
     document.getElementById('headerUserName').textContent = currentUser.display_name || currentUser.email;
     document.getElementById('headerUserRank').textContent = RANKS[currentUser.rank]?.name || 'زائر';
-    
     // تحديث صورة المستخدم
     const avatarImg = document.getElementById('headerUserAvatar');
     if (currentUser.profile_image1) {
         avatarImg.src = currentUser.profile_image1;
     }
-    
     // إظهار أزرار الإدارة حسب الدور
     const adminBtn = document.getElementById('adminPanelBtn');
     const roomsBtn = document.getElementById('roomsManagerBtn');
     const clearBtn = document.getElementById('clearChatBtn');
-    
     if (currentUser.role === 'admin' || currentUser.role === 'owner') {
         if (adminBtn) adminBtn.style.display = 'block';
         if (roomsBtn) roomsBtn.style.display = 'block';
         if (clearBtn) clearBtn.style.display = 'block';
     }
-    
     // تعيين دور المستخدم في الجسم
     document.body.setAttribute('data-user-role', currentUser.role);
 }
-
 // تهيئة Socket.IO
 function initializeSocket() {
     const token = localStorage.getItem('chatToken');
@@ -196,7 +172,6 @@ function initializeSocket() {
             token: token
         }
     });
-    
     // الاتصال
     socket.on('connect', () => {
         console.log('متصل بالخادم');
@@ -209,13 +184,11 @@ function initializeSocket() {
             token: token
         });
     });
-    
     // رسالة جديدة
     socket.on('newMessage', (message) => {
         displayMessage(message);
         playNotificationSound();
     });
-    
     // رسالة خاصة جديدة
     socket.on('newPrivateMessage', (message) => {
         if (chatMode === 'private' && 
@@ -225,12 +198,10 @@ function initializeSocket() {
         playNotificationSound();
         updateNotificationCount();
     });
-    
     // تحديث قائمة المستخدمين
     socket.on('roomUsersList', (users) => {
         updateUsersList(users);
     });
-    
     // حذف رسالة
     socket.on('messageDeleted', (messageId) => {
         const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
@@ -238,14 +209,12 @@ function initializeSocket() {
             messageElement.remove();
         }
     });
-    
     // إشعار جديد
     socket.on('newNotification', (notification) => {
         showNotification(notification.message, notification.type || 'info');
         updateNotificationCount();
         notificationsList.push(notification);
     });
-    
     // تحديث قائمة المتصلين
     socket.on('onlineUsersUpdated', (users) => {
         onlineUsersList = users;
@@ -254,20 +223,17 @@ function initializeSocket() {
         if (sidebarCount) {
             sidebarCount.textContent = users.length;
         }
-        
         // تحديث قائمة المتصلين في المودال إذا كان مفتوحاً
         const modal = document.getElementById('onlineUsersModal');
         if (modal && modal.classList.contains('modal') && modal.style.display !== 'none') {
             displayOnlineUsers();
         }
     });
-    
     // قطع الاتصال
     socket.on('disconnect', () => {
         console.log('انقطع الاتصال بالخادم');
         showNotification('انقطع الاتصال بالخادم', 'error');
     });
-
     // معالجة أخطاء الأمان
     socket.on('error', (errorMessage) => {
         console.error('خطأ في الأمان:', errorMessage);
@@ -277,22 +243,17 @@ function initializeSocket() {
         showLoginScreen();
     });
 }
-
 // تسجيل الدخول
 async function handleLogin(e) {
     e.preventDefault();
-    
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
-    
     if (!email || !password) {
         showError('يرجى ملء جميع الحقول');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: {
@@ -300,9 +261,7 @@ async function handleLogin(e) {
             },
             body: JSON.stringify({ email, password })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
             localStorage.setItem('chatToken', data.token);
             currentUser = data.user;
@@ -322,28 +281,22 @@ async function handleLogin(e) {
         showLoading(false);
     }
 }
-
 // إنشاء حساب جديد
 async function handleRegister(e) {
     e.preventDefault();
-    
     const displayName = document.getElementById('registerDisplayName').value;
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
-    
     if (!email || !password) {
         showError('يرجى ملء جميع الحقول المطلوبة');
         return;
     }
-    
     if (password.length < 6) {
         showError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/register', {
             method: 'POST',
             headers: {
@@ -351,9 +304,7 @@ async function handleRegister(e) {
             },
             body: JSON.stringify({ email, password, display_name: displayName })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
             localStorage.setItem('chatToken', data.token);
             currentUser = data.user;
@@ -369,25 +320,20 @@ async function handleRegister(e) {
         showLoading(false);
     }
 }
-
 // دخول كزائر
 async function handleGuestLogin(e) {
     e.preventDefault();
-    
     const name = document.getElementById('guestName').value;
     const age = document.getElementById('guestAge').value;
     const gender = document.getElementById('guestGender').value;
-    
     if (!name || !age || !gender) {
         showError('يرجى ملء جميع الحقول');
         return;
     }
-    
     if (age < 13 || age > 99) {
         showError('العمر يجب أن يكون بين 13 و 99 سنة');
         return;
     }
-    
     // إنشاء مستخدم زائر مؤقت
     currentUser = {
         id: Date.now(),
@@ -399,12 +345,10 @@ async function handleGuestLogin(e) {
         gender: gender,
         isGuest: true
     };
-    
     showMainScreen();
     initializeSocket();
     showNotification('مرحباً بك كزائر', 'success');
 }
-
 // عرض شاشة الحظر
 function showBanScreen(reason) {
     document.querySelectorAll('.screen').forEach(screen => {
@@ -413,7 +357,6 @@ function showBanScreen(reason) {
     document.getElementById('banScreen').classList.add('active');
     document.getElementById('banReason').innerHTML = `<p>${reason}</p>`;
 }
-
 // التحقق من حالة الحظر
 async function checkBanStatus() {
     const token = localStorage.getItem('chatToken');
@@ -421,14 +364,12 @@ async function checkBanStatus() {
         showLoginScreen();
         return;
     }
-    
     try {
         const response = await fetch('/api/user/profile', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
         if (response.ok) {
             const user = await response.json();
             currentUser = user;
@@ -442,7 +383,6 @@ async function checkBanStatus() {
         showError('حدث خطأ في التحقق من حالة الحظر');
     }
 }
-
 // تحميل الغرف
 async function loadRooms() {
     try {
@@ -452,7 +392,6 @@ async function loadRooms() {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
         if (response.ok) {
             const rooms = await response.json();
             updateRoomsSelect(rooms);
@@ -461,12 +400,10 @@ async function loadRooms() {
         console.error('خطأ في تحميل الغرف:', error);
     }
 }
-
 // تحديث قائمة الغرف
 function updateRoomsSelect(rooms) {
     const select = document.getElementById('roomSelect');
     select.innerHTML = '';
-    
     rooms.forEach(room => {
         const option = document.createElement('option');
         option.value = room.id;
@@ -477,72 +414,58 @@ function updateRoomsSelect(rooms) {
         select.appendChild(option);
     });
 }
-
 // تغيير الغرفة
 function changeRoom() {
     const newRoomId = parseInt(document.getElementById('roomSelect').value);
     if (newRoomId !== currentRoom) {
         currentRoom = newRoomId;
-        
         // إشعار الخادم بتغيير الغرفة
         if (socket) {
             socket.emit('changeRoom', newRoomId);
         }
-        
         // تحديث اسم الغرفة
         const roomName = document.getElementById('roomSelect').selectedOptions[0].textContent;
         document.getElementById('currentRoomName').textContent = roomName;
-        
         // مسح الرسائل وتحميل رسائل الغرفة الجديدة
         document.getElementById('messagesContainer').innerHTML = '';
         loadMessages();
     }
 }
-
 // تحميل الرسائل
 async function loadMessages() {
     try {
         const token = localStorage.getItem('chatToken');
         if (!token && !currentUser?.isGuest) return;
-        
         const headers = {};
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
-        
         const response = await fetch(`/api/messages/${currentRoom}`, { headers });
-        
         if (response.ok) {
             const messages = await response.json();
             const container = document.getElementById('messagesContainer');
             container.innerHTML = '';
-            
             messages.forEach(message => {
                 displayMessage(message);
             });
-            
             scrollToBottom();
         }
     } catch (error) {
         console.error('خطأ في تحميل الرسائل:', error);
     }
 }
-
 // عرض رسالة
 function displayMessage(message) {
     const container = document.getElementById('messagesContainer');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${message.user_id === currentUser?.id ? 'own' : ''}`;
     messageDiv.setAttribute('data-message-id', message.id);
-    
     const rank = RANKS[message.rank] || RANKS.visitor;
     const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
         hour: '2-digit',
         minute: '2-digit'
     });
-    
     let messageContent = '';
-    
     // محتوى الرسالة
     if (message.message) {
         messageContent = `<div class="message-text">${escapeHtml(message.message)}</div>`;
@@ -554,7 +477,6 @@ function displayMessage(message) {
     } else if (message.image_url) {
         messageContent = `<img class="message-image" src="${message.image_url}" alt="صورة" onclick="openImageModal('${message.image_url}')">`;
     }
-    
     messageDiv.innerHTML = `
         <img class="message-avatar" src="${message.profile_image1 || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'}" 
              alt="صورة ${message.display_name}" onclick="openUserProfile(${message.user_id})">
@@ -567,62 +489,49 @@ function displayMessage(message) {
             ${messageContent}
         </div>
     `;
-    
     container.appendChild(messageDiv);
     scrollToBottom();
 }
-
 // إرسال رسالة
 function sendMessage() {
     const input = document.getElementById('messageInput');
     const message = input.value.trim();
-    
     if (!message) return;
-    
     if (message.length > 1000) {
         showError('الرسالة طويلة جداً (الحد الأقصى 1000 حرف)');
         return;
     }
-    
     if (socket) {
         const messageData = {
             message: message,
             roomId: currentRoom
         };
-        
         // إضافة الاقتباس إذا كان موجوداً
         if (quotedMessage) {
             messageData.quoted_message_id = quotedMessage.id;
             messageData.quoted_author = quotedMessage.author;
             messageData.quoted_content = quotedMessage.content;
         }
-        
         socket.emit('sendMessage', messageData);
         input.value = '';
         cancelQuote();
     }
 }
-
 // رفع صورة
 function handleImageUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
     if (!file.type.startsWith('image/')) {
         showError('يرجى اختيار صورة صحيحة');
         return;
     }
-    
     if (file.size > 5 * 1024 * 1024) {
         showError('حجم الصورة كبير جداً (الحد الأقصى 5 ميجابايت)');
         return;
     }
-    
     const formData = new FormData();
     formData.append('image', file);
-    
     showLoading(true);
-    
     fetch('/api/upload-image', {
         method: 'POST',
         headers: {
@@ -649,7 +558,6 @@ function handleImageUpload(e) {
         e.target.value = '';
     });
 }
-
 // تسجيل صوتي
 function toggleVoiceRecording() {
     if (isRecording) {
@@ -658,58 +566,46 @@ function toggleVoiceRecording() {
         startRecording();
     }
 }
-
 // بدء التسجيل
 async function startRecording() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
-        
         mediaRecorder.ondataavailable = (event) => {
             audioChunks.push(event.data);
         };
-        
         mediaRecorder.onstop = () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             uploadVoiceMessage(audioBlob);
             stream.getTracks().forEach(track => track.stop());
         };
-        
         mediaRecorder.start();
         isRecording = true;
-        
         const voiceBtn = document.getElementById('voiceBtn');
         voiceBtn.classList.add('recording');
         voiceBtn.innerHTML = '<i class="fas fa-stop"></i>';
-        
         showNotification('بدأ التسجيل...', 'info');
     } catch (error) {
         showError('لا يمكن الوصول للميكروفون');
     }
 }
-
 // إيقاف التسجيل
 function stopRecording() {
     if (mediaRecorder && isRecording) {
         mediaRecorder.stop();
         isRecording = false;
-        
         const voiceBtn = document.getElementById('voiceBtn');
         voiceBtn.classList.remove('recording');
         voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
-        
         showNotification('تم إيقاف التسجيل', 'success');
     }
 }
-
 // رفع رسالة صوتية
 function uploadVoiceMessage(audioBlob) {
     const formData = new FormData();
     formData.append('voice', audioBlob, 'voice.webm');
-    
     showLoading(true);
-    
     fetch('/api/upload-voice', {
         method: 'POST',
         headers: {
@@ -735,31 +631,24 @@ function uploadVoiceMessage(audioBlob) {
         showLoading(false);
     });
 }
-
 // تحديث قائمة المستخدمين
 function updateUsersList(users) {
     const container = document.getElementById('onlineUsersList');
     const countElement = document.getElementById('onlineCount');
-    
     container.innerHTML = '';
     countElement.textContent = users.length;
-    
     // ترتيب المستخدمين حسب الرتبة
     users.sort((a, b) => {
         const rankA = RANKS[a.rank] || RANKS.visitor;
         const rankB = RANKS[b.rank] || RANKS.visitor;
         return rankB.level - rankA.level;
     });
-    
     users.forEach(user => {
         if (user.userId === currentUser?.id) return; // لا نعرض المستخدم الحالي
-        
         const userDiv = document.createElement('div');
         userDiv.className = 'user-item';
         userDiv.onclick = () => openUserActions(user);
-        
         const rank = RANKS[user.rank] || RANKS.visitor;
-        
         userDiv.innerHTML = `
             <img class="user-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${user.displayName}">
             <div class="user-details">
@@ -767,39 +656,29 @@ function updateUsersList(users) {
                 <div class="user-status">${rank.emoji} ${rank.name}</div>
             </div>
         `;
-        
         container.appendChild(userDiv);
     });
 }
-
 // فتح إجراءات المستخدم
 function openUserActions(user) {
     selectedUserId = user.userId;
-    
     document.getElementById('actionUserName').textContent = user.displayName;
     document.getElementById('actionUserAvatar').src = 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop';
-    
     openModal('userActionsModal');
 }
-
 // بدء دردشة خاصة
 function startPrivateChat() {
     if (!selectedUserId) return;
-    
     chatMode = 'private';
     document.getElementById('chatModeText').textContent = 'خاص';
-    
     // تحديث واجهة الدردشة الخاصة
     loadPrivateMessages();
     closeAllModals();
-    
     showNotification('تم التبديل للدردشة الخاصة', 'info');
 }
-
 // تحميل الرسائل الخاصة
 async function loadPrivateMessages() {
     if (!selectedUserId) return;
-    
     try {
         const token = localStorage.getItem('chatToken');
         const response = await fetch(`/api/private-messages/${selectedUserId}`, {
@@ -807,38 +686,31 @@ async function loadPrivateMessages() {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
         if (response.ok) {
             const messages = await response.json();
             const container = document.getElementById('messagesContainer');
             container.innerHTML = '';
-            
             messages.forEach(message => {
                 displayPrivateMessage(message);
             });
-            
             scrollToBottom();
         }
     } catch (error) {
         console.error('خطأ في تحميل الرسائل الخاصة:', error);
     }
 }
-
 // عرض رسالة خاصة
 function displayPrivateMessage(message) {
     const container = document.getElementById('messagesContainer');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${message.user_id === currentUser?.id ? 'own' : ''}`;
     messageDiv.setAttribute('data-message-id', message.id);
-    
     const rank = RANKS[message.rank] || RANKS.visitor;
     const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
         hour: '2-digit',
         minute: '2-digit'
     });
-    
     let messageContent = '';
-    
     if (message.message) {
         messageContent = `<div class="message-text">${escapeHtml(message.message)}</div>`;
     } else if (message.voice_url) {
@@ -848,7 +720,6 @@ function displayPrivateMessage(message) {
     } else if (message.image_url) {
         messageContent = `<img class="message-image" src="${message.image_url}" alt="صورة" onclick="openImageModal('${message.image_url}')">`;
     }
-    
     messageDiv.innerHTML = `
         <img class="message-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${message.display_name}">
         <div class="message-content">
@@ -860,11 +731,9 @@ function displayPrivateMessage(message) {
             ${messageContent}
         </div>
     `;
-    
     container.appendChild(messageDiv);
     scrollToBottom();
 }
-
 // تبديل وضع الدردشة
 function toggleChatMode() {
     if (chatMode === 'public') {
@@ -879,24 +748,20 @@ function toggleChatMode() {
         showNotification('تم التبديل للدردشة العامة', 'info');
     }
 }
-
 // فتح القائمة الرئيسية
 function openMainMenu() {
     openModal('mainMenuModal');
 }
-
 // إغلاق القائمة الرئيسية
 function closeMainMenu() {
     closeModal('mainMenuModal');
 }
-
 // فتح قسم الأخبار
 function openNewsSection() {
     openModal('newsModal');
     loadNews();
     closeMainMenu();
 }
-
 // تحميل الأخبار
 async function loadNews() {
     try {
@@ -909,23 +774,18 @@ async function loadNews() {
         console.error('خطأ في تحميل الأخبار:', error);
     }
 }
-
 // عرض الأخبار
 function displayNews(news) {
     const container = document.getElementById('newsFeed');
     container.innerHTML = '';
-    
     if (news.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد أخبار حالياً</p>';
         return;
     }
-    
     news.forEach(item => {
         const newsDiv = document.createElement('div');
         newsDiv.className = 'news-item';
-        
         const time = new Date(item.timestamp).toLocaleString('ar-SA');
-        
         newsDiv.innerHTML = `
             <div class="news-header-info">
                 <img class="news-author-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${item.display_name}">
@@ -937,28 +797,22 @@ function displayNews(news) {
             <div class="news-content">${escapeHtml(item.content)}</div>
             ${item.media ? `<div class="news-media"><img src="${item.media}" alt="صورة الخبر"></div>` : ''}
         `;
-        
         container.appendChild(newsDiv);
     });
 }
-
 // نشر خبر
 async function postNews() {
     const content = document.getElementById('newsContentInput').value.trim();
     const fileInput = document.getElementById('newsFileInput');
-    
     if (!content && !fileInput.files[0]) {
         showError('يرجى كتابة محتوى أو اختيار ملف');
         return;
     }
-    
     const formData = new FormData();
     if (content) formData.append('content', content);
     if (fileInput.files[0]) formData.append('newsFile', fileInput.files[0]);
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/news', {
             method: 'POST',
             headers: {
@@ -966,7 +820,6 @@ async function postNews() {
             },
             body: formData
         });
-        
         if (response.ok) {
             document.getElementById('newsContentInput').value = '';
             fileInput.value = '';
@@ -982,19 +835,16 @@ async function postNews() {
         showLoading(false);
     }
 }
-
 // إغلاق مودال الأخبار
 function closeNewsModal() {
     closeModal('newsModal');
 }
-
 // فتح قسم القصص
 function openStoriesSection() {
     openModal('storiesModal');
     loadStories();
     closeMainMenu();
 }
-
 // تحميل القصص
 async function loadStories() {
     try {
@@ -1007,54 +857,43 @@ async function loadStories() {
         console.error('خطأ في تحميل القصص:', error);
     }
 }
-
 // عرض القصص
 function displayStories(stories) {
     const container = document.getElementById('storiesContainer');
     container.innerHTML = '';
-    
     if (stories.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد قصص حالياً</p>';
         return;
     }
-    
     stories.forEach(story => {
         const storyDiv = document.createElement('div');
         storyDiv.className = 'story-item';
         storyDiv.onclick = () => viewStory(story);
-        
         storyDiv.innerHTML = `<img src="${story.image}" alt="قصة ${story.display_name}">`;
         container.appendChild(storyDiv);
     });
 }
-
 // فتح مودال إضافة قصة
 function openAddStoryModal() {
     openModal('addStoryModal');
 }
-
 // إغلاق مودال إضافة قصة
 function closeAddStoryModal() {
     closeModal('addStoryModal');
 }
-
 // إضافة قصة
 async function addStory() {
     const fileInput = document.getElementById('storyMediaInput');
     const text = document.getElementById('storyTextInput').value.trim();
-    
     if (!fileInput.files[0]) {
         showError('يرجى اختيار صورة أو فيديو');
         return;
     }
-    
     const formData = new FormData();
     formData.append('storyImage', fileInput.files[0]);
     if (text) formData.append('text', text);
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/stories', {
             method: 'POST',
             headers: {
@@ -1062,7 +901,6 @@ async function addStory() {
             },
             body: formData
         });
-        
         if (response.ok) {
             closeAddStoryModal();
             loadStories();
@@ -1077,18 +915,15 @@ async function addStory() {
         showLoading(false);
     }
 }
-
 // إغلاق مودال القصص
 function closeStoriesModal() {
     closeModal('storiesModal');
 }
-
 // فتح قسم الألعاب
 function openGamesSection() {
     showNotification('الألعاب قيد التطوير', 'info');
     closeMainMenu();
 }
-
 // فتح غرفة المسابقات
 function openQuizRoom() {
     openModal('quizRoomModal');
@@ -1098,18 +933,22 @@ function openQuizRoom() {
 
 // بدء المسابقة
 function startQuiz() {
+    // إيقاف أي مؤقت قديم قبل بدء سؤال جديد
+    if (currentQuizTimer) {
+        clearInterval(currentQuizTimer);
+        currentQuizTimer = null;
+    }
+
     const randomQuestion = QUIZ_QUESTIONS[Math.floor(Math.random() * QUIZ_QUESTIONS.length)];
     displayQuizQuestion(randomQuestion);
-    startQuizTimer();
+    startQuizTimer(); // بدء مؤقت جديد للسؤال
 }
 
 // عرض سؤال المسابقة
 function displayQuizQuestion(question) {
     document.getElementById('questionText').textContent = question.question;
-    
     const optionsContainer = document.getElementById('questionOptions');
     optionsContainer.innerHTML = '';
-    
     question.options.forEach((option, index) => {
         const button = document.createElement('button');
         button.className = 'option-btn';
@@ -1130,31 +969,42 @@ function selectQuizAnswer(selected, correct) {
             btn.style.background = 'var(--error-color)';
         }
     });
-    
+
+    const userName = currentUser?.display_name || 'المستخدم';
+
     if (selected === correct) {
         showNotification('إجابة صحيحة! +10 نقاط', 'success');
         updateUserCoins(10);
     } else {
-        showNotification('إجابة خاطئة', 'error');
+        // عرض إشعار مخصص باسم المستخدم عند الإجابة الخاطئة
+        showNotification(`يا ${userName}، الإجابة خاطئة!`, 'error');
     }
-    
+
+    // الانتقال لسؤال جديد بعد 3 ثانية في جميع الحالات (صحيح/خاطئ)
     setTimeout(() => {
-        startQuiz(); // سؤال جديد
+        startQuiz();
     }, 3000);
 }
 
 // بدء مؤقت المسابقة
 function startQuizTimer() {
-    let timeLeft = 30;
+    let timeLeft = 20; // تم تغييره من 30 إلى 20
     const timerElement = document.getElementById('quizTimer');
-    
-    const timer = setInterval(() => {
+    timerElement.textContent = timeLeft; // تأكد من عرض القيمة الأولية
+
+    // تخزين معرّف المؤقت في المتغير العالمي
+    currentQuizTimer = setInterval(() => {
         timeLeft--;
         timerElement.textContent = timeLeft;
-        
         if (timeLeft <= 0) {
-            clearInterval(timer);
-            showNotification('انتهى الوقت!', 'warning');
+            clearInterval(currentQuizTimer);
+            currentQuizTimer = null; // إعادة تعيين المتغير
+
+            // عرض إشعار مخصص باسم المستخدم عند انتهاء الوقت
+            const userName = currentUser?.display_name || 'المستخدم';
+            showNotification(`انتهى الوقت يا ${userName}! لم يتم الإجابة`, 'warning');
+
+            // الانتقال لسؤال جديد بعد 2 ثانية
             setTimeout(() => {
                 startQuiz();
             }, 2000);
@@ -1166,37 +1016,31 @@ function startQuizTimer() {
 function closeQuizRoom() {
     closeModal('quizRoomModal');
 }
-
 // فتح إدارة الغرف
 function openRoomsManager() {
     showNotification('إدارة الغرف متاحة في لوحة الإدارة', 'info');
     closeMainMenu();
 }
-
 // فتح متجر النقاط
 function openCoinsShop() {
     showNotification('متجر النقاط قيد التطوير', 'info');
     closeMainMenu();
 }
-
 // فتح لوحة الإدارة
 function openAdminPanel() {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
         showError('غير مسموح - للإداريين فقط');
         return;
     }
-    
     openModal('adminModal');
     loadAdminData();
     closeMainMenu();
 }
-
 // تحميل بيانات الإدارة
 async function loadAdminData() {
     await loadAllUsers();
     loadRanks();
 }
-
 // تحميل جميع المستخدمين
 async function loadAllUsers() {
     try {
@@ -1205,7 +1049,6 @@ async function loadAllUsers() {
                 'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
             }
         });
-        
         if (response.ok) {
             const users = await response.json();
             displayAdminUsers(users);
@@ -1214,19 +1057,15 @@ async function loadAllUsers() {
         console.error('خطأ في تحميل المستخدمين:', error);
     }
 }
-
 // عرض المستخدمين في لوحة الإدارة
 function displayAdminUsers(users) {
     const container = document.getElementById('adminUsersList');
     container.innerHTML = '';
-    
     users.forEach(user => {
         const userDiv = document.createElement('div');
         userDiv.className = 'admin-user-item';
-        
         const rank = RANKS[user.rank] || RANKS.visitor;
         const joinDate = new Date(user.created_at).toLocaleDateString('ar-SA');
-        
         userDiv.innerHTML = `
             <div class="admin-user-info">
                 <img class="admin-user-avatar" src="${user.profile_image1 || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'}" alt="${user.display_name}">
@@ -1247,63 +1086,50 @@ function displayAdminUsers(users) {
                 </button>
             </div>
         `;
-        
         container.appendChild(userDiv);
     });
 }
-
 // تحميل الرتب
 function loadRanks() {
     const container = document.getElementById('ranksList');
     container.innerHTML = '';
-    
     Object.entries(RANKS).forEach(([key, rank]) => {
         const rankDiv = document.createElement('div');
         rankDiv.className = 'rank-item';
-        
         rankDiv.innerHTML = `
             <div class="rank-emoji">${rank.emoji}</div>
             <div class="rank-name">${rank.name}</div>
             <div class="rank-level">المستوى ${rank.level}</div>
         `;
-        
         container.appendChild(rankDiv);
     });
 }
-
 // فتح مودال تعيين الرتبة
 function openAssignRankModal(userId, userName) {
     document.getElementById('rankTargetUser').textContent = userName;
     document.getElementById('rankTargetUser').setAttribute('data-user-id', userId);
-    
     // ملء قائمة الرتب
     const select = document.getElementById('newRankSelect');
     select.innerHTML = '';
-    
     Object.entries(RANKS).forEach(([key, rank]) => {
         const option = document.createElement('option');
         option.value = key;
         option.textContent = `${rank.emoji} ${rank.name}`;
         select.appendChild(option);
     });
-    
     openModal('assignRankModal');
 }
-
 // تأكيد تعيين الرتبة
 async function confirmAssignRank() {
     const userId = document.getElementById('rankTargetUser').getAttribute('data-user-id');
     const newRank = document.getElementById('newRankSelect').value;
     const reason = document.getElementById('rankChangeReason').value.trim();
-    
     if (!newRank) {
         showError('يرجى اختيار رتبة');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/assign-rank', {
             method: 'POST',
             headers: {
@@ -1316,9 +1142,7 @@ async function confirmAssignRank() {
                 reason
             })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
             closeAssignRankModal();
             loadAllUsers();
@@ -1332,34 +1156,28 @@ async function confirmAssignRank() {
         showLoading(false);
     }
 }
-
 // إغلاق مودال تعيين الرتبة
 function closeAssignRankModal() {
     closeModal('assignRankModal');
     document.getElementById('rankChangeReason').value = '';
 }
-
 // فتح مودال حظر المستخدم
 function openBanUserModal(userId, userName) {
     document.getElementById('banTargetUser').textContent = userName;
     document.getElementById('banTargetUser').setAttribute('data-user-id', userId);
     openModal('banUserModal');
 }
-
 // تأكيد حظر المستخدم
 async function confirmBanUser() {
     const userId = document.getElementById('banTargetUser').getAttribute('data-user-id');
     const reason = document.getElementById('banReason').value.trim();
     const duration = document.getElementById('banDuration').value;
-    
     if (!reason) {
         showError('يرجى كتابة سبب الحظر');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/ban', {
             method: 'POST',
             headers: {
@@ -1372,9 +1190,7 @@ async function confirmBanUser() {
                 duration
             })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
             closeBanUserModal();
             loadAllUsers();
@@ -1388,34 +1204,28 @@ async function confirmBanUser() {
         showLoading(false);
     }
 }
-
 // إغلاق مودال حظر المستخدم
 function closeBanUserModal() {
     closeModal('banUserModal');
     document.getElementById('banReason').value = '';
 }
-
 // فتح مودال إهداء النقاط
 function openGiveCoinsModal(userId, userName) {
     document.getElementById('coinsTargetUser').textContent = userName;
     document.getElementById('coinsTargetUser').setAttribute('data-user-id', userId);
     openModal('giveCoinsModal');
 }
-
 // إهداء النقاط
 async function giveCoins() {
     const userId = document.getElementById('coinsTargetUser').getAttribute('data-user-id');
     const amount = document.getElementById('coinsAmount').value;
     const reason = document.getElementById('coinsReason').value;
-    
     if (!amount || amount < 1 || amount > 10000) {
         showError('يرجى إدخال عدد صحيح من النقاط (1-10000)');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/give-coins', {
             method: 'POST',
             headers: {
@@ -1428,9 +1238,7 @@ async function giveCoins() {
                 reason: reason
             })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
             closeGiveCoinsModal();
             loadAllUsers();
@@ -1444,42 +1252,34 @@ async function giveCoins() {
         showLoading(false);
     }
 }
-
 // إغلاق مودال إهداء النقاط
 function closeGiveCoinsModal() {
     closeModal('giveCoinsModal');
     document.getElementById('coinsAmount').value = '';
     document.getElementById('coinsReason').value = '';
 }
-
 // إغلاق لوحة الإدارة
 function closeAdminModal() {
     closeModal('adminModal');
 }
-
 // عرض تبويب الإدارة
 function showAdminTab(tabName) {
     // إخفاء جميع التبويبات
     document.querySelectorAll('.admin-tab').forEach(tab => {
         tab.classList.remove('active');
     });
-    
     // إزالة الفئة النشطة من جميع الأزرار
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    
     // عرض التبويب المحدد
     document.getElementById(`admin${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Tab`).classList.add('active');
-    
     // تفعيل الزر المحدد
     event.target.classList.add('active');
 }
-
 // فتح الملف الشخصي
 function openProfileModal() {
     if (!currentUser) return;
-    
     // ملء البيانات الحالية
     document.getElementById('displayNameInput').value = currentUser.display_name || '';
     document.getElementById('emailInput').value = currentUser.email || '';
@@ -1487,7 +1287,6 @@ function openProfileModal() {
     document.getElementById('genderInput').value = currentUser.gender || '';
     document.getElementById('maritalStatusInput').value = currentUser.marital_status || '';
     document.getElementById('aboutMeInput').value = currentUser.about_me || '';
-    
     // عرض الصور الحالية
     if (currentUser.profile_image1) {
         document.getElementById('profileImg1').src = currentUser.profile_image1;
@@ -1495,42 +1294,33 @@ function openProfileModal() {
     if (currentUser.profile_image2) {
         document.getElementById('profileImg2').src = currentUser.profile_image2;
     }
-    
     // عرض الإحصائيات
     document.getElementById('profileCoins').textContent = currentUser.coins || 2000;
     document.getElementById('profileRank').textContent = RANKS[currentUser.rank]?.name || 'زائر';
-    
     openModal('profileModal');
 }
-
 // إغلاق الملف الشخصي
 function closeProfileModal() {
     closeModal('profileModal');
 }
-
 // عرض تبويب الملف الشخصي
 function showProfileTab(tabName) {
     // إخفاء جميع التبويبات
     document.querySelectorAll('.profile-tab').forEach(tab => {
         tab.classList.remove('active');
     });
-    
     // إزالة الفئة النشطة من جميع الأزرار
     document.querySelectorAll('.profile-tabs .tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    
     // عرض التبويب المحدد
     document.getElementById(`profile${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Tab`).classList.add('active');
-    
     // تفعيل الزر المحدد
     event.target.classList.add('active');
 }
-
 // تحديث الملف الشخصي
 async function updateProfile() {
     const formData = new FormData();
-    
     const displayName = document.getElementById('displayNameInput').value.trim();
     const email = document.getElementById('emailInput').value.trim();
     const newPassword = document.getElementById('newPasswordInput').value;
@@ -1538,7 +1328,6 @@ async function updateProfile() {
     const gender = document.getElementById('genderInput').value;
     const maritalStatus = document.getElementById('maritalStatusInput').value;
     const aboutMe = document.getElementById('aboutMeInput').value.trim();
-    
     if (displayName) formData.append('display_name', displayName);
     if (email) formData.append('email', email);
     if (newPassword) formData.append('password', newPassword);
@@ -1546,17 +1335,13 @@ async function updateProfile() {
     if (gender) formData.append('gender', gender);
     if (maritalStatus) formData.append('marital_status', maritalStatus);
     if (aboutMe) formData.append('about_me', aboutMe);
-    
     // إضافة الصور إذا تم اختيارها
     const profileFile1 = document.getElementById('profileFile1').files[0];
     const profileFile2 = document.getElementById('profileFile2').files[0];
-    
     if (profileFile1) formData.append('profileImage1', profileFile1);
     if (profileFile2) formData.append('profileImage2', profileFile2);
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/user/profile', {
             method: 'PUT',
             headers: {
@@ -1564,7 +1349,6 @@ async function updateProfile() {
             },
             body: formData
         });
-        
         if (response.ok) {
             const updatedUser = await response.json();
             currentUser = { ...currentUser, ...updatedUser };
@@ -1580,30 +1364,25 @@ async function updateProfile() {
         showLoading(false);
     }
 }
-
 // فتح ملف شخصي لمستخدم آخر
 function openUserProfile(userId) {
     // هذه الوظيفة ستكون متاحة لاحقاً
     showNotification('عرض الملف الشخصي قيد التطوير', 'info');
 }
-
 // فتح الإشعارات
 function openNotifications() {
     openModal('notificationsModal');
     loadNotifications();
 }
-
 // تحميل الإشعارات
 function loadNotifications() {
     const container = document.getElementById('notificationsList');
     container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد إشعارات جديدة</p>';
 }
-
 // إغلاق الإشعارات
 function closeNotificationsModal() {
     closeModal('notificationsModal');
 }
-
 // تحديث عدد الإشعارات
 function updateNotificationCount() {
     const badge = document.getElementById('notificationCount');
@@ -1612,36 +1391,29 @@ function updateNotificationCount() {
     badge.textContent = count;
     badge.style.display = count > 0 ? 'block' : 'none';
 }
-
 // فتح الإعدادات
 function openSettings() {
     openModal('settingsModal');
 }
-
 // إغلاق الإعدادات
 function closeSettingsModal() {
     closeModal('settingsModal');
 }
-
 // حفظ الإعدادات
 function saveSettings() {
     const soundNotifications = document.getElementById('soundNotifications').checked;
     const saveChatHistory = document.getElementById('saveChatHistory').checked;
-    
     localStorage.setItem('soundNotifications', soundNotifications);
     localStorage.setItem('saveChatHistory', saveChatHistory);
-    
     showNotification('تم حفظ الإعدادات', 'success');
     closeSettingsModal();
 }
-
 // الخروج من الدردشة
 function exitChat() {
     if (confirm('هل أنت متأكد من الخروج؟')) {
         logout();
     }
 }
-
 // الخروج من الغرفة
 function exitRoom() {
     currentRoom = 1;
@@ -1650,29 +1422,26 @@ function exitRoom() {
     closeSettingsModal();
     showNotification('تم الخروج من الغرفة', 'info');
 }
-
 // فتح المساعدة
 function openHelpModal() {
     showNotification('المساعدة قيد التطوير', 'info');
 }
-
 // عرض الرتب
 function showRanks() {
-    let ranksText = 'الرتب المتاحة:\n\n';
+    let ranksText = 'الرتب المتاحة:
+';
     Object.values(RANKS).forEach(rank => {
-        ranksText += `${rank.emoji} ${rank.name} (المستوى ${rank.level})\n`;
+        ranksText += `${rank.emoji} ${rank.name} (المستوى ${rank.level})
+`;
     });
-    
     alert(ranksText);
 }
-
 // تنظيف الغرف
 async function cleanRooms() {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
         showError('غير مسموح - للإداريين فقط');
         return;
     }
-    
     if (confirm('هل أنت متأكد من تنظيف جميع الرسائل؟')) {
         try {
             const response = await fetch('/api/clean-rooms', {
@@ -1681,7 +1450,6 @@ async function cleanRooms() {
                     'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
                 }
             });
-            
             if (response.ok) {
                 document.getElementById('messagesContainer').innerHTML = '';
                 showNotification('تم تنظيف الغرفة بنجاح', 'success');
@@ -1693,28 +1461,23 @@ async function cleanRooms() {
         }
     }
 }
-
 // فتح مشغل الراديو
 function openRadioPlayer() {
     openModal('radioPlayerModal');
 }
-
 // إغلاق مشغل الراديو
 function closeRadioPlayer() {
     closeModal('radioPlayerModal');
 }
-
 // تشغيل محطة راديو
 function playRadioStation(station) {
     showNotification(`تم تشغيل ${station}`, 'success');
     // هنا يمكن إضافة كود تشغيل الراديو الفعلي
 }
-
 // تبديل الراديو
 function toggleRadio() {
     const btn = document.getElementById('radioPlayBtn');
     const icon = btn.querySelector('i');
-    
     if (icon.classList.contains('fa-play')) {
         icon.classList.remove('fa-play');
         icon.classList.add('fa-pause');
@@ -1725,7 +1488,6 @@ function toggleRadio() {
         showNotification('تم إيقاف الراديو', 'info');
     }
 }
-
 // رفع موسيقى مخصصة
 function uploadCustomMusic() {
     const fileInput = document.getElementById('customMusicInput');
@@ -1733,16 +1495,13 @@ function uploadCustomMusic() {
         showError('يرجى اختيار ملفات صوتية');
         return;
     }
-    
     showNotification('تم رفع الأغاني بنجاح', 'success');
     fileInput.value = '';
 }
-
 // تبديل مشغل الموسيقى
 function toggleMusicPlayer() {
     const btn = document.getElementById('musicToggle');
     const nowPlaying = document.getElementById('nowPlaying');
-    
     if (nowPlaying.style.display === 'none') {
         nowPlaying.style.display = 'block';
         nowPlaying.querySelector('.song-title').textContent = 'تشغيل الموسيقى...';
@@ -1752,26 +1511,21 @@ function toggleMusicPlayer() {
         showNotification('تم إيقاف الموسيقى', 'info');
     }
 }
-
 // تسجيل الخروج
 function logout() {
     localStorage.removeItem('chatToken');
     currentUser = null;
-    
     if (socket) {
         socket.disconnect();
         socket = null;
     }
-    
     showLoginScreen();
     showNotification('تم تسجيل الخروج', 'info');
 }
-
 // إعادة تحميل الصفحة
 function reloadPage() {
     location.reload();
 }
-
 // تحديث نقاط المستخدم
 function updateUserCoins(amount) {
     if (currentUser) {
@@ -1779,67 +1533,52 @@ function updateUserCoins(amount) {
         document.getElementById('profileCoins').textContent = currentUser.coins;
     }
 }
-
 // فتح منتقي الرموز التعبيرية
 function openEmojiPicker() {
     const emojis = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😢', '😡', '👍', '👎', '❤️', '🔥', '💯', '🎉', '🦂'];
     const input = document.getElementById('messageInput');
-    
     let emojiHtml = '<div style="background: white; border: 1px solid #ccc; border-radius: 8px; padding: 10px; position: absolute; z-index: 1000; display: flex; flex-wrap: wrap; gap: 5px; max-width: 200px;">';
-    
     emojis.forEach(emoji => {
         emojiHtml += `<span style="cursor: pointer; padding: 5px; border-radius: 4px; hover: background: #f0f0f0;" onclick="addEmoji('${emoji}')">${emoji}</span>`;
     });
-    
     emojiHtml += '</div>';
-    
     // إضافة منتقي الرموز بجانب حقل الإدخال
     const picker = document.createElement('div');
     picker.innerHTML = emojiHtml;
     picker.style.position = 'relative';
-    
     input.parentNode.appendChild(picker);
-    
     // إزالة المنتقي بعد 5 ثوان
     setTimeout(() => {
         picker.remove();
     }, 5000);
 }
-
 // إضافة رمز تعبيري
 function addEmoji(emoji) {
     const input = document.getElementById('messageInput');
     input.value += emoji;
     input.focus();
-    
     // إزالة منتقي الرموز
     const picker = input.parentNode.querySelector('div');
     if (picker) picker.remove();
 }
-
 // فتح منتقي الصور المتحركة
 function openGifPicker() {
     showNotification('منتقي الصور المتحركة قيد التطوير', 'info');
 }
-
 // اقتباس رسالة
 function quoteMessage(messageId, author, content) {
     quotedMessage = { id: messageId, author, content };
-    
     const quotedDiv = document.getElementById('quotedMessage');
     quotedDiv.style.display = 'flex';
     quotedDiv.querySelector('.quoted-author').textContent = author;
     quotedDiv.querySelector('.quoted-text').textContent = content.substring(0, 50) + (content.length > 50 ? '...' : '');
-    
     document.getElementById('messageInput').focus();
 }
-
 // إلغاء الاقتباس
 function cancelQuote() {
     quotedMessage = null;
     document.getElementById('quotedMessage').style.display = 'none';
 }
-
 // فتح صورة في مودال
 function openImageModal(imageUrl) {
     const modal = document.createElement('div');
@@ -1849,23 +1588,19 @@ function openImageModal(imageUrl) {
             <img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 12px;" onclick="this.parentElement.parentElement.remove()">
         </div>
     `;
-    
     modal.onclick = (e) => {
         if (e.target === modal) {
             modal.remove();
         }
     };
-    
     document.body.appendChild(modal);
 }
-
 // مسح الدردشة
 async function clearChat() {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
         showError('غير مسموح - للإداريين فقط');
         return;
     }
-    
     if (confirm('هل أنت متأكد من مسح جميع الرسائل في هذه الغرفة؟')) {
         try {
             const response = await fetch(`/api/rooms/${currentRoom}/clear`, {
@@ -1874,7 +1609,6 @@ async function clearChat() {
                     'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
                 }
             });
-            
             if (response.ok) {
                 document.getElementById('messagesContainer').innerHTML = '';
                 showNotification('تم مسح الدردشة بنجاح', 'success');
@@ -1886,39 +1620,32 @@ async function clearChat() {
         }
     }
 }
-
 // إظهار تبويبات تسجيل الدخول
 function showLoginTab(tabName) {
     // إخفاء جميع النماذج
     document.querySelectorAll('.auth-form').forEach(form => {
         form.classList.remove('active');
     });
-    
     // إزالة الفئة النشطة من جميع الأزرار
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    
     // عرض النموذج المحدد
     document.getElementById(`${tabName}Form`).classList.add('active');
-    
     // تفعيل الزر المحدد
     event.target.classList.add('active');
 }
-
 // التمرير لأسفل
 function scrollToBottom() {
     const container = document.getElementById('messagesContainer');
     container.scrollTop = container.scrollHeight;
 }
-
 // إظهار رسالة خطأ
 function showError(message) {
     const errorDiv = document.getElementById('loginError');
     if (errorDiv) {
         errorDiv.textContent = message;
         errorDiv.classList.add('show');
-        
         setTimeout(() => {
             errorDiv.classList.remove('show');
         }, 5000);
@@ -1926,7 +1653,6 @@ function showError(message) {
         showNotification(message, 'error');
     }
 }
-
 // إظهار حالة التحميل
 function showLoading(show) {
     const spinner = document.getElementById('loadingSpinner');
@@ -1934,24 +1660,19 @@ function showLoading(show) {
         spinner.style.display = show ? 'flex' : 'none';
     }
 }
-
 // إظهار إشعار
 function showNotification(message, type = 'info') {
     const container = document.getElementById('toastContainer');
     if (!container) return;
-    
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
-    
     container.appendChild(toast);
-    
     // إزالة الإشعار بعد 5 ثوان
     setTimeout(() => {
         toast.remove();
     }, 5000);
 }
-
 // فتح مودال
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
@@ -1960,7 +1681,6 @@ function openModal(modalId) {
         document.body.style.overflow = 'hidden';
     }
 }
-
 // إغلاق مودال
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
@@ -1969,7 +1689,6 @@ function closeModal(modalId) {
         document.body.style.overflow = 'auto';
     }
 }
-
 // إغلاق جميع المودالات
 function closeAllModals() {
     document.querySelectorAll('.modal').forEach(modal => {
@@ -1977,13 +1696,11 @@ function closeAllModals() {
     });
     document.body.style.overflow = 'auto';
 }
-
 // إغلاق إجراءات المستخدم
 function closeUserActionsModal() {
     closeModal('userActionsModal');
     selectedUserId = null;
 }
-
 // تهيئة الأصوات
 function initializeAudio() {
     // تحميل الأصوات المحفوظة
@@ -1992,7 +1709,6 @@ function initializeAudio() {
         document.getElementById('soundNotifications').checked = soundEnabled === 'true';
     }
 }
-
 // تشغيل صوت الإشعار
 function playNotificationSound() {
     const soundEnabled = document.getElementById('soundNotifications')?.checked;
@@ -2005,47 +1721,39 @@ function playNotificationSound() {
         }
     }
 }
-
 // تنظيف HTML
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
-
 // معالج الأخطاء العامة
 window.addEventListener('error', function(e) {
     console.error('خطأ في التطبيق:', e.error);
     showNotification('حدث خطأ غير متوقع', 'error');
 });
-
 // معالج الأخطاء غير المعالجة
 window.addEventListener('unhandledrejection', function(e) {
     console.error('خطأ غير معالج:', e.reason);
     showNotification('حدث خطأ في الشبكة', 'error');
 });
-
 // ==================== الميزات الجديدة ====================
-
 // متغيرات الإشعارات والميزات الجديدة
 let onlineUsersList = [];
 let allUsersList = [];
 let notificationsList = [];
 let privateChatMinimized = false;
 let currentPrivateChatUser = null;
-
 // متغيرات للميزات الجديدة
 var currentMusicPlayer = null;
 var isContestActive = false;
 var contestTimer = null;
-
 // وظائف إرسال الصور
 function openImagePicker() {
     const imageInput = document.createElement('input');
     imageInput.type = 'file';
     imageInput.accept = 'image/*';
     imageInput.multiple = true;
-    
     imageInput.onchange = function(event) {
         const files = event.target.files;
         if (files.length > 0) {
@@ -2054,23 +1762,18 @@ function openImagePicker() {
             }
         }
     };
-    
     imageInput.click();
 }
-
 function uploadImage(file) {
     if (file.size > 10 * 1024 * 1024) { // 10MB limit
         alert('حجم الصورة كبير جداً! الحد الأقصى 10 ميجابايت');
         return;
     }
-    
     const formData = new FormData();
     formData.append('image', file);
     formData.append('roomId', currentRoomId);
-    
     // عرض مؤشر التحميل
     showUploadProgress('جاري رفع الصورة...');
-    
     fetch('/upload-image', {
         method: 'POST',
         headers: {
@@ -2099,34 +1802,27 @@ function uploadImage(file) {
         alert('حدث خطأ أثناء رفع الصورة');
     });
 }
-
 function openPrivateImagePicker(receiverId) {
     const imageInput = document.createElement('input');
     imageInput.type = 'file';
     imageInput.accept = 'image/*';
-    
     imageInput.onchange = function(event) {
         const file = event.target.files[0];
         if (file) {
             uploadPrivateImage(file, receiverId);
         }
     };
-    
     imageInput.click();
 }
-
 function uploadPrivateImage(file, receiverId) {
     if (file.size > 10 * 1024 * 1024) { 
         alert('حجم الصورة كبير جداً! الحد الأقصى 10 ميجابايت');
         return;
     }
-    
     const formData = new FormData();
     formData.append('image', file);
     formData.append('receiverId', receiverId);
-    
     showUploadProgress('جاري رفع الصورة الخاصة...');
-    
     fetch('/upload-private-image', {
         method: 'POST',
         headers: {
@@ -2154,7 +1850,6 @@ function uploadPrivateImage(file, receiverId) {
         alert('حدث خطأ أثناء رفع الصورة');
     });
 }
-
 function showUploadProgress(message) {
     const progressDiv = document.createElement('div');
     progressDiv.id = 'uploadProgress';
@@ -2167,19 +1862,16 @@ function showUploadProgress(message) {
     `;
     document.body.appendChild(progressDiv);
 }
-
 function hideUploadProgress() {
     const progressDiv = document.getElementById('uploadProgress');
     if (progressDiv) {
         progressDiv.remove();
     }
 }
-
 // وظائف معاينة فيديو يوتيوب
 function detectAndProcessYouTubeLinks(message) {
     const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/g;
     const matches = message.match(youtubeRegex);
-    
     if (matches) {
         matches.forEach(match => {
             const videoId = extractYouTubeVideoId(match);
@@ -2188,16 +1880,13 @@ function detectAndProcessYouTubeLinks(message) {
             }
         });
     }
-    
     return message;
 }
-
 function extractYouTubeVideoId(url) {
     const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
     const match = url.match(regex);
     return match ? match[1] : null;
 }
-
 function createYouTubeEmbed(videoId) {
     return `
         <div class="youtube-embed">
@@ -2214,7 +1903,6 @@ function createYouTubeEmbed(videoId) {
         </div>
     `;
 }
-
 // وظائف حذف الرسائل
 function deleteMessage(messageId, messageElement) {
     if (confirm('هل أنت متأكد من حذف هذه الرسالة؟')) {
@@ -2240,7 +1928,6 @@ function deleteMessage(messageId, messageElement) {
         });
     }
 }
-
 // وظائف الطرد والكتم
 function kickUser(userId, userName) {
     if (confirm(`هل تريد طرد ${userName} من الغرفة؟`)) {
@@ -2250,13 +1937,10 @@ function kickUser(userId, userName) {
         });
     }
 }
-
 function muteUser(userId, userName) {
     const duration = prompt(`كم دقيقة تريد كتم ${userName}؟ (اترك فارغاً للكتم الدائم)`, '10');
-    
     if (duration !== null) {
         const muteMinutes = duration === '' ? null : parseInt(duration);
-        
         socket.emit('muteUser', {
             userId: userId,
             roomId: currentRoomId,
@@ -2264,7 +1948,6 @@ function muteUser(userId, userName) {
         });
     }
 }
-
 function unmuteUser(userId, userName) {
     if (confirm(`هل تريد إلغاء كتم ${userName}؟`)) {
         socket.emit('unmuteUser', {
@@ -2273,29 +1956,24 @@ function unmuteUser(userId, userName) {
         });
     }
 }
-
 // وظائف إنشاء الغرف
 function openCreateRoomModal() {
     const modal = document.createElement('div');
     modal.className = 'modal active';
     modal.id = 'createRoomModal';
-    
     modal.innerHTML = `
         <div class="modal-content">
             <span class="close" onclick="closeCreateRoomModal()">&times;</span>
             <h2>🏠 إنشاء غرفة جديدة</h2>
-            
             <div class="room-form">
                 <div class="form-group">
                     <label>اسم الغرفة:</label>
                     <input type="text" id="roomName" placeholder="ادخل اسم الغرفة">
                 </div>
-                
                 <div class="form-group">
                     <label>وصف الغرفة:</label>
                     <textarea id="roomDescription" placeholder="ادخل وصف للغرفة"></textarea>
                 </div>
-                
                 <div class="form-group">
                     <label>نوع الغرفة:</label>
                     <select id="roomType">
@@ -2304,12 +1982,10 @@ function openCreateRoomModal() {
                         <option value="contest">مسابقات</option>
                     </select>
                 </div>
-                
                 <div class="form-group">
                     <label>الحد الأقصى للمستخدمين:</label>
                     <input type="number" id="maxUsers" value="50" min="2" max="200">
                 </div>
-                
                 <div class="room-actions">
                     <button onclick="createRoom()" class="btn save-btn">إنشاء الغرفة</button>
                     <button onclick="closeCreateRoomModal()" class="btn cancel-btn">إلغاء</button>
@@ -2317,59 +1993,48 @@ function openCreateRoomModal() {
             </div>
         </div>
     `;
-    
     document.body.appendChild(modal);
 }
-
 function closeCreateRoomModal() {
     const modal = document.getElementById('createRoomModal');
     if (modal) {
         modal.remove();
     }
 }
-
 function createRoom() {
     const roomName = document.getElementById('roomName').value.trim();
     const roomDescription = document.getElementById('roomDescription').value.trim();
     const roomType = document.getElementById('roomType').value;
     const maxUsers = parseInt(document.getElementById('maxUsers').value);
-    
     if (!roomName) {
         alert('يرجى إدخال اسم الغرفة');
         return;
     }
-    
     socket.emit('createRoom', {
         name: roomName,
         description: roomDescription,
         type: roomType,
         maxUsers: maxUsers
     });
-    
     closeCreateRoomModal();
 }
-
 // ==================== وظائف الإشعارات ====================
-
 // فتح مودال إرسال إشعار
 function openSendNotificationModal() {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
         showNotification('غير مسموح - للإداريين فقط', 'error');
         return;
     }
-    
     openModal('sendNotificationModal');
     loadUsersForNotification();
     closeMainMenu();
 }
-
 // إغلاق مودال إرسال إشعار
 function closeSendNotificationModal() {
     closeModal('sendNotificationModal');
     document.getElementById('notificationMessage').value = '';
     document.getElementById('notificationRecipient').value = '';
 }
-
 // تحميل المستخدمين لقائمة الإشعارات
 async function loadUsersForNotification() {
     try {
@@ -2378,12 +2043,10 @@ async function loadUsersForNotification() {
                 'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
             }
         });
-        
         if (response.ok) {
             const users = await response.json();
             const select = document.getElementById('notificationRecipient');
             select.innerHTML = '<option value="">اختر مستخدم...</option>';
-            
             users.forEach(user => {
                 const option = document.createElement('option');
                 option.value = user.id;
@@ -2395,26 +2058,21 @@ async function loadUsersForNotification() {
         console.error('خطأ في تحميل المستخدمين:', error);
     }
 }
-
 // إرسال إشعار للمستخدم
 async function sendNotificationToUser() {
     const recipientId = document.getElementById('notificationRecipient').value;
     const message = document.getElementById('notificationMessage').value.trim();
     const type = document.getElementById('notificationType').value;
-    
     if (!recipientId) {
         showNotification('يرجى اختيار مستخدم', 'warning');
         return;
     }
-    
     if (!message) {
         showNotification('يرجى كتابة رسالة الإشعار', 'warning');
         return;
     }
-    
     try {
         showLoading(true);
-        
         const response = await fetch('/api/send-notification', {
             method: 'POST',
             headers: {
@@ -2427,9 +2085,7 @@ async function sendNotificationToUser() {
                 type
             })
         });
-        
         const data = await response.json();
-        
         if (response.ok) {
             showNotification('تم إرسال الإشعار بنجاح', 'success');
             closeSendNotificationModal();
@@ -2442,40 +2098,30 @@ async function sendNotificationToUser() {
         showLoading(false);
     }
 }
-
 // ==================== قائمة المتصلين حالياً ====================
-
 // فتح مودال المتصلين حالياً
 function openOnlineUsersModal() {
     openModal('onlineUsersModal');
     displayOnlineUsers();
     closeMainMenu();
 }
-
 // إغلاق مودال المتصلين حالياً
 function closeOnlineUsersModal() {
     closeModal('onlineUsersModal');
 }
-
 // عرض المتصلين حالياً
 function displayOnlineUsers() {
     const container = document.getElementById('onlineUsersList');
-    
     if (onlineUsersList.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">لا يوجد مستخدمين متصلين حالياً</p>';
         return;
     }
-    
     container.innerHTML = '';
-    
     onlineUsersList.forEach(user => {
         if (user.userId === currentUser?.id) return; // لا نعرض المستخدم الحالي
-        
         const userDiv = document.createElement('div');
         userDiv.className = 'online-user-item';
-        
         const rank = RANKS[user.rank] || RANKS.visitor;
-        
         userDiv.innerHTML = `
             <div class="online-user-info">
                 <div class="online-status-indicator"></div>
@@ -2495,54 +2141,43 @@ function displayOnlineUsers() {
                 ` : ''}
             </div>
         `;
-        
         container.appendChild(userDiv);
     });
 }
-
 // بدء دردشة خاصة
 function startPrivateChat(userId, userName) {
     currentPrivateChatUser = { id: userId, name: userName };
     openPrivateChatBox();
     closeOnlineUsersModal();
-    
     // تحديث قائمة المستخدمين في صندوق الدردشة الخاصة
     const select = document.getElementById('privateChatUserSelect');
     select.value = userId;
-    
     // تحديث عنوان صندوق الدردشة
     const titleSpan = document.querySelector('.chat-box-title span');
     titleSpan.textContent = `دردشة خاصة مع ${userName}`;
-    
     // تحميل الرسائل الخاصة
     loadPrivateMessages(userId);
 }
-
 // ==================== صندوق الدردشة الخاصة ====================
-
 // فتح صندوق الدردشة الخاصة
 function openPrivateChatBox() {
     const chatBox = document.getElementById('privateChatBox');
     chatBox.style.display = 'block';
     privateChatMinimized = false;
-    
     // تحميل المستخدمين في القائمة
     loadUsersForPrivateChat();
     closeMainMenu();
 }
-
 // إغلاق صندوق الدردشة الخاصة
 function closePrivateChatBox() {
     const chatBox = document.getElementById('privateChatBox');
     chatBox.style.display = 'none';
     currentPrivateChatUser = null;
 }
-
 // تصغير صندوق الدردشة الخاصة
 function minimizePrivateChatBox() {
     const chatBox = document.getElementById('privateChatBox');
     const body = chatBox.querySelector('.chat-box-body');
-    
     if (privateChatMinimized) {
         body.style.display = 'block';
         privateChatMinimized = false;
@@ -2551,7 +2186,6 @@ function minimizePrivateChatBox() {
         privateChatMinimized = true;
     }
 }
-
 // تحميل المستخدمين للدردشة الخاصة
 async function loadUsersForPrivateChat() {
     try {
@@ -2560,12 +2194,10 @@ async function loadUsersForPrivateChat() {
                 'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
             }
         });
-        
         if (response.ok) {
             const users = await response.json();
             const select = document.getElementById('privateChatUserSelect');
             select.innerHTML = '<option value="">اختر مستخدم...</option>';
-            
             users.forEach(user => {
                 const option = document.createElement('option');
                 option.value = user.id;
@@ -2577,45 +2209,37 @@ async function loadUsersForPrivateChat() {
         console.error('خطأ في تحميل المستخدمين:', error);
     }
 }
-
 // إرسال رسالة خاصة
 function sendPrivateChatMessage() {
     const input = document.getElementById('privateChatInput');
     const userSelect = document.getElementById('privateChatUserSelect');
     const message = input.value.trim();
     const receiverId = userSelect.value;
-    
     if (!message) {
         showNotification('يرجى كتابة رسالة', 'warning');
         return;
     }
-    
     if (!receiverId) {
         showNotification('يرجى اختيار مستخدم', 'warning');
         return;
     }
-    
     if (socket) {
         socket.emit('sendPrivateMessage', {
             message: message,
             receiverId: parseInt(receiverId)
         });
-        
         input.value = '';
     }
 }
-
 // عرض رسالة خاصة في صندوق الدردشة
 function displayPrivateMessage(message) {
     const container = document.getElementById('privateChatMessages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `private-message ${message.user_id === currentUser?.id ? 'own' : ''}`;
-    
     const time = new Date(message.timestamp).toLocaleTimeString('ar-SA', {
         hour: '2-digit',
         minute: '2-digit'
     });
-    
     messageDiv.innerHTML = `
         <div class="private-message-content">
             <div class="private-message-header">
@@ -2625,11 +2249,9 @@ function displayPrivateMessage(message) {
             <div class="private-message-text">${escapeHtml(message.message)}</div>
         </div>
     `;
-    
     container.appendChild(messageDiv);
     container.scrollTop = container.scrollHeight;
 }
-
 // تحميل الرسائل الخاصة
 async function loadPrivateMessages(userId) {
     try {
@@ -2638,12 +2260,10 @@ async function loadPrivateMessages(userId) {
                 'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
             }
         });
-        
         if (response.ok) {
             const messages = await response.json();
             const container = document.getElementById('privateChatMessages');
             container.innerHTML = '';
-            
             if (messages.length === 0) {
                 container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">لا توجد رسائل بعد، ابدأ المحادثة!</p>';
             } else {
@@ -2656,25 +2276,21 @@ async function loadPrivateMessages(userId) {
         console.error('خطأ في تحميل الرسائل الخاصة:', error);
     }
 }
-
 // تشغيل الأغنية تلقائياً في البروفايل
 function autoPlayProfileMusic(musicUrl) {
     if (musicUrl) {
         const audio = new Audio(musicUrl);
         audio.volume = 0.3;
         audio.loop = false;
-        
         // محاولة تشغيل الأغنية
         audio.play().catch(error => {
             console.log('لا يمكن تشغيل الأغنية تلقائياً:', error);
             // إضافة زر تشغيل إذا فشل التشغيل التلقائي
             addManualPlayButton(audio);
         });
-        
         return audio;
     }
 }
-
 function addManualPlayButton(audio) {
     const playButton = document.createElement('button');
     playButton.innerHTML = '🎵 تشغيل الأغنية';
@@ -2683,7 +2299,6 @@ function addManualPlayButton(audio) {
         audio.play();
         playButton.style.display = 'none';
     };
-    
     const profileModal = document.querySelector('.modal.active .modal-content');
     if (profileModal) {
         profileModal.appendChild(playButton);
