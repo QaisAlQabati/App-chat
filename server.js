@@ -312,7 +312,7 @@ const RANKS = {
 // تحذير أمني خطير: لا تقم أبداً بتخزين كلمات المرور كنص عادي في كود حقيقي!
 // هذا فقط لغرض التوضيح.
 let users = [
-    { id: 1, username: 'مالك الشات', email: 'njdj9985@gmail.com', password: 'Zxcvbnm.88', rank: 'chat_star', points: 99999, token: 'fake-token-1' },
+    { id: 1, username: 'مالك الشات', email: 'njdj9985@mail.com', password: 'Zxcvbnm.8', rank: 'chat_star', points: 99999, token: 'fake-token-1' },
     { id: 2, username: 'برنس',       email: 'crown@example.com',    password: 'password123', rank: 'crown',     points: 3000,  token: 'fake-token-2' },
     { id: 3, username: 'ذهبي',       email: 'gold@example.com',     password: 'password123', rank: 'gold',      points: 600,   token: 'fake-token-3' },
     { id: 4, username: 'زائر',       email: 'visitor@example.com',  password: 'password123', rank: 'visitor',   points: 50,    token: 'fake-token-4' }
@@ -321,6 +321,7 @@ let users = [
 // --- API جديد لتسجيل الدخول ---
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
+    console.log(`[محاولة تسجيل دخول] البريد الإلكتروني: ${email}`); // للتتبع
     if (!email || !password) {
         return res.status(400).json({ error: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور' });
     }
@@ -329,10 +330,12 @@ app.post('/api/login', (req, res) => {
     const user = users.find(u => u.email === email && u.password === password);
 
     if (!user) {
+        console.log(`[فشل تسجيل الدخول] بيانات غير صحيحة للبريد: ${email}`); // للتتبع
         return res.status(401).json({ error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
     }
 
     // عند نجاح الدخول، أرسل بيانات المستخدم (بدون كلمة المرور) مع التوكن الخاص به
+    console.log(`[نجاح تسجيل الدخول] تم دخول المستخدم '${user.username}'.`); // للتتبع
     const { password: userPassword, ...userData } = user;
     res.json({ message: 'تم تسجيل الدخول بنجاح', user: userData });
 });
@@ -342,6 +345,7 @@ app.post('/api/login', (req, res) => {
 app.post('/api/promote-user', (req, res) => {
     // الخطوة 1: التحقق من هوية المُرقِّي (الشخص الذي يرسل الطلب)
     const token = req.headers.authorization?.split(' ')[1];
+    console.log(`[API الترقية] تم استلام طلب بالتوكن: ${token}`); // للتتبع
     if (!token) {
         return res.status(401).json({ error: 'الرجاء تسجيل الدخول أولاً' });
     }
