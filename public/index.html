@@ -1268,5 +1268,256 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
+    <!-- مودال تسجيل الدخول -->
+<div id="loginModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeLoginModal()">&times;</span>
+        <h2>🔐 تسجيل الدخول</h2>
+        <input type="email" id="loginEmail" placeholder="البريد الإلكتروني" style="width: 100%; padding: 10px; margin: 10px 0;">
+        <input type="password" id="loginPassword" placeholder="كلمة المرور" style="width: 100%; padding: 10px; margin: 10px 0;">
+        <button onclick="login()" style="width: 100%; padding: 10px; background: #007bff; color: white; border: none;">دخول</button>
+    </div>
+</div>
+
+<!-- مودال لوحة المالك -->
+<div id="ownerModal" class="modal">
+    <div class="modal-content" style="width: 90%;">
+        <span class="close" onclick="closeOwnerModal()">&times;</span>
+        <h2 style="color: #ff1493;">🏆 لوحة تحكم المالك</h2>
+        <div id="ownerContent">
+            <!-- سيتم ملء المحتوى هنا -->
+        </div>
+    </div>
+</div>
+
+<script>
+// ===== الكود البسيط للرتب =====
+let currentUser = null;
+
+// فتح مودال تسجيل الدخول
+function showLoginModal() {
+    document.getElementById('loginModal').style.display = 'block';
+}
+
+// إغلاق مودال تسجيل الدخول
+function closeLoginModal() {
+    document.getElementById('loginModal').style.display = 'none';
+}
+
+// تسجيل الدخول
+async function login() {
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    
+    if (email === 'njdj9985@gmail.com' && password === 'ZXcvbnm.8') {
+        // أنت المالك!
+        currentUser = {
+            id: 1,
+            username: 'مالك الشات',
+            email: email,
+            rank: 'owner',
+            isOwner: true,
+            rankInfo: { name: '🏆 مالك النظام', emoji: '🏆', color: '#ff1493' }
+        };
+        
+        localStorage.setItem('userData', JSON.stringify(currentUser));
+        closeLoginModal();
+        showOwnerModal();
+        updateNavbar();
+        alert('🎉 مرحباً يا مالك! 🏆');
+    } else {
+        alert('❌ بيانات خاطئة');
+    }
+}
+
+// فتح لوحة المالك
+function showOwnerModal() {
+    if (!currentUser || !currentUser.isOwner) {
+        alert('🚫 ليس لديك صلاحية');
+        return;
+    }
+    document.getElementById('ownerModal').style.display = 'block';
+    loadOwnerPanel();
+}
+
+// إغلاق لوحة المالك
+function closeOwnerModal() {
+    document.getElementById('ownerModal').style.display = 'none';
+}
+
+// تحميل لوحة المالك
+function loadOwnerPanel() {
+    document.getElementById('ownerContent').innerHTML = `
+        <h3>👑 أهلاً بك يا مالك!</h3>
+        <p>لديك التحكم الكامل في النظام</p>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
+            <button onclick="manageUsers()" style="padding: 15px; background: #ff1493; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 16px;">
+                👥 إدارة المستخدمين
+            </button>
+            <button onclick="manageRanks()" style="padding: 15px; background: #007bff; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 16px;">
+                🏷️ إدارة الرتب
+            </button>
+            <button onclick="systemSettings()" style="padding: 15px; background: #28a745; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 16px;">
+                ⚙️ إعدادات النظام
+            </button>
+        </div>
+        
+        <h4>قائمة المستخدمين:</h4>
+        <div id="usersList"></div>
+    `;
+    showUsersList();
+}
+
+// عرض قائمة المستخدمين
+function showUsersList() {
+    const usersList = document.getElementById('usersList');
+    const demoUsers = [
+        { id: 2, username: 'أحمد', rank: 'vip', email: 'ahmed@test.com' },
+        { id: 3, username: 'فاطمة', rank: 'gold', email: 'fatima@test.com' },
+        { id: 4, username: 'زائر', rank: 'visitor', email: 'visitor@test.com' }
+    ];
+    
+    usersList.innerHTML = demoUsers.map(user => `
+        <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 10px; background: #f9f9f9;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>${user.username}</strong> 
+                    <span class="rank-badge" style="background: ${user.rank === 'vip' ? '#ffc107' : user.rank === 'gold' ? '#ffd700' : '#6c757d'}; color: white; padding: 2px 6px; border-radius: 10px;">
+                        ${user.rank}
+                    </span>
+                    <br><small>${user.email}</small>
+                </div>
+                <div>
+                    <button onclick="changeRank(${user.id}, '${user.username}')" style="padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 2px;">
+                        تغيير رتبة
+                    </button>
+                    <button onclick="removeRank(${user.id}, '${user.username}')" style="padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 2px;">
+                        إزالة رتبة
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// تغيير رتبة
+function changeRank(userId, username) {
+    const newRank = prompt(`ما هي الرتبة الجديدة لـ ${username}؟ (vip, gold, silver, bronze, member, visitor)`);
+    if (newRank && ['vip', 'gold', 'silver', 'bronze', 'member', 'visitor'].includes(newRank)) {
+        alert(`✅ تم تغيير رتبة ${username} إلى ${newRank}`);
+        // هنا تضيف الكود لتغيير الرتبة في الـ Backend
+        showUsersList(); // تحديث القائمة
+    } else {
+        alert('❌ رتبة غير صالحة');
+    }
+}
+
+// إزالة رتبة
+function removeRank(userId, username) {
+    if (confirm(`هل أنت متأكد من إزالة رتبة ${username}؟`)) {
+        alert(`✅ تم إزالة رتبة ${username}`);
+        // هنا تضيف الكود لإزالة الرتبة في الـ Backend
+        showUsersList(); // تحديث القائمة
+    }
+}
+
+// تحديث شريط التنقل
+function updateNavbar() {
+    const navbar = document.querySelector('nav, .header, .navbar');
+    if (navbar && currentUser) {
+        const userInfo = navbar.querySelector('.user-info, .profile');
+        if (userInfo) {
+            userInfo.innerHTML = `
+                <span style="color: ${currentUser.rankInfo.color}; font-weight: bold;">
+                    ${currentUser.rankInfo.emoji} ${currentUser.username}
+                </span>
+                ${currentUser.isOwner ? '<button onclick="showOwnerModal()" style="margin-right: 10px; padding: 5px 10px; background: #ff1493; color: white; border: none; border-radius: 15px; cursor: pointer;">👑 لوحة التحكم</button>' : ''}
+            `;
+        }
+    }
+}
+
+// إعدادات النظام
+function systemSettings() {
+    document.getElementById('ownerContent').innerHTML = `
+        <h3>⚙️ إعدادات النظام</h3>
+        <p>هنا يمكنك التحكم في إعدادات الشات</p>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <label><input type="checkbox" checked> الإشعارات</label>
+            <label><input type="checkbox" checked> رفع الملفات</label>
+            <label><input type="checkbox" checked> ردود الفعل</label>
+            <button onclick="saveSettings()" style="padding: 10px; background: #28a745; color: white; border: none; border-radius: 10px;">حفظ</button>
+        </div>
+    `;
+}
+
+function saveSettings() {
+    alert('✅ تم حفظ الإعدادات');
+}
+
+// إدارة المستخدمين
+function manageUsers() {
+    document.getElementById('ownerContent').innerHTML = `
+        <h3>👥 إدارة المستخدمين</h3>
+        <p>قائمة كاملة بالمستخدمين</p>
+        <div id="usersList"></div>
+    `;
+    showUsersList();
+}
+
+// إدارة الرتب
+function manageRanks() {
+    document.getElementById('ownerContent').innerHTML = `
+        <h3>🏷️ إدارة الرتب</h3>
+        <p>قائمة الرتب المتاحة:</p>
+        <ul>
+            <li>VIP ⭐</li>
+            <li>Gold 🥇</li>
+            <li>Silver 🥈</li>
+            <li>Bronze 🥉</li>
+            <li>Member 👤</li>
+            <li>Visitor 👋</li>
+        </ul>
+    `;
+}
+
+// حفظ الإعدادات
+function saveSettings() {
+    alert('تم حفظ الإعدادات بنجاح!');
+}
+
+// التحقق من الجلسة عند تحميل الصفحة
+if (localStorage.getItem('userData')) {
+    try {
+        currentUser = JSON.parse(localStorage.getItem('userData'));
+        if (currentUser.isOwner) {
+            updateNavbar();
+        }
+    } catch (e) {
+        console.log('جلسة منتهية');
+    }
+}
+
+// إضافة زر تسجيل الدخول في القائمة
+document.addEventListener('DOMContentLoaded', function() {
+    const menu = document.querySelector('.main-menu, nav, .navbar');
+    if (menu && !menu.querySelector('#loginBtn')) {
+        const loginBtn = document.createElement('button');
+        loginBtn.id = 'loginBtn';
+        loginBtn.innerHTML = '🔐 دخول';
+        loginBtn.style.cssText = 'padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 10px; cursor: pointer;';
+        loginBtn.onclick = showLoginModal;
+        
+        // إضافة الزر في القائمة
+        const firstBtn = menu.querySelector('button');
+        if (firstBtn) {
+            firstBtn.parentNode.insertBefore(loginBtn, firstBtn);
+        } else {
+            menu.appendChild(loginBtn);
+        }
+    }
+});
+</script>
 </body>
 </html>
