@@ -4,7 +4,6 @@ const { Server } = require("socket.io");
 const multer = require('multer');
 const path = require('path');
 const bodyParser = require('body-parser');
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -13,16 +12,13 @@ const io = new Server(server, {
         methods: ["GET", "POST"]
     }
 });
-
 app.use(bodyParser.json());
 app.use(express.static('Uploads'));
-
 // إعداد Multer لرفع الملفات
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, 'Uploads/'),
     filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
-
 const upload = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 },
@@ -37,7 +33,6 @@ const upload = multer({
         }
     }
 });
-
 // === تعريف الرتب مع المميزات ===
 const RANKS = {
     visitor: { name: 'زائر', emoji: '👋', level: 0, color: '#6c757d', features: ['الدردشة العادية', 'عرض الأخبار'] },
@@ -53,7 +48,6 @@ const RANKS = {
     super_admin: { name: 'سوبر أدمن', emoji: '🌟', level: 10, color: '#6f42c1', features: ['إدارة قاعدة البيانات', 'تعديل النظام'] },
     owner: { name: '🏆 مالك النظام', emoji: '🏆', level: 11, color: '#ff1493', features: ['التحكم الكامل', 'إيقاف/تشغيل السيرفر'] }
 };
-
 // === بيانات المستخدمين الموحدة ===
 let users = [
     {
@@ -138,12 +132,10 @@ let users = [
         about_me: null
     }
 ];
-
 // === البيانات الأخرى ===
 let rooms = [
     { id: 1, name: 'الغرفة الرئيسية', description: 'غرفة دردشة عامة', background: null }
 ];
-
 let messages = [];
 let privateMessages = [];
 let news = [];
@@ -153,9 +145,7 @@ let mutes = [];
 let floodProtection = new Map();
 let competitions = [];
 let comments = [];
-
 // === APIs ===
-
 // تسجيل الدخول
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
@@ -172,14 +162,13 @@ app.post('/api/login', (req, res) => {
             user: {
                 ...safeUser,
                 rankInfo,
-                features: rankInfo.features
+                features: rankInfo.features // <-- هنا يتم إرسال قائمة المميزات للتطبيق الأمامي
             }
         });
     } else {
         res.status(401).json({ error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
     }
 });
-
 // إنشاء حساب
 app.post('/api/register', (req, res) => {
     const { email, password, display_name, username } = req.body;
@@ -213,7 +202,6 @@ app.post('/api/register', (req, res) => {
     users.push(newUser);
     res.status(201).json({ message: 'تم إنشاء الحساب بنجاح', user: { id: newUser.id, display_name: newUser.display_name, email: newUser.email } });
 });
-
 // تحديث الملف الشخصي
 app.put('/api/user/profile', upload.fields([
     { name: 'profileImage1', maxCount: 1 },
@@ -223,25 +211,20 @@ app.put('/api/user/profile', upload.fields([
     const token = req.headers.authorization?.split(' ')[1];
     const user = users.find(u => 'fake-token-' + u.id === token);
     if (!user) return res.status(401).json({ error: 'غير مصرح له' });
-
     const { display_name, age, gender, marital_status, about_me } = req.body;
     if (display_name) user.display_name = display_name;
     if (age) user.age = parseInt(age);
     if (gender) user.gender = gender;
     if (marital_status) user.marital_status = marital_status;
     if (about_me) user.about_me = about_me;
-
     if (req.files?.['profileImage1']) user.profile_image1 = `/Uploads/${req.files['profileImage1'][0].filename}`;
     if (req.files?.['profileImage2']) user.profile_image2 = `/Uploads/${req.files['profileImage2'][0].filename}`;
     if (req.files?.['messageBackground']) user.message_background = `/Uploads/${req.files['messageBackground'][0].filename}`;
-
     const updatedUser = { ...user };
     delete updatedUser.password;
-
     res.json(updatedUser);
     io.emit('userUpdated', updatedUser);
 });
-
 // الحصول على الملف الشخصي
 app.get('/api/user/profile', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
@@ -250,14 +233,19 @@ app.get('/api/user/profile', (req, res) => {
     const { password: _, ...safeUser } = user;
     res.json(safeUser);
 });
-
 // قائمة الغرف
 app.get('/api/rooms', (req, res) => {
     res.json(rooms);
 });
-
-// إنشاء غرفة جديدة
+// إنشاء غرفة جديدة (تم التعديل: فقط المالك يمكنه إنشاء الغرف)
 app.post('/api/rooms', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const requester = users.find(u => u.token === token);
+    // التحقق من أن المستخدم هو مالك النظام
+    const isOwner = requester?.email === 'njdj9985@gmail.com' && requester?.rank === 'owner';
+    if (!isOwner) {
+        return res.status(403).json({ error: 'فقط مالك النظام يمكنه إنشاء الغرف' });
+    }
     const { name, description } = req.body;
     if (!name || name.trim() === '') {
         return res.status(400).json({ error: 'اسم الغرفة مطلوب' });
@@ -272,7 +260,6 @@ app.post('/api/rooms', (req, res) => {
     io.emit('newRoom', newRoom);
     res.status(201).json(newRoom);
 });
-
 // قائمة المستخدمين
 app.get('/api/users', (req, res) => {
     res.json(users.map(u => {
@@ -280,26 +267,21 @@ app.get('/api/users', (req, res) => {
         return publicData;
     }));
 });
-
 // التحكم بالرتب (للمالك فقط)
 app.post('/api/set-user-rank', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const requester = users.find(u => u.token === token);
     if (!requester) return res.status(403).json({ error: 'غير مصرح له' });
-
     const isOwner = requester.email === 'njdj9985@gmail.com' && requester.rank === 'owner';
     if (!isOwner) return res.status(403).json({ error: 'فقط المالك يمكنه تغيير الرتب' });
-
     const { targetUserId, newRank, reason } = req.body;
     const targetUser = users.find(u => u.id === parseInt(targetUserId));
     if (!targetUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
     if (!RANKS[newRank]) return res.status(400).json({ error: 'رتبة غير صالحة' });
-
     const oldRank = targetUser.rank;
     targetUser.rank = newRank;
     targetUser.rankUpdatedAt = new Date().toISOString();
     targetUser.rankUpdatedBy = requester.username;
-
     targetUser.rankHistory = targetUser.rankHistory || [];
     targetUser.rankHistory.push({
         oldRank,
@@ -308,7 +290,6 @@ app.post('/api/set-user-rank', (req, res) => {
         reason: reason || 'تغيير رتبة',
         timestamp: new Date().toISOString()
     });
-
     io.emit('userRankUpdated', {
         userId: targetUser.id,
         username: targetUser.username,
@@ -316,7 +297,6 @@ app.post('/api/set-user-rank', (req, res) => {
         newRank,
         rankInfo: RANKS[newRank]
     });
-
     res.json({
         success: true,
         message: `تم تغيير رتبة ${targetUser.username} من ${RANKS[oldRank]?.name || oldRank} إلى ${RANKS[newRank]?.name || newRank}`,
@@ -327,25 +307,20 @@ app.post('/api/set-user-rank', (req, res) => {
         }
     });
 });
-
 // إزالة رتبة (إرجاع للزائر)
 app.post('/api/remove-user-rank', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const requester = users.find(u => u.token === token);
     if (!requester) return res.status(403).json({ error: 'غير مصرح له' });
-
     const isOwner = requester.email === 'njdj9985@gmail.com' && requester.rank === 'owner';
     if (!isOwner) return res.status(403).json({ error: 'فقط المالك يمكنه إزالة الرتب' });
-
     const { targetUserId, reason } = req.body;
     const targetUser = users.find(u => u.id === parseInt(targetUserId));
     if (!targetUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
     const oldRank = targetUser.rank;
     targetUser.rank = 'visitor';
     targetUser.rankUpdatedAt = new Date().toISOString();
     targetUser.rankUpdatedBy = requester.username;
-
     targetUser.rankHistory = targetUser.rankHistory || [];
     targetUser.rankHistory.push({
         oldRank,
@@ -354,7 +329,6 @@ app.post('/api/remove-user-rank', (req, res) => {
         reason: reason || 'إزالة الرتبة',
         timestamp: new Date().toISOString()
     });
-
     io.emit('userRankUpdated', {
         userId: targetUser.id,
         username: targetUser.username,
@@ -362,7 +336,6 @@ app.post('/api/remove-user-rank', (req, res) => {
         newRank: 'visitor',
         rankInfo: RANKS.visitor
     });
-
     res.json({
         success: true,
         message: `تم إزالة رتبة ${targetUser.username} وإرجاعه لرتبة زائر`,
@@ -373,15 +346,12 @@ app.post('/api/remove-user-rank', (req, res) => {
         }
     });
 });
-
 // جلب قائمة الرتب
 app.get('/api/ranks', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'الرجاء تسجيل الدخول' });
-
     const user = users.find(u => u.token === token);
     if (!user) return res.status(403).json({ error: 'رمز غير صالح' });
-
     res.json({
         success: true,
         ranks: RANKS,
@@ -389,16 +359,13 @@ app.get('/api/ranks', (req, res) => {
         currentUserFeatures: (RANKS[user.rank] || RANKS.visitor).features
     });
 });
-
 // نشر خبر جديد
 app.post('/api/news', upload.single('newsFile'), (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = users.find(u => 'fake-token-' + u.id === token);
     if (!user) return res.status(401).json({ error: 'غير مصرح له' });
-
     const { content } = req.body;
     if (!content && !req.file) return res.status(400).json({ error: 'يجب إدخال محتوى أو ملف' });
-
     const media = req.file ? `/Uploads/${req.file.filename}` : null;
     const newNews = {
         id: news.length + 1,
@@ -413,21 +380,17 @@ app.post('/api/news', upload.single('newsFile'), (req, res) => {
     io.emit('newNews', newNews);
     res.json(newNews);
 });
-
 // الحصول على الأخبار
 app.get('/api/news', (req, res) => {
     res.json(news);
 });
-
 // نشر ستوري
 app.post('/api/stories', upload.single('storyImage'), (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = users.find(u => 'fake-token-' + u.id === token);
     if (!user) return res.status(401).json({ error: 'غير مصرح له' });
-
     const image = req.file ? `/Uploads/${req.file.filename}` : null;
     if (!image) return res.status(400).json({ error: 'يجب رفع صورة' });
-
     const newStory = {
         id: stories.length + 1,
         image,
@@ -439,23 +402,19 @@ app.post('/api/stories', upload.single('storyImage'), (req, res) => {
     io.emit('newStory', newStory);
     res.json(newStory);
 });
-
 // الحصول على الستوريات (التي عمرها < 24 ساعة)
 app.get('/api/stories', (req, res) => {
     const now = new Date();
     const recentStories = stories.filter(s => (now - new Date(s.timestamp)) < 24 * 60 * 60 * 1000);
     res.json(recentStories);
 });
-
 // إضافة تعليق
 app.post('/api/comments', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = users.find(u => 'fake-token-' + u.id === token);
     if (!user) return res.status(401).json({ error: 'غير مصرح له' });
-
     const { postId, content, targetUserId } = req.body;
     if (!postId || !content) return res.status(400).json({ error: 'معرف المنشور والمحتوى مطلوبان' });
-
     const newComment = {
         id: comments.length + 1,
         postId: parseInt(postId),
@@ -466,7 +425,6 @@ app.post('/api/comments', (req, res) => {
         timestamp: new Date()
     };
     comments.push(newComment);
-
     if (targetUserId) {
         io.emit('commentNotification', {
             commentId: newComment.id,
@@ -476,27 +434,22 @@ app.post('/api/comments', (req, res) => {
             targetUserId
         });
     }
-
     io.emit('newComment', newComment);
     res.json(newComment);
 });
-
 // الحصول على تعليقات منشور
 app.get('/api/comments/:postId', (req, res) => {
     const postId = parseInt(req.params.postId);
     const postComments = comments.filter(c => c.postId === postId);
     res.json(postComments);
 });
-
 // إنشاء مسابقة (للأدمن فما فوق)
 app.post('/api/competitions', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = users.find(u => 'fake-token-' + u.id === token);
     if (!user || (user.rank !== 'admin' && user.rank !== 'owner')) return res.status(403).json({ error: 'غير مسموح' });
-
     const { title, duration } = req.body;
     if (!title || !duration) return res.status(400).json({ error: 'العنوان والمدة مطلوبان' });
-
     const newCompetition = {
         id: competitions.length + 1,
         title,
@@ -509,7 +462,6 @@ app.post('/api/competitions', (req, res) => {
     io.emit('newCompetition', newCompetition);
     res.json(newCompetition);
 });
-
 // كتم مستخدم
 app.post('/api/mute', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
@@ -517,15 +469,12 @@ app.post('/api/mute', (req, res) => {
     if (!admin || (admin.rank !== 'moderator' && admin.rank !== 'admin' && admin.rank !== 'owner')) {
         return res.status(403).json({ error: 'غير مسموح' });
     }
-
     const { userId, reason, duration } = req.body;
     const user = users.find(u => u.id === parseInt(userId));
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
     const durationMap = { '5m': 5*60*1000, '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000 };
     const ms = durationMap[duration] || 5*60*1000;
     const endTime = new Date(Date.now() + ms);
-
     const mute = {
         id: mutes.length + 1,
         user_id: user.id,
@@ -535,11 +484,9 @@ app.post('/api/mute', (req, res) => {
         endTime
     };
     mutes.push(mute);
-
     io.emit('userMuted', { userId: user.id, reason: mute.reason, duration: mute.duration });
     res.json({ message: `تم كتم المستخدم ${user.display_name} لمدة ${duration}` });
 });
-
 // طرد مستخدم
 app.post('/api/ban', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
@@ -547,15 +494,12 @@ app.post('/api/ban', (req, res) => {
     if (!admin || (admin.rank !== 'admin' && admin.rank !== 'owner')) {
         return res.status(403).json({ error: 'غير مسموح' });
     }
-
     const { userId, reason, duration } = req.body;
     const user = users.find(u => u.id === parseInt(userId));
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
     const durationMap = { '1h': 60*60*1000, '24h': 24*60*60*1000, '7d': 7*24*60*60*1000, 'permanent': Infinity };
     const ms = durationMap[duration] || 24*60*60*1000;
     const endTime = duration === 'permanent' ? null : new Date(Date.now() + ms);
-
     const ban = {
         id: bans.length + 1,
         user_id: user.id,
@@ -565,15 +509,12 @@ app.post('/api/ban', (req, res) => {
         endTime
     };
     bans.push(ban);
-
     io.emit('userBanned', { userId: user.id, reason: ban.reason, duration: ban.duration });
     res.json({ message: `تم طرد المستخدم ${user.display_name} لمدة ${duration}` });
 });
-
 // === Socket.IO للتواصل الفوري ===
 io.on('connection', (socket) => {
     console.log('👤 مستخدم جديد متصل:', socket.id);
-
     socket.on('join', (data) => {
         if (!data?.roomId || !data?.userId || !data?.display_name) {
             return socket.emit('error', 'بيانات الانضمام غير كاملة');
@@ -581,11 +522,9 @@ io.on('connection', (socket) => {
         socket.join(data.roomId);
         socket.user = { ...data, socketId: socket.id };
         socket.join(`user_${data.userId}`);
-
         // تحديث حالة المستخدم
         const user = users.find(u => u.id === data.userId);
         if (user) user.isOnline = true;
-
         // إعلام الجميع
         io.emit('userList', users.filter(u => u.isOnline).map(u => ({
             id: u.id,
@@ -593,18 +532,14 @@ io.on('connection', (socket) => {
             rank: u.rank,
             isOnline: u.isOnline
         })));
-
         console.log(`👋 ${data.display_name} انضم إلى الغرفة ${data.roomId}`);
     });
-
     socket.on('sendMessage', (data) => {
         if (!socket.user || !data?.roomId || !data?.content) {
             return socket.emit('error', 'أنت غير مسجل أو البيانات ناقصة');
         }
-
         const userId = socket.user.userId;
         const now = Date.now();
-
         // حماية من الفيضانات
         if (!floodProtection.has(userId)) floodProtection.set(userId, []);
         const recentMessages = floodProtection.get(userId).filter(time => now - time < 10000);
@@ -632,13 +567,11 @@ io.on('connection', (socket) => {
         }
         recentMessages.push(now);
         floodProtection.set(userId, recentMessages);
-
         // التحقق من الكتم
         const isMuted = mutes.some(m => m.user_id === userId && (m.endTime > new Date()));
         if (isMuted) {
             return socket.emit('error', 'أنت مكتوم حالياً ولا يمكنك إرسال رسائل');
         }
-
         // إنشاء الرسالة
         const message = {
             id: messages.length + 1,
@@ -650,19 +583,15 @@ io.on('connection', (socket) => {
             type: 'text',
             timestamp: new Date()
         };
-
         messages.push(message);
         io.to(data.roomId).emit('newMessage', message);
     });
-
     socket.on('sendPrivateMessage', (data) => {
         if (!socket.user || !data?.receiverId || !data?.content) {
             return socket.emit('error', 'بيانات غير كاملة');
         }
-
         const isMuted = mutes.some(m => m.user_id === socket.user.userId && (m.endTime > new Date()));
         if (isMuted) return socket.emit('error', 'أنت مكتوم');
-
         const message = {
             id: privateMessages.length + 1,
             senderId: socket.user.userId,
@@ -673,15 +602,12 @@ io.on('connection', (socket) => {
             type: 'text',
             timestamp: new Date()
         };
-
         privateMessages.push(message);
         io.to(`user_${data.receiverId}`).emit('newPrivateMessage', message);
         socket.emit('newPrivateMessage', message); // إرسال نسخة للمرسل
     });
-
     // ملاحظة: لرفع الملفات عبر Socket.IO، نوصي باستخدام API أولاً ثم إرسال الرابط
     // تم تعطيل رفع الملفات المباشر عبر Socket لتجنب المشاكل
-
     socket.on('disconnect', () => {
         console.log('🔌 انقطع اتصال المستخدم:', socket.id);
         if (socket.user?.userId) {
@@ -698,7 +624,6 @@ io.on('connection', (socket) => {
         }
     });
 });
-
 // دالة مساعدة لتحويل المدة
 function parseDuration(duration) {
     const map = {
@@ -710,7 +635,6 @@ function parseDuration(duration) {
     };
     return map[duration] || 0;
 }
-
 // تنظيف ذاكرة الفيضانات كل دقيقة
 setInterval(() => {
     const now = Date.now();
@@ -723,7 +647,6 @@ setInterval(() => {
         }
     }
 }, 60000);
-
 // تنظيف الكتم المنتهي كل 30 ثانية
 setInterval(() => {
     const now = new Date();
@@ -736,7 +659,6 @@ setInterval(() => {
         console.log(`🧹 تم تنظيف ${mutes.length} كتم نشط`);
     }
 }, 30000);
-
 // تشغيل الخادم (مرة واحدة فقط)
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
