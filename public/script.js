@@ -3516,14 +3516,6 @@ async function handleGuestLogin(e) {
     showNotification('مرحباً بك كزائر', 'success');
 }
 
-// عرض شاشة الحظر
-function showBanScreen(reason) {
-    document.querySelectorAll('.screen').forEach(screen => {
-        screen.classList.remove('active');
-    });
-    document.getElementById('banScreen').classList.add('active');
-    document.getElementById('banReason').innerHTML = `<p>${reason}</p>`;
-}
 
 // التحقق من حالة الحظر مع عرض السبب ومنع الدخول إذا محظور
 async function checkBanStatus() {
