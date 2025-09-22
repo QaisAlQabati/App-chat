@@ -5427,6 +5427,23 @@ function openGifPicker() {
     showNotification('منتقي الصور المتحركة قيد التطوير', 'info');
 }
 
+
+// إضافة رمز تعبيري
+function addEmoji(emoji) {
+    const input = document.getElementById('messageInput');
+    input.value += emoji;
+    input.focus();
+    
+    // إزالة منتقي الرموز
+    const picker = input.parentNode.querySelector('div');
+    if (picker) picker.remove();
+}
+
+// فتح منتقي الصور المتحركة
+function openGifPicker() {
+    showNotification('منتقي الصور المتحركة قيد التطوير', 'info');
+}
+
 // اقتباس رسالة
 function quoteMessage(messageId, author, content) {
     quotedMessage = { id: messageId, author, content };
