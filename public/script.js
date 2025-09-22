@@ -5383,48 +5383,150 @@ function updateUserCoins(amount) {
         currentUser.coins = (currentUser.coins || 2000) + amount;
         document.getElementById('profileCoins').textContent = currentUser.coins;
     }
-}
-
-// فتح منتقي الرموز التعبيرية
+}// فتح منتقي الرموز التعبيرية المحسن
 function openEmojiPicker() {
-    const emojis = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😢', '😡', '👍', '👎', '❤️', '🔥', '💯', '🎉', '🦂'];
+    const emojis = [
+        '😀', '😂', '🤣', '😊', '😃', '😄', '😁', '😆', '😅', '😇', '🥰', '😍', '🤩', '😘', '😗',
+        '😙', '🥲', '☺️', '😊', '🙂', '🤗', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣',
+        '😥', '😮', '🤐', '😯', '😪', '😫', '😴', '😌', '😛', '😜', '😝', '🤤', '😒', '😓',
+        '😔', '😕', '🙃', '🤑', '😲', '☹️', '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧',
+        '😨', '😩', '🤯', '😬', '😰', '😱', '🥵', '🥶', '😳', '🤪', '😵', '🥴', '😠', '😡',
+        '🤬', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '😇', '🤠', '🥳', '🥸', '😎', '🤓', '🧐',
+        '🙈', '🙉', '🙊', '💐', '🌸', '🌺', '🌹', '🦋', '🍃', '🎄', '✨', '⚡', '🔥', '💫',
+        '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓',
+        '💗', '💖', '😘', '😍', '🥰', '😻', '😽', '😼', '🙌', '👏', '👍', '👎', '👌', '✌️',
+        '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '✋', '🖐️', '🖖', '👋',
+        '🤚', '🖐', '✍️', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🫀', '🫁',
+        '🎉', '🎊', '🎈', '🎁', '🎂', '🥳', '🥂', '🍾', '🎆', '🎇', '✨', '💫', '🌟', '⭐'
+    ];
+    
     const input = document.getElementById('messageInput');
+    if (!input) {
+        console.error('❌ لم يتم العثور على حقل الإدخال');
+        return;
+    }
     
-    let emojiHtml = '<div style="background: white; border: 1px solid #ccc; border-radius: 8px; padding: 10px; position: absolute; z-index: 1000; display: flex; flex-wrap: wrap; gap: 5px; max-width: 200px;">';
+    // إزالة المنتقي القديم
+    const existingPanel = document.querySelector('.emoji-panel');
+    if (existingPanel) {
+        existingPanel.remove();
+    }
     
+    // إنشاء المنتقي
+    const panel = document.createElement('div');
+    panel.className = 'emoji-panel';
+    panel.id = 'emojiPanel';
+    
+    // إضافة العنوان
+    const title = document.createElement('div');
+    title.className = 'emoji-panel-title';
+    title.textContent = '🎨 اختر رمز تعبيري';
+    panel.appendChild(title);
+    
+    // إضافة الرموز
     emojis.forEach(emoji => {
-        emojiHtml += `<span style="cursor: pointer; padding: 5px; border-radius: 4px; hover: background: #f0f0f0;" onclick="addEmoji('${emoji}')">${emoji}</span>`;
+        const emojiSpan = document.createElement('span');
+        emojiSpan.innerHTML = emoji;
+        emojiSpan.title = emoji;
+        emojiSpan.onclick = function() {
+            addEmoji(emoji);
+        };
+        panel.appendChild(emojiSpan);
     });
     
-    emojiHtml += '</div>';
+    // إضافة زر الإغلاق
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'emoji-panel-close';
+    closeBtn.innerHTML = '✕';
+    closeBtn.onclick = function(e) {
+        e.stopPropagation();
+        panel.remove();
+    };
+    panel.appendChild(closeBtn);
     
-    // إضافة منتقي الرموز بجانب حقل الإدخال
-    const picker = document.createElement('div');
-    picker.innerHTML = emojiHtml;
-    picker.style.position = 'relative';
+    // إضافة المنتقي للـ container المناسب
+    const buttonContainer = document.querySelector('.tool-buttons') || input.closest('.message-input-container') || input.parentNode;
+    if (buttonContainer) {
+        buttonContainer.style.position = 'relative';
+        buttonContainer.appendChild(panel);
+        
+        // تحديد الموقع الدقيق
+        const buttonRect = event.target.getBoundingClientRect();
+        const panelRect = panel.getBoundingClientRect();
+        
+        // ضبط الموقع ليكون أسفل الزر
+        panel.style.left = '10px';
+        panel.style.right = 'auto';
+        panel.style.bottom = `${buttonContainer.offsetHeight + 10}px`;
+        panel.style.width = 'auto';
+    } else {
+        // fallback - إضافة للـ body
+        document.body.appendChild(panel);
+        panel.style.position = 'fixed';
+        panel.style.top = '50%';
+        panel.style.left = '50%';
+        panel.style.transform = 'translate(-50%, -50%)';
+    }
     
-    input.parentNode.appendChild(picker);
-    
-    // إزالة المنتقي بعد 5 ثوان
+    // إغلاق عند الضغط خارج المنتقي
     setTimeout(() => {
-        picker.remove();
-    }, 5000);
+        const closeOutside = function(e) {
+            if (!panel.contains(e.target) && e.target !== input && !event.target.contains(e.target)) {
+                panel.remove();
+                document.removeEventListener('click', closeOutside);
+            }
+        };
+        document.addEventListener('click', closeOutside);
+    }, 100);
+    
+    input.focus();
+    console.log('✅ تم فتح منتقي الرموز التعبيرية المحسن');
 }
 
 // إضافة رمز تعبيري
 function addEmoji(emoji) {
     const input = document.getElementById('messageInput');
-    input.value += emoji;
-    input.focus();
-    
-    // إزالة منتقي الرموز
-    const picker = input.parentNode.querySelector('div');
-    if (picker) picker.remove();
+    if (input) {
+        // الحفاظ على موضع الكورسور
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const textBefore = input.value.substring(0, start);
+        const textAfter = input.value.substring(end);
+        input.value = textBefore + emoji + textAfter;
+        
+        // وضع الكورسور بعد الإيموجي
+        const newPos = start + emoji.length;
+        input.setSelectionRange(newPos, newPos);
+        
+        input.focus();
+        
+        // إرسال حدث input
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        
+        // إغلاق المنتقي
+        const panel = document.querySelector('.emoji-panel');
+        if (panel) {
+            panel.remove();
+        }
+        
+        console.log(`✅ تم إضافة: ${emoji}`);
+    }
 }
 
 // فتح منتقي الصور المتحركة
 function openGifPicker() {
-    showNotification('منتقي الصور المتحركة قيد التطوير', 'info');
+    const panel = document.createElement('div');
+    panel.className = 'emoji-panel';
+    panel.innerHTML = `
+        <div class="emoji-panel-title">🎬 منتقي الصور المتحركة</div>
+        <div style="text-align: center; padding: 20px; color: #7f8c8d;">
+            🚧 قيد التطوير - سيتم إضافة قريباً
+        </div>
+        <button class="emoji-panel-close" onclick="this.parentElement.remove()">✕</button>
+    `;
+    
+    const container = document.querySelector('.tool-buttons') || document.body;
+    container.appendChild(panel);
 }
 
 
