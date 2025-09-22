@@ -87,10 +87,6 @@ function checkAuthStatus() {
         })
         .then(user => {
             currentUser = user;
-            // التحقق إذا كان المستخدم هو المالك
-            if (user.email === 'njdj9985@gmail.com' && user.rank === 'owner') {
-                currentUser.isOwner = true;
-            }
             showMainScreen();
             initializeSocket();
             // إذا كان المستخدم هو المالك، اعرض لوحة التحكم
