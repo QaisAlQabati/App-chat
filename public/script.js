@@ -6511,3 +6511,136 @@ function addManualPlayButton(audio) {
         profileModal.appendChild(playButton);
     }
 }
+
+<script>
+// === دالة لفتح مُنتَج الـ emojis ===
+function openEmojiPicker() {
+    // تحديد عنصر النص حيث سيتم إدخال الـ emoji
+    const messageInput = document.getElementById('messageInput');
+    
+    // إنشاء مُنتَج الـ emojis (يمكنك تعديل الألوان والحجم هنا)
+    const emojiPicker = document.createElement('div');
+    emojiPicker.id = 'emojiPicker';
+    emojiPicker.style.cssText = `
+        position: absolute;
+        top: calc(100% + 5px);
+        left: 0;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+        z-index: 9999;
+        font-size: 18px; /* حجم كبير */
+        max-width: 300px;
+        overflow: hidden;
+    `;
+    
+    // أضافة البحث (اختياري)
+    const searchBox = document.createElement('input');
+    searchBox.type = 'text';
+    searchBox.placeholder = 'ابحث عن رمز...';
+    searchBox.style.cssText = 'width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;';
+    searchBox.addEventListener('input', function(e) {
+        filterEmojis(e.target.value);
+    });
+    emojiPicker.appendChild(searchBox);
+    
+    // إنشاء شبكة من الـ emojis (تم اختيار بعض الرموز الشائعة كمثال)
+    const emojis = [
+        '😀', '😂', '😍', '😎', '🤔', '🥳', '🚀', '🎉', '🔥', '💪', '👍', '👎',
+        '❤️', '💔', '💕', '💖', '💓', '💗', '💞', '💘', '💝', '💖', '💌',
+        '🌟', '⭐', '✨', '💫', '💥', '🌈', '☀️', '🌙', '☁️', '⛅', '🌤️', '🌥️',
+        '🌧️', '⛈️', '🌨️', '❄️', '💨', '🌪️', '🌫️', '🌀', '🌍', '🌎', '🌏',
+        '🌕', '🌖', '🌗', '🌘', '🌑', '🌒', '🌓', '🌔', '🌙', '🌚', '🌛', '🌜',
+        '🪐', '💫', '🌠', '🌌', '🎇', '🎆', '🎑', '🎑', '🎐', '🎐', '🎐', '🎐'
+    ];
+    
+    // تنظيم الـ emojis في صفوف
+    const rows = Math.ceil(emojis.length / 10); // 10 رموز لكل صف
+    for (let i = 0; i < rows; i++) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;';
+        
+        for (let j = 0; j < 10; j++) {
+            const index = i * 10 + j;
+            if (index < emojis.length) {
+                const emoji = document.createElement('span');
+                emoji.textContent = emojis[index];
+                emoji.style.cssText = 'font-size: 24px; cursor: pointer; transition: transform 0.2s; user-select: none;';
+                emoji.addEventListener('click', function() {
+                    insertEmoji(emojis[index]);
+                    closeEmojiPicker();
+                });
+                emoji.addEventListener('mouseover', function() { this.style.transform = 'scale(1.2)'; });
+                emoji.addEventListener('mouseout', function() { this.style.transform = 'scale(1)'; });
+                row.appendChild(emoji);
+            }
+        }
+        emojiPicker.appendChild(row);
+    }
+    
+    // إضافة الزر لإغلاق المُنتَج
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '✕';
+    closeButton.style.cssText = 'position: absolute; top: 5px; right: 5px; background: transparent; border: none; font-size: 16px; cursor: pointer; color: #999;';
+    closeButton.addEventListener('click', closeEmojiPicker);
+    emojiPicker.appendChild(closeButton);
+    
+    // إضافة المُنتَج إلى الصفحة
+    document.body.appendChild(emojiPicker);
+    
+    // تطبيق التصفية عند فتح المُنتَج
+    filterEmojis('');
+}
+
+// === دالة لإغلاق مُنتَج الـ emojis ===
+function closeEmojiPicker() {
+    const emojiPicker = document.getElementById('emojiPicker');
+    if (emojiPicker) {
+        document.body.removeChild(emojiPicker);
+    }
+}
+
+// === دالة لتصفية الـ emojis حسب البحث ===
+function filterEmojis(query) {
+    const emojiPicker = document.getElementById('emojiPicker');
+    if (!emojiPicker) return;
+    
+    const emojis = emojiPicker.querySelectorAll('span[style*="font-size: 24px"]');
+    emojis.forEach(emoji => {
+        const text = emoji.textContent.toLowerCase();
+        if (text.includes(query.toLowerCase())) {
+            emoji.style.display = '';
+        } else {
+            emoji.style.display = 'none';
+        }
+    });
+}
+
+// === دالة لإدراج الـ emoji في مربع النص ===
+function insertEmoji(emoji) {
+    const messageInput = document.getElementById('messageInput');
+    const start = messageInput.selectionStart;
+    const end = messageInput.selectionEnd;
+    const value = messageInput.value;
+    const newValue = value.substring(0, start) + emoji + value.substring(end);
+    messageInput.value = newValue;
+    messageInput.focus();
+    messageInput.setSelectionRange(start + emoji.length, start + emoji.length);
+}
+
+// === تفعيل مُنتَج الـ emojis عند الضغط على زر الـ emoji ===
+document.querySelector('.tool-btn[onclick="openEmojiPicker()"]').addEventListener('click', function(e) {
+    e.preventDefault(); // منع السحب
+    openEmojiPicker();
+});
+
+// === إغلاق مُنتَج الـ emojis عند النقر خارجها ===
+document.addEventListener('click', function(e) {
+    const emojiPicker = document.getElementById('emojiPicker');
+    if (emojiPicker && !emojiPicker.contains(e.target)) {
+        closeEmojiPicker();
+    }
+});
+</script>
