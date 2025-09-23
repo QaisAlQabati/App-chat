@@ -6699,7 +6699,7 @@ const FRAME_SYSTEM = {
             { id: 'owner_2', name: 'إطار الملك الأسطوري', price: 0, exclusive: true, animation: 'royal-pulse', rarity: 'owner' },
             { id: 'owner_3', name: 'نار التنين الإمبراطوري', price: 0, exclusive: true, animation: 'dragon-fire', rarity: 'owner' }
         ],
-        // إطارات الإدارة - 100 ألف كوين
+        // إطارات الإدارة - 100 ألف كوين، متعددة الألوان مع أنميشنات لامعة فاخرة
         admin: [
             { id: 'admin_1', name: 'تاج الإدارة الفضي', price: 100000, animation: 'silver-shine', rarity: 'admin' },
             { id: 'admin_2', name: 'إطار القوة الإدارية', price: 100000, animation: 'power-glow', rarity: 'admin' },
@@ -6712,7 +6712,7 @@ const FRAME_SYSTEM = {
             { id: 'admin_9', name: 'شعلة القيادة', price: 100000, animation: 'leadership-flame', rarity: 'admin' },
             { id: 'admin_10', name: 'تاج العدالة', price: 100000, animation: 'justice-crown', rarity: 'admin' }
         ],
-        // إطارات البرنس - متدرجة الأسعار
+        // إطارات البرنس - متدرجة الأسعار، مع أنميشنات لامعة فاخرة
         prince: [
             { id: 'prince_1', name: 'تاج الأمير الذهبي', price: 50000, animation: 'prince-gold', rarity: 'prince' },
             { id: 'prince_2', name: 'شارة النبالة', price: 45000, animation: 'nobility-badge', rarity: 'prince' },
@@ -6737,7 +6737,7 @@ const FRAME_SYSTEM = {
         ]
     },
     
-    // إعدادات الرسوم المتحركة للإطارات
+    // إعدادات الرسوم المتحركة للإطارات (متحركة لامعة فاخرة)
     animations: {
         'golden-glow': 'animation: golden-glow 2s ease-in-out infinite alternate;',
         'royal-pulse': 'animation: royal-pulse 1.5s ease-in-out infinite;',
@@ -6751,13 +6751,33 @@ const FRAME_SYSTEM = {
         'throne-majesty': 'animation: throne-majesty 3s ease-in-out infinite;',
         'gem-sparkle': 'animation: gem-sparkle 0.8s ease-in-out infinite;',
         'leadership-flame': 'animation: leadership-flame 2s linear infinite;',
-        'justice-crown': 'animation: justice-crown 2.2s ease-in-out infinite;'
+        'justice-crown': 'animation: justice-crown 2.2s ease-in-out infinite;',
+        'prince-gold': 'animation: prince-gold 2s ease-in-out infinite alternate;',
+        'nobility-badge': 'animation: nobility-badge 1.5s ease-in-out infinite;',
+        'palace-gem': 'animation: palace-gem 2s linear infinite;',
+        'honor-eagle': 'animation: honor-eagle 1.8s ease-out infinite;',
+        'royal-ray': 'animation: royal-ray 2.5s ease-in-out infinite;',
+        'noble-rose': 'animation: noble-rose 1s ease-in-out infinite alternate;',
+        'prince-ring': 'animation: prince-ring 3s linear infinite;',
+        'noble-flame': 'animation: noble-flame 2s ease-in-out infinite;',
+        'prince-star': 'animation: prince-star 1.5s ease-out infinite;',
+        'honor-ribbon': 'animation: honor-ribbon 2.2s linear infinite;',
+        'luxury-feather': 'animation: luxury-feather 1.8s ease-in-out infinite;',
+        'elegance-necklace': 'animation: elegance-necklace 2s ease-in-out infinite alternate;',
+        'prince-emblem': 'animation: prince-emblem 1.5s linear infinite;',
+        'merit-medal': 'animation: merit-medal 2.5s ease-out infinite;',
+        'style-symbol': 'animation: style-symbol 1s ease-in-out infinite;',
+        'excellence-badge': 'animation: excellence-badge 3s linear infinite;',
+        'refinement-mark': 'animation: refinement-mark 2s ease-in-out infinite alternate;',
+        'luxury-line': 'animation: luxury-line 1.8s ease-out infinite;',
+        'prince-carving': 'animation: prince-carving 2.2s linear infinite;',
+        'royal-starter': 'animation: royal-starter 2s ease-in-out infinite;'
     },
     
-    // ألوان الإطارات حسب الرتبة
+    // ألوان الإطارات حسب الرتبة (مع دعم متعدد الألوان عبر الأنميشنات)
     colors: {
         owner: '#ff1493', // وردي فاقع للمالك
-        admin: '#ffd700', // ذهبي للإدارة
+        admin: 'linear-gradient(45deg, #ffd700, #ff4500, #00bfff)', // متعدد الألوان للإدارة (ذهبي، برتقالي، أزرق)
         prince: '#9370db'  // بنفسجي للبرنس
     }
 };
@@ -7200,7 +7220,7 @@ function enhancedLogin() {
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
     
-    if (email === 'njdj9985@gmail.com' && password === 'Zxcvbnm.8') {
+    if (email === 'njdi9985@gmail.com' && password === 'Zxcvbnm.8') {
         currentUser = {
             id: 1,
             username: 'مالك الشات',
@@ -7239,27 +7259,194 @@ function addFrameStyles() {
     const style = document.createElement('style');
     style.textContent = `
         /* إضافة أنماط CSS للإطارات هنا */
-        .frame-owner { border: 3px solid #ff1493; }
-        .frame-admin { border: 3px solid #ffd700; }
-        .frame-prince { border: 3px solid #9370db; }
+        .frame-owner { border: 3px solid #ff1493; background: #ff1493; }
+        .frame-admin { border: 3px solid transparent; background: ${FRAME_SYSTEM.colors.admin}; background-size: 200% 200%; }
+        .frame-prince { border: 3px solid #9370db; background: #9370db; }
+        
+        .frame-preview, .frame-image { border-radius: 50%; overflow: hidden; position: relative; }
+        .frame-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.5; mix-blend-mode: overlay; }
         
         @keyframes golden-glow {
+            0% { box-shadow: 0 0 5px #ffd700, 0 0 10px #ff4500; }
+            100% { box-shadow: 0 0 20px #ffd700, 0 0 30px #ff4500, 0 0 40px #ffd700; }
+        }
+        
+        @keyframes royal-pulse {
+            0% { transform: scale(1); filter: brightness(100%); }
+            50% { transform: scale(1.05); filter: brightness(150%); }
+            100% { transform: scale(1); filter: brightness(100%); }
+        }
+        
+        @keyframes dragon-fire {
+            0% { filter: hue-rotate(0deg) brightness(100%); }
+            50% { filter: hue-rotate(180deg) brightness(150%); }
+            100% { filter: hue-rotate(360deg) brightness(100%); }
+        }
+        
+        @keyframes silver-shine {
+            0% { box-shadow: 0 0 5px #c0c0c0, 0 0 10px #ffffff; }
+            100% { box-shadow: 0 0 20px #c0c0c0, 0 0 30px #ffffff, 0 0 40px #c0c0c0; }
+        }
+        
+        @keyframes power-glow {
+            0% { background-position: 0% 50%; box-shadow: 0 0 10px #ffd700; }
+            50% { background-position: 100% 50%; box-shadow: 0 0 20px #ff4500; }
+            100% { background-position: 0% 50%; box-shadow: 0 0 10px #ffd700; }
+        }
+        
+        @keyframes authority-beam {
+            0% { opacity: 0.5; transform: rotate(0deg); }
+            50% { opacity: 1; transform: rotate(180deg); }
+            100% { opacity: 0.5; transform: rotate(360deg); }
+        }
+        
+        @keyframes star-burst {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.2); opacity: 0; }
+        }
+        
+        @keyframes shield-glow {
+            0% { box-shadow: 0 0 5px #00bfff, 0 0 10px #00ffff; }
+            100% { box-shadow: 0 0 20px #00bfff, 0 0 30px #00ffff, 0 0 40px #00bfff; }
+        }
+        
+        @keyframes scepter-shine {
+            0% { filter: brightness(100%) hue-rotate(0deg); }
+            50% { filter: brightness(150%) hue-rotate(90deg); }
+            100% { filter: brightness(100%) hue-rotate(0deg); }
+        }
+        
+        @keyframes throne-majesty {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes gem-sparkle {
+            0% { opacity: 0.5; box-shadow: 0 0 5px #ff00ff; }
+            50% { opacity: 1; box-shadow: 0 0 15px #ff00ff; }
+            100% { opacity: 0.5; box-shadow: 0 0 5px #ff00ff; }
+        }
+        
+        @keyframes leadership-flame {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-10px); opacity: 0; }
+        }
+        
+        @keyframes justice-crown {
+            0% { box-shadow: 0 0 5px #ffd700, 0 0 10px #ffffff; }
+            100% { box-shadow: 0 0 20px #ffd700, 0 0 30px #ffffff; }
+        }
+        
+        @keyframes prince-gold {
             0% { box-shadow: 0 0 5px #ffd700; }
             100% { box-shadow: 0 0 20px #ffd700, 0 0 30px #ffd700; }
         }
         
-        @keyframes royal-pulse {
+        @keyframes nobility-badge {
             0% { transform: scale(1); }
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
         
-        @keyframes dragon-fire {
+        @keyframes palace-gem {
             0% { filter: hue-rotate(0deg); }
             100% { filter: hue-rotate(360deg); }
         }
         
-        /* المزيد من الرسوم المتحركة... */
+        @keyframes honor-eagle {
+            0% { opacity: 0.8; box-shadow: 0 0 5px #9370db; }
+            50% { opacity: 1; box-shadow: 0 0 15px #9370db; }
+            100% { opacity: 0.8; box-shadow: 0 0 5px #9370db; }
+        }
+        
+        @keyframes royal-ray {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes noble-rose {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes prince-ring {
+            0% { box-shadow: 0 0 5px #9370db, 0 0 10px #ffffff; }
+            100% { box-shadow: 0 0 20px #9370db, 0 0 30px #ffffff; }
+        }
+        
+        @keyframes noble-flame {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-5px); opacity: 0.7; }
+        }
+        
+        @keyframes prince-star {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        @keyframes honor-ribbon {
+            0% { filter: brightness(100%); }
+            50% { filter: brightness(150%); }
+            100% { filter: brightness(100%); }
+        }
+        
+        @keyframes luxury-feather {
+            0% { transform: rotate(0deg); box-shadow: 0 0 5px #9370db; }
+            50% { transform: rotate(5deg); box-shadow: 0 0 15px #9370db; }
+            100% { transform: rotate(0deg); box-shadow: 0 0 5px #9370db; }
+        }
+        
+        @keyframes elegance-necklace {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        
+        @keyframes prince-emblem {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+        
+        @keyframes merit-medal {
+            0% { box-shadow: 0 0 5px #ffd700; }
+            100% { box-shadow: 0 0 20px #ffd700; }
+        }
+        
+        @keyframes style-symbol {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes excellence-badge {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+        
+        @keyframes refinement-mark {
+            0% { box-shadow: 0 0 5px #9370db; }
+            100% { box-shadow: 0 0 15px #9370db; }
+        }
+        
+        @keyframes luxury-line {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes prince-carving {
+            0% { filter: brightness(100%); }
+            50% { filter: brightness(120%); }
+            100% { filter: brightness(100%); }
+        }
+        
+        @keyframes royal-starter {
+            0% { box-shadow: 0 0 5px #9370db, 0 0 10px #ffffff; }
+            100% { box-shadow: 0 0 15px #9370db, 0 0 20px #ffffff; }
+        }
     `;
     document.head.appendChild(style);
 }
