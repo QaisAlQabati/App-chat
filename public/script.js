@@ -6305,13 +6305,94 @@ async function loadUsersForNotification() {
     }
 }
 
+// ==================== وظائف الإشعارات (الكود الكامل والمعدل) ====================
+
+// ملاحظة: السطرين التاليين يجب أن يكونا موجودين في بداية ملفك الرئيسي
+// const socket = io(); // للاتصال بالخادم
+// let currentUser = {}; // يجب تعبئة هذا المتغير بمعلومات المستخدم عند تسجيل الدخول
+
+// --- الجزء الجديد والمهم: ربط المستخدم بالخادم والاستماع للإشعارات ---
+
+// نتأكد من أننا نملك معلومات المستخدم قبل محاولة التسجيل
+// يمكنك وضع هذا الكود داخل الدالة التي تعمل بعد نجاح تسجيل الدخول مباشرة
+function initializeRealtimeConnection() {
+    if (currentUser && currentUser.id) {
+        // 1. تسجيل المستخدم لدى الخادم لربط هويته (userId) بالاتصال الحالي (socket.id)
+        socket.emit('register', currentUser.id);
+
+        // 2. الاستماع لحدث 'notification' القادم من الخادم
+        socket.on('notification', (data) => {
+            console.log('تم استلام إشعار جديد:', data);
+            
+            // 3. عرض الإشعار للمستخدم باستخدام دالتك الحالية
+            showNotification(data.message, data.type);
+            
+            // يمكنك إضافة وظائف أخرى هنا مثل تحديث عدد الإشعارات غير المقروءة
+        });
+    }
+}
+
+// استدعِ هذه الدالة بعد تعبئة متغير currentUser بمعلومات المستخدم الذي سجل دخوله
+// مثال:
+// login().then(userData => {
+//     currentUser = userData;
+//     initializeRealtimeConnection();
+// });
+
+
+// ==================== الوظائف التي كانت لديك (تبقى كما هي) ====================
+
+// فتح مودال إرسال إشعار
+function openSendNotificationModal() {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
+        showNotification('غير مسموح - للإداريين فقط', 'error');
+        return;
+    }
+    
+    openModal('sendNotificationModal');
+    loadUsersForNotification();
+    closeMainMenu();
+}
+
+// إغلاق مودال إرسال إشعار
+function closeSendNotificationModal() {
+    closeModal('sendNotificationModal');
+    document.getElementById('notificationMessage').value = '';
+    document.getElementById('notificationRecipient').value = '';
+}
+
+// تحميل المستخدمين لقائمة الإشعارات
+async function loadUsersForNotification() {
+    try {
+        const response = await fetch('/api/all-users-list', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            }
+        });
+        
+        if (response.ok) {
+            const users = await response.json();
+            const select = document.getElementById('notificationRecipient');
+            select.innerHTML = '<option value="">اختر مستخدم...</option>';
+            
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.display_name} (${RANKS[user.rank]?.name || 'زائر'})`;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل المستخدمين:', error);
+    }
+}
+
 // إرسال إشعار للمستخدم
 async function sendNotificationToUser() {
     const recipientId = document.getElementById('notificationRecipient')?.value;
     const message = document.getElementById('notificationMessage')?.value.trim();
     const type = document.getElementById('notificationType')?.value;
 
-    // تحقق من الحقول
     if (!recipientId) {
         showNotification('يرجى اختيار مستخدم صحيح', 'warning');
         return;
@@ -6330,13 +6411,6 @@ async function sendNotificationToUser() {
     try {
         showLoading(true);
 
-        // طباعة القيم للتحقق أثناء التطوير
-        console.log('إرسال إشعار:', {
-            recipientId: parseInt(recipientId),
-            message,
-            type
-        });
-
         const response = await fetch('/api/send-notification', {
             method: 'POST',
             headers: {
@@ -6351,13 +6425,12 @@ async function sendNotificationToUser() {
         });
 
         const data = await response.json();
-        console.log('رد السيرفر:', data);
 
         if (response.ok) {
             showNotification('تم إرسال الإشعار بنجاح', 'success');
             closeSendNotificationModal();
         } else {
-            showNotification(data.error || 'فشل في إرسال الإشعار، تحقق من بيانات المستلم', 'error');
+            showNotification(data.error || 'فشل في إرسال الإشعار', 'error');
         }
 
     } catch (error) {
