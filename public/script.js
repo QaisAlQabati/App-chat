@@ -6689,3 +6689,577 @@ function addManualPlayButton(audio) {
         profileModal.appendChild(playButton);
     }
 }
+// Enhanced script.js with Frame System
+// ===== إعدادات الإطارات =====
+const FRAME_SYSTEM = {
+    frames: {
+        // إطارات المالك - حصرية لا يمكن شراؤها
+        owner: [
+            { id: 'owner_1', name: 'تاج المالك الذهبي', price: 0, exclusive: true, animation: 'golden-glow', rarity: 'owner' },
+            { id: 'owner_2', name: 'إطار الملك الأسطوري', price: 0, exclusive: true, animation: 'royal-pulse', rarity: 'owner' },
+            { id: 'owner_3', name: 'نار التنين الإمبراطوري', price: 0, exclusive: true, animation: 'dragon-fire', rarity: 'owner' }
+        ],
+        // إطارات الإدارة - 100 ألف كوين
+        admin: [
+            { id: 'admin_1', name: 'تاج الإدارة الفضي', price: 100000, animation: 'silver-shine', rarity: 'admin' },
+            { id: 'admin_2', name: 'إطار القوة الإدارية', price: 100000, animation: 'power-glow', rarity: 'admin' },
+            { id: 'admin_3', name: 'شعاع الصلاحيات', price: 100000, animation: 'authority-beam', rarity: 'admin' },
+            { id: 'admin_4', name: 'نجمة الإشراف', price: 100000, animation: 'star-burst', rarity: 'admin' },
+            { id: 'admin_5', name: 'درع المشرف', price: 100000, animation: 'shield-glow', rarity: 'admin' },
+            { id: 'admin_6', name: 'صولجان التحكم', price: 100000, animation: 'scepter-shine', rarity: 'admin' },
+            { id: 'admin_7', name: 'عرش الإدارة', price: 100000, animation: 'throne-majesty', rarity: 'admin' },
+            { id: 'admin_8', name: 'جوهرة السلطة', price: 100000, animation: 'gem-sparkle', rarity: 'admin' },
+            { id: 'admin_9', name: 'شعلة القيادة', price: 100000, animation: 'leadership-flame', rarity: 'admin' },
+            { id: 'admin_10', name: 'تاج العدالة', price: 100000, animation: 'justice-crown', rarity: 'admin' }
+        ],
+        // إطارات البرنس - متدرجة الأسعار
+        prince: [
+            { id: 'prince_1', name: 'تاج الأمير الذهبي', price: 50000, animation: 'prince-gold', rarity: 'prince' },
+            { id: 'prince_2', name: 'شارة النبالة', price: 45000, animation: 'nobility-badge', rarity: 'prince' },
+            { id: 'prince_3', name: 'جوهرة القصر', price: 40000, animation: 'palace-gem', rarity: 'prince' },
+            { id: 'prince_4', name: 'نسر الشرف', price: 35000, animation: 'honor-eagle', rarity: 'prince' },
+            { id: 'prince_5', name: 'شعاع الملكية', price: 30000, animation: 'royal-ray', rarity: 'prince' },
+            { id: 'prince_6', name: 'وردة الأرستقراطية', price: 25000, animation: 'noble-rose', rarity: 'prince' },
+            { id: 'prince_7', name: 'خاتم الأمير', price: 20000, animation: 'prince-ring', rarity: 'prince' },
+            { id: 'prince_8', name: 'شعلة النبل', price: 15000, animation: 'noble-flame', rarity: 'prince' },
+            { id: 'prince_9', name: 'نجمة البرنس', price: 10000, animation: 'prince-star', rarity: 'prince' },
+            { id: 'prince_10', name: 'شريط الشرف', price: 8000, animation: 'honor-ribbon', rarity: 'prince' },
+            { id: 'prince_11', name: 'ريشة الفخامة', price: 6000, animation: 'luxury-feather', rarity: 'prince' },
+            { id: 'prince_12', name: 'قلادة الأناقة', price: 5000, animation: 'elegance-necklace', rarity: 'prince' },
+            { id: 'prince_13', name: 'شعار البرنس', price: 4000, animation: 'prince-emblem', rarity: 'prince' },
+            { id: 'prince_14', name: 'وسام الجدارة', price: 3500, animation: 'merit-medal', rarity: 'prince' },
+            { id: 'prince_15', name: 'رمز الأناقة', price: 3000, animation: 'style-symbol', rarity: 'prince' },
+            { id: 'prince_16', name: 'شارة التميز', price: 2800, animation: 'excellence-badge', rarity: 'prince' },
+            { id: 'prince_17', name: 'علامة الرقي', price: 2500, animation: 'refinement-mark', rarity: 'prince' },
+            { id: 'prince_18', name: 'خط الفخامة', price: 2200, animation: 'luxury-line', rarity: 'prince' },
+            { id: 'prince_19', name: 'نقش الأمير', price: 2100, animation: 'prince-carving', rarity: 'prince' },
+            { id: 'prince_20', name: 'إطار البداية الملكية', price: 2000, animation: 'royal-starter', rarity: 'prince' }
+        ]
+    },
+    
+    // إعدادات الرسوم المتحركة للإطارات
+    animations: {
+        'golden-glow': 'animation: golden-glow 2s ease-in-out infinite alternate;',
+        'royal-pulse': 'animation: royal-pulse 1.5s ease-in-out infinite;',
+        'dragon-fire': 'animation: dragon-fire 3s linear infinite;',
+        'silver-shine': 'animation: silver-shine 2s ease-in-out infinite alternate;',
+        'power-glow': 'animation: power-glow 1.8s ease-in-out infinite;',
+        'authority-beam': 'animation: authority-beam 2.5s linear infinite;',
+        'star-burst': 'animation: star-burst 1s ease-out infinite;',
+        'shield-glow': 'animation: shield-glow 2s ease-in-out infinite alternate;',
+        'scepter-shine': 'animation: scepter-shine 1.5s ease-in-out infinite;',
+        'throne-majesty': 'animation: throne-majesty 3s ease-in-out infinite;',
+        'gem-sparkle': 'animation: gem-sparkle 0.8s ease-in-out infinite;',
+        'leadership-flame': 'animation: leadership-flame 2s linear infinite;',
+        'justice-crown': 'animation: justice-crown 2.2s ease-in-out infinite;'
+    },
+    
+    // ألوان الإطارات حسب الرتبة
+    colors: {
+        owner: '#ff1493', // وردي فاقع للمالك
+        admin: '#ffd700', // ذهبي للإدارة
+        prince: '#9370db'  // بنفسجي للبرنس
+    }
+};
+
+// ===== نظام المستخدمين المحدث =====
+let currentUser = {
+    id: null,
+    username: '',
+    email: '',
+    rank: 'visitor',
+    coins: 2000,
+    ownedFrames: [],
+    activeFrame: null,
+    isOwner: false
+};
+
+// ===== دالة فتح متجر التطبيق =====
+function openAppStore() {
+    document.getElementById('mainMenuModal').style.display = 'none';
+    
+    // إنشاء مودال المتجر
+    const storeModal = document.createElement('div');
+    storeModal.id = 'appStoreModal';
+    storeModal.className = 'modal';
+    storeModal.innerHTML = createAppStoreHTML();
+    document.body.appendChild(storeModal);
+    
+    storeModal.style.display = 'block';
+    loadFrameStore();
+}
+
+// ===== إنشاء HTML متجر التطبيق =====
+function createAppStoreHTML() {
+    return `
+        <div class="modal-content app-store-modal">
+            <div class="modal-header">
+                <h2>🏪 متجر الإطارات والزخارف</h2>
+                <button class="close-btn" onclick="closeAppStore()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="store-content">
+                <div class="store-header">
+                    <div class="user-coins">
+                        <i class="fas fa-coins"></i>
+                        <span id="userCoinsDisplay">${currentUser.coins}</span>
+                        <span>نقطة</span>
+                    </div>
+                    <div class="store-tabs">
+                        <button class="store-tab active" onclick="showStoreTab('frames')">
+                            <i class="fas fa-picture-o"></i>
+                            الإطارات
+                        </button>
+                        <button class="store-tab" onclick="showStoreTab('decorations')">
+                            <i class="fas fa-star"></i>
+                            الزخارف
+                        </button>
+                        <button class="store-tab" onclick="showStoreTab('my-items')">
+                            <i class="fas fa-shopping-bag"></i>
+                            مشترياتي
+                        </button>
+                    </div>
+                </div>
+                <div id="storeTabContent" class="store-tab-content">
+                    <!-- سيتم ملء المحتوى هنا -->
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ===== تحميل متجر الإطارات =====
+function loadFrameStore() {
+    showStoreTab('frames');
+}
+
+// ===== عرض تبويبات المتجر =====
+function showStoreTab(tabName) {
+    // تحديث الأزرار
+    document.querySelectorAll('.store-tab').forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    const content = document.getElementById('storeTabContent');
+    
+    switch(tabName) {
+        case 'frames':
+            content.innerHTML = createFramesTabHTML();
+            break;
+        case 'decorations':
+            content.innerHTML = createDecorationsTabHTML();
+            break;
+        case 'my-items':
+            content.innerHTML = createMyItemsTabHTML();
+            break;
+    }
+}
+
+// ===== إنشاء HTML تبويب الإطارات =====
+function createFramesTabHTML() {
+    let html = '<div class="frames-container">';
+    
+    // إطارات المالك
+    if (currentUser.isOwner) {
+        html += `
+            <div class="frame-category">
+                <h3 class="category-title owner-title">
+                    <i class="fas fa-crown"></i>
+                    إطارات المالك الحصرية
+                </h3>
+                <div class="frames-grid">
+                    ${FRAME_SYSTEM.frames.owner.map(frame => createFrameCard(frame)).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    // إطارات الإدارة
+    if (currentUser.rank === 'admin' || currentUser.rank === 'owner') {
+        html += `
+            <div class="frame-category">
+                <h3 class="category-title admin-title">
+                    <i class="fas fa-shield-alt"></i>
+                    إطارات الإدارة
+                </h3>
+                <div class="frames-grid">
+                    ${FRAME_SYSTEM.frames.admin.map(frame => createFrameCard(frame)).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    // إطارات البرنس
+    html += `
+        <div class="frame-category">
+            <h3 class="category-title prince-title">
+                <i class="fas fa-gem"></i>
+                إطارات البرنس
+            </h3>
+            <div class="frames-grid">
+                ${FRAME_SYSTEM.frames.prince.map(frame => createFrameCard(frame)).join('')}
+            </div>
+        </div>
+    `;
+    
+    html += '</div>';
+    return html;
+}
+
+// ===== إنشاء بطاقة إطار =====
+function createFrameCard(frame) {
+    const owned = currentUser.ownedFrames.includes(frame.id);
+    const active = currentUser.activeFrame === frame.id;
+    const canBuy = currentUser.coins >= frame.price;
+    const hasPermission = checkFramePermission(frame);
+    
+    return `
+        <div class="frame-card ${frame.rarity}" data-frame-id="${frame.id}">
+            <div class="frame-preview" style="${FRAME_SYSTEM.animations[frame.animation] || ''}">
+                <div class="frame-image ${frame.rarity}-frame">
+                    <div class="sample-avatar">
+                        <img src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="معاينة">
+                    </div>
+                    <div class="frame-overlay ${frame.rarity}"></div>
+                </div>
+            </div>
+            <div class="frame-info">
+                <h4 class="frame-name">${frame.name}</h4>
+                <div class="frame-rarity ${frame.rarity}">
+                    ${getRarityText(frame.rarity)}
+                </div>
+                <div class="frame-price">
+                    ${frame.exclusive ? '<span class="exclusive-tag">حصري</span>' : 
+                      `<i class="fas fa-coins"></i> ${frame.price.toLocaleString()}`}
+                </div>
+                <div class="frame-actions">
+                    ${createFrameActionButton(frame, owned, active, canBuy, hasPermission)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ===== إنشاء زر إجراء الإطار =====
+function createFrameActionButton(frame, owned, active, canBuy, hasPermission) {
+    if (frame.exclusive && !currentUser.isOwner) {
+        return '<button class="btn btn-disabled" disabled>غير متاح</button>';
+    }
+    
+    if (!hasPermission) {
+        return '<button class="btn btn-disabled" disabled>رتبة غير كافية</button>';
+    }
+    
+    if (owned) {
+        if (active) {
+            return '<button class="btn btn-active" disabled>مُفعّل</button>';
+        } else {
+            return `<button class="btn btn-primary" onclick="activateFrame('${frame.id}')">تفعيل</button>`;
+        }
+    } else {
+        if (canBuy) {
+            return `<button class="btn btn-success" onclick="buyFrame('${frame.id}')">شراء</button>`;
+        } else {
+            return '<button class="btn btn-disabled" disabled>نقاط غير كافية</button>';
+        }
+    }
+}
+
+// ===== فحص صلاحية الإطار =====
+function checkFramePermission(frame) {
+    switch(frame.rarity) {
+        case 'owner':
+            return currentUser.isOwner;
+        case 'admin':
+            return currentUser.rank === 'admin' || currentUser.rank === 'owner';
+        case 'prince':
+            return true; // متاح للجميع
+        default:
+            return true;
+    }
+}
+
+// ===== الحصول على نص الندرة =====
+function getRarityText(rarity) {
+    switch(rarity) {
+        case 'owner': return '👑 مالك حصري';
+        case 'admin': return '🛡️ إداري';
+        case 'prince': return '💎 برنس';
+        default: return '⭐ عادي';
+    }
+}
+
+// ===== شراء إطار =====
+function buyFrame(frameId) {
+    const frame = findFrameById(frameId);
+    if (!frame) return;
+    
+    if (currentUser.coins < frame.price) {
+        showToast('❌ نقاط غير كافية!', 'error');
+        return;
+    }
+    
+    if (!checkFramePermission(frame)) {
+        showToast('❌ ليس لديك صلاحية لشراء هذا الإطار!', 'error');
+        return;
+    }
+    
+    // خصم النقاط
+    currentUser.coins -= frame.price;
+    currentUser.ownedFrames.push(frameId);
+    
+    // تحديث العرض
+    document.getElementById('userCoinsDisplay').textContent = currentUser.coins;
+    showToast(`✅ تم شراء ${frame.name} بنجاح!`, 'success');
+    
+    // تحديث بطاقة الإطار
+    loadFrameStore();
+    
+    // حفظ البيانات
+    saveUserData();
+}
+
+// ===== تفعيل إطار =====
+function activateFrame(frameId) {
+    const frame = findFrameById(frameId);
+    if (!frame) return;
+    
+    if (!currentUser.ownedFrames.includes(frameId)) {
+        showToast('❌ لا تملك هذا الإطار!', 'error');
+        return;
+    }
+    
+    currentUser.activeFrame = frameId;
+    showToast(`✅ تم تفعيل ${frame.name}!`, 'success');
+    
+    // تحديث العرض
+    loadFrameStore();
+    updateUserFrame();
+    
+    // حفظ البيانات
+    saveUserData();
+}
+
+// ===== العثور على إطار بالمعرف =====
+function findFrameById(frameId) {
+    const allFrames = [
+        ...FRAME_SYSTEM.frames.owner,
+        ...FRAME_SYSTEM.frames.admin,
+        ...FRAME_SYSTEM.frames.prince
+    ];
+    return allFrames.find(frame => frame.id === frameId);
+}
+
+// ===== تحديث إطار المستخدم في الواجهة =====
+function updateUserFrame() {
+    if (!currentUser.activeFrame) return;
+    
+    const frame = findFrameById(currentUser.activeFrame);
+    if (!frame) return;
+    
+    // تحديث الصورة الرمزية في الهيدر
+    const userAvatar = document.getElementById('headerUserAvatar');
+    if (userAvatar) {
+        userAvatar.parentElement.classList.add(`frame-${frame.rarity}`);
+        userAvatar.parentElement.style.cssText = FRAME_SYSTEM.animations[frame.animation] || '';
+    }
+    
+    // تحديث الرسائل
+    updateMessagesFrames();
+}
+
+// ===== تحديث إطارات الرسائل =====
+function updateMessagesFrames() {
+    const messages = document.querySelectorAll('.message[data-user-id="' + currentUser.id + '"]');
+    messages.forEach(message => {
+        const avatar = message.querySelector('.message-avatar img');
+        if (avatar && currentUser.activeFrame) {
+            const frame = findFrameById(currentUser.activeFrame);
+            if (frame) {
+                avatar.parentElement.classList.add(`frame-${frame.rarity}`);
+                avatar.parentElement.style.cssText = FRAME_SYSTEM.animations[frame.animation] || '';
+            }
+        }
+    });
+}
+
+// ===== إنشاء تبويب الزخارف =====
+function createDecorationsTabHTML() {
+    return `
+        <div class="decorations-container">
+            <h3>🎨 الزخارف والتأثيرات</h3>
+            <p>قريباً... المزيد من الزخارف والتأثيرات المذهلة!</p>
+            <div class="coming-soon">
+                <i class="fas fa-hammer"></i>
+                <p>تحت التطوير</p>
+            </div>
+        </div>
+    `;
+}
+
+// ===== إنشاء تبويب مشترياتي =====
+function createMyItemsTabHTML() {
+    if (currentUser.ownedFrames.length === 0) {
+        return `
+            <div class="my-items-empty">
+                <i class="fas fa-shopping-cart"></i>
+                <h3>لا توجد مشتريات بعد</h3>
+                <p>ابدأ بشراء بعض الإطارات الرائعة!</p>
+            </div>
+        `;
+    }
+    
+    const ownedFrames = currentUser.ownedFrames
+        .map(frameId => findFrameById(frameId))
+        .filter(frame => frame);
+    
+    return `
+        <div class="my-items-container">
+            <h3>🛍️ مشترياتي (${ownedFrames.length})</h3>
+            <div class="frames-grid">
+                ${ownedFrames.map(frame => createOwnedFrameCard(frame)).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// ===== إنشاء بطاقة إطار مملوك =====
+function createOwnedFrameCard(frame) {
+    const active = currentUser.activeFrame === frame.id;
+    
+    return `
+        <div class="frame-card owned ${frame.rarity}" data-frame-id="${frame.id}">
+            <div class="frame-preview" style="${FRAME_SYSTEM.animations[frame.animation] || ''}">
+                <div class="frame-image ${frame.rarity}-frame">
+                    <div class="sample-avatar">
+                        <img src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="معاينة">
+                    </div>
+                    <div class="frame-overlay ${frame.rarity}"></div>
+                </div>
+                ${active ? '<div class="active-indicator">مُفعّل</div>' : ''}
+            </div>
+            <div class="frame-info">
+                <h4 class="frame-name">${frame.name}</h4>
+                <div class="frame-rarity ${frame.rarity}">
+                    ${getRarityText(frame.rarity)}
+                </div>
+                <div class="frame-actions">
+                    ${active ? 
+                        '<button class="btn btn-active" disabled>مُفعّل حالياً</button>' :
+                        `<button class="btn btn-primary" onclick="activateFrame('${frame.id}')">تفعيل</button>`
+                    }
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ===== إغلاق متجر التطبيق =====
+function closeAppStore() {
+    const modal = document.getElementById('appStoreModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// ===== عرض رسالة منبثقة =====
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    
+    const container = document.getElementById('toastContainer') || document.body;
+    container.appendChild(toast);
+    
+    // إزالة الرسالة بعد 3 ثواني
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// ===== حفظ بيانات المستخدم =====
+function saveUserData() {
+    localStorage.setItem('userData', JSON.stringify(currentUser));
+}
+
+// ===== تحميل بيانات المستخدم =====
+function loadUserData() {
+    const saved = localStorage.getItem('userData');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            currentUser = { ...currentUser, ...data };
+        } catch (e) {
+            console.error('خطأ في تحميل البيانات:', e);
+        }
+    }
+}
+
+// ===== تحديث دالة تسجيل الدخول الموجودة =====
+function enhancedLogin() {
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    
+    if (email === 'njdj9985@gmail.com' && password === 'Zxcvbnm.8') {
+        currentUser = {
+            id: 1,
+            username: 'مالك الشات',
+            email: email,
+            rank: 'owner',
+            coins: 999999,
+            ownedFrames: FRAME_SYSTEM.frames.owner.map(f => f.id), // يملك جميع إطارات المالك
+            activeFrame: 'owner_1',
+            isOwner: true
+        };
+        
+        saveUserData();
+        closeLoginModal();
+        updateUserFrame();
+        showToast('🎉 مرحباً بك يا مالك النظام! 👑', 'success');
+    } else {
+        showToast('❌ بيانات دخول خاطئة', 'error');
+    }
+}
+
+// ===== تهيئة النظام عند تحميل الصفحة =====
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserData();
+    
+    // تحديث الإطار إذا كان المستخدم مسجل دخول
+    if (currentUser.activeFrame) {
+        updateUserFrame();
+    }
+    
+    // إضافة أنماط CSS المطلوبة للإطارات
+    addFrameStyles();
+});
+
+// ===== إضافة أنماط CSS للإطارات =====
+function addFrameStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        /* إضافة أنماط CSS للإطارات هنا */
+        .frame-owner { border: 3px solid #ff1493; }
+        .frame-admin { border: 3px solid #ffd700; }
+        .frame-prince { border: 3px solid #9370db; }
+        
+        @keyframes golden-glow {
+            0% { box-shadow: 0 0 5px #ffd700; }
+            100% { box-shadow: 0 0 20px #ffd700, 0 0 30px #ffd700; }
+        }
+        
+        @keyframes royal-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes dragon-fire {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+        
+        /* المزيد من الرسوم المتحركة... */
+    `;
+    document.head.appendChild(style);
+}
