@@ -5475,6 +5475,36 @@ function openEmojiPicker() {
     '🇹🇷', '🇸🇩', '🇸🇦', '🇵🇸', '🇴🇲', '🇱🇾', '🇱🇧', '🇮🇶', '🇯🇴'
 ];
     
+  // خريطة الأكواد للصور المتحركة (GIFs)
+  const emojiMap = {
+    ":177:": "emojis/177.gif",
+    ":169:": "emojis/169.gif",
+    ":167:": "emojis/167.gif",
+    ":14554:": "emojis/14554.gif",
+    ":13658:": "emojis/13658.gif",
+    ":133:": "emojis/133.gif",
+    ":127:": "emojis/127.gif",
+    ":0085:": "emojis/85.gif",
+    ":0048:": "emojis/48.gif",
+    ":0045:": "emojis/45.gif",
+    ":0036:": "emojis/36.gif",
+    ":228:": "emojis/228.gif",
+    ":225:": "emojis/225.gif",
+    ":224:": "emojis/224.gif",
+    ":222:": "emojis/222.gif",
+    ":213:": "emojis/213.gif",
+    ":202:": "emojis/202.gif",
+    ":201:": "emojis/201.gif",
+    ":19:": "emojis/19.gif",
+    ":1886:": "emojis/1886.gif",
+    ":178:": "emojis/178.gif",
+    ":46:": "emojis/46.gif",
+    ":42:": "emojis/42.gif",
+    ":377:": "emojis/377.gif",
+    ":36:": "emojis/36.gif",
+    ":34:": "emojis/34.gif",
+    ":325:": "emojis/325.gif"
+  };
     const input = document.getElementById('messageInput');
     if (!input) {
         console.error('❌ لم يتم العثور على حقل الإدخال');
