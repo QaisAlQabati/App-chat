@@ -6688,5 +6688,481 @@ function addManualPlayButton(audio) {
     if (profileModal) {
         profileModal.appendChild(playButton);
     }
+
+
+    // ===== نظام الإطارات المتقدم =====
+const FRAME_SYSTEM = {
+    frames: {
+        owner: [
+            { id: 'owner_1', name: 'تاج المالك الذهبي', price: 0, exclusive: true, animation: 'golden-glow', rarity: 'owner' },
+            { id: 'owner_2', name: 'إطار الملك الأسطوري', price: 0, exclusive: true, animation: 'royal-pulse', rarity: 'owner' },
+            { id: 'owner_3', name: 'نار التنين الإمبراطوري', price: 0, exclusive: true, animation: 'dragon-fire', rarity: 'owner' }
+        ],
+        admin: [
+            { id: 'admin_1', name: 'تاج الإدارة الفضي', price: 100000, animation: 'silver-shine', rarity: 'admin' },
+            { id: 'admin_2', name: 'إطار القوة الإدارية', price: 100000, animation: 'power-glow', rarity: 'admin' },
+            { id: 'admin_3', name: 'شعاع الصلاحيات', price: 100000, animation: 'authority-beam', rarity: 'admin' },
+            { id: 'admin_4', name: 'نجمة الإشراف', price: 100000, animation: 'star-burst', rarity: 'admin' },
+            { id: 'admin_5', name: 'درع المشرف', price: 100000, animation: 'shield-glow', rarity: 'admin' },
+            { id: 'admin_6', name: 'صولجان التحكم', price: 100000, animation: 'scepter-shine', rarity: 'admin' },
+            { id: 'admin_7', name: 'عرش الإدارة', price: 100000, animation: 'throne-majesty', rarity: 'admin' },
+            { id: 'admin_8', name: 'جوهرة السلطة', price: 100000, animation: 'gem-sparkle', rarity: 'admin' },
+            { id: 'admin_9', name: 'شعلة القيادة', price: 100000, animation: 'leadership-flame', rarity: 'admin' },
+            { id: 'admin_10', name: 'تاج العدالة', price: 100000, animation: 'justice-crown', rarity: 'admin' }
+        ],
+        prince: [
+            { id: 'prince_1', name: 'تاج الأمير الذهبي', price: 50000, animation: 'prince-gold', rarity: 'prince' },
+            { id: 'prince_2', name: 'شارة النبالة', price: 45000, animation: 'nobility-badge', rarity: 'prince' },
+            { id: 'prince_3', name: 'جوهرة القصر', price: 40000, animation: 'palace-gem', rarity: 'prince' },
+            { id: 'prince_4', name: 'نسر الشرف', price: 35000, animation: 'honor-eagle', rarity: 'prince' },
+            { id: 'prince_5', name: 'شعاع الملكية', price: 30000, animation: 'royal-ray', rarity: 'prince' },
+            { id: 'prince_6', name: 'وردة الأرستقراطية', price: 25000, animation: 'noble-rose', rarity: 'prince' },
+            { id: 'prince_7', name: 'خاتم الأمير', price: 20000, animation: 'prince-ring', rarity: 'prince' },
+            { id: 'prince_8', name: 'شعلة النبل', price: 15000, animation: 'noble-flame', rarity: 'prince' },
+            { id: 'prince_9', name: 'نجمة البرنس', price: 10000, animation: 'prince-star', rarity: 'prince' },
+            { id: 'prince_10', name: 'شريط الشرف', price: 8000, animation: 'honor-ribbon', rarity: 'prince' },
+            { id: 'prince_11', name: 'ريشة الفخامة', price: 6000, animation: 'luxury-feather', rarity: 'prince' },
+            { id: 'prince_12', name: 'قلادة الأناقة', price: 5000, animation: 'elegance-necklace', rarity: 'prince' },
+            { id: 'prince_13', name: 'شعار البرنس', price: 4000, animation: 'prince-emblem', rarity: 'prince' },
+            { id: 'prince_14', name: 'وسام الجدارة', price: 3500, animation: 'merit-medal', rarity: 'prince' },
+            { id: 'prince_15', name: 'رمز الأناقة', price: 3000, animation: 'style-symbol', rarity: 'prince' },
+            { id: 'prince_16', name: 'شارة التميز', price: 2800, animation: 'excellence-badge', rarity: 'prince' },
+            { id: 'prince_17', name: 'علامة الرقي', price: 2500, animation: 'refinement-mark', rarity: 'prince' },
+            { id: 'prince_18', name: 'خط الفخامة', price: 2200, animation: 'luxury-line', rarity: 'prince' },
+            { id: 'prince_19', name: 'نقش الأمير', price: 2100, animation: 'prince-carving', rarity: 'prince' },
+            { id: 'prince_20', name: 'إطار البداية الملكية', price: 2000, animation: 'royal-starter', rarity: 'prince' }
+        ]
+    },
+    
+    animations: {
+        'golden-glow': 'animation: golden-glow 2s ease-in-out infinite alternate;',
+        'royal-pulse': 'animation: royal-pulse 1.5s ease-in-out infinite;',
+        'dragon-fire': 'animation: dragon-fire 3s linear infinite;',
+        'silver-shine': 'animation: silver-shine 2s ease-in-out infinite alternate;',
+        'power-glow': 'animation: power-glow 1.8s ease-in-out infinite;',
+        'authority-beam': 'animation: authority-beam 2.5s linear infinite;',
+        'star-burst': 'animation: star-burst 1s ease-out infinite;',
+        'shield-glow': 'animation: shield-glow 2s ease-in-out infinite alternate;',
+        'scepter-shine': 'animation: scepter-shine 1.5s ease-in-out infinite;',
+        'throne-majesty': 'animation: throne-majesty 3s ease-in-out infinite;',
+        'gem-sparkle': 'animation: gem-sparkle 0.8s ease-in-out infinite;',
+        'leadership-flame': 'animation: leadership-flame 2s linear infinite;',
+        'justice-crown': 'animation: justice-crown 2.2s ease-in-out infinite;',
+        'prince-gold': 'animation: prince-gold 2s ease-in-out infinite alternate;',
+        'nobility-badge': 'animation: nobility-badge 1.5s ease-in-out infinite;',
+        'palace-gem': 'animation: palace-gem 2s linear infinite;',
+        'honor-eagle': 'animation: honor-eagle 1.8s ease-in-out infinite;',
+        'royal-ray': 'animation: royal-ray 2.5s linear infinite;',
+        'noble-rose': 'animation: noble-rose 1s ease-out infinite;',
+        'prince-ring': 'animation: prince-ring 2s ease-in-out infinite alternate;',
+        'noble-flame': 'animation: noble-flame 1.5s ease-in-out infinite;',
+        'prince-star': 'animation: prince-star 0.8s ease-in-out infinite;',
+        'honor-ribbon': 'animation: honor-ribbon 2s linear infinite;',
+        'luxury-feather': 'animation: luxury-feather 1.5s ease-in-out infinite;',
+        'elegance-necklace': 'animation: elegance-necklace 2s ease-in-out infinite alternate;',
+        'prince-emblem': 'animation: prince-emblem 1.8s ease-in-out infinite;',
+        'merit-medal': 'animation: merit-medal 1s ease-out infinite;',
+        'style-symbol': 'animation: style-symbol 2s linear infinite;',
+        'excellence-badge': 'animation: excellence-badge 1.5s ease-in-out infinite;',
+        'refinement-mark': 'animation: refinement-mark 2s ease-in-out infinite alternate;',
+        'luxury-line': 'animation: luxury-line 1.5s ease-in-out infinite;',
+        'prince-carving': 'animation: prince-carving 2s linear infinite;',
+        'royal-starter': 'animation: royal-starter 1.8s ease-in-out infinite;'
+    },
+    
+    colors: {
+        owner: '#ff1493',
+        admin: '#ffd700',
+        prince: '#9370db'
+    }
+};
+
+// ===== نظام المستخدم =====
+let currentUser = {
+    id: null,
+    username: '',
+    email: '',
+    rank: 'visitor',
+    coins: 2000,
+    ownedFrames: [],
+    activeFrame: null,
+    isOwner: false
+};
+
+// ===== دوال المتجر =====
+function openAppStore() {
+    document.getElementById('mainMenuModal').style.display = 'none';
+    
+    const storeModal = document.createElement('div');
+    storeModal.id = 'appStoreModal';
+    storeModal.className = 'modal';
+    storeModal.innerHTML = createAppStoreHTML();
+    document.body.appendChild(storeModal);
+    storeModal.style.display = 'block';
+    
+    loadFrameStore();
+}
+
+function createAppStoreHTML() {
+    return `
+        <div class="modal-content app-store-modal">
+            <div class="modal-header">
+                <h2>🏪 متجر الإطارات والزخارف</h2>
+                <button class="close-btn" onclick="closeAppStore()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="store-content">
+                <div class="store-header">
+                    <div class="user-coins">
+                        <i class="fas fa-coins"></i>
+                        <span id="userCoinsDisplay">${currentUser.coins}</span>
+                        <span>نقطة</span>
+                    </div>
+                    <div class="store-tabs">
+                        <button class="store-tab active" onclick="showStoreTab('frames')">
+                            <i class="fas fa-picture-o"></i> الإطارات
+                        </button>
+                        <button class="store-tab" onclick="showStoreTab('decorations')">
+                            <i class="fas fa-star"></i> الزخارف
+                        </button>
+                        <button class="store-tab" onclick="showStoreTab('my-items')">
+                            <i class="fas fa-shopping-bag"></i> مشترياتي
+                        </button>
+                    </div>
+                </div>
+                <div id="storeTabContent" class="store-tab-content"></div>
+            </div>
+        </div>
+    `;
+}
+
+function loadFrameStore() {
+    showStoreTab('frames');
+}
+
+function showStoreTab(tabName) {
+    document.querySelectorAll('.store-tab').forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    const content = document.getElementById('storeTabContent');
+    switch(tabName) {
+        case 'frames': content.innerHTML = createFramesTabHTML(); break;
+        case 'decorations': content.innerHTML = createDecorationsTabHTML(); break;
+        case 'my-items': content.innerHTML = createMyItemsTabHTML(); break;
+    }
+}
+
+function createFramesTabHTML() {
+    let html = '<div class="frames-container">';
+    
+    if (currentUser.isOwner) {
+        html += `
+            <div class="frame-category">
+                <h3 class="category-title owner-title"><i class="fas fa-crown"></i> إطارات المالك الحصرية</h3>
+                <div class="frames-grid">${FRAME_SYSTEM.frames.owner.map(f => createFrameCard(f)).join('')}</div>
+            </div>
+        `;
+    }
+    
+    if (currentUser.rank === 'admin' || currentUser.rank === 'owner') {
+        html += `
+            <div class="frame-category">
+                <h3 class="category-title admin-title"><i class="fas fa-shield-alt"></i> إطارات الإدارة</h3>
+                <div class="frames-grid">${FRAME_SYSTEM.frames.admin.map(f => createFrameCard(f)).join('')}</div>
+            </div>
+        `;
+    }
+    
+    html += `
+        <div class="frame-category">
+            <h3 class="category-title prince-title"><i class="fas fa-gem"></i> إطارات البرنس</h3>
+            <div class="frames-grid">${FRAME_SYSTEM.frames.prince.map(f => createFrameCard(f)).join('')}</div>
+        </div>
+    </div>`;
+    return html;
+}
+
+function createFrameCard(frame) {
+    const owned = currentUser.ownedFrames.includes(frame.id);
+    const active = currentUser.activeFrame === frame.id;
+    const canBuy = currentUser.coins >= frame.price;
+    const hasPermission = checkFramePermission(frame);
+    
+    return `
+        <div class="frame-card ${frame.rarity}" data-frame-id="${frame.id}">
+            <div class="frame-preview" style="${FRAME_SYSTEM.animations[frame.animation] || ''}">
+                <div class="frame-image ${frame.rarity}-frame">
+                    <div class="sample-avatar">
+                        <img src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="معاينة">
+                    </div>
+                    <div class="frame-overlay ${frame.rarity}"></div>
+                </div>
+            </div>
+            <div class="frame-info">
+                <h4 class="frame-name">${frame.name}</h4>
+                <div class="frame-rarity ${frame.rarity}">${getRarityText(frame.rarity)}</div>
+                <div class="frame-price">
+                    ${frame.exclusive ? '<span class="exclusive-tag">حصري</span>' : `<i class="fas fa-coins"></i> ${frame.price.toLocaleString()}`}
+                </div>
+                <div class="frame-actions">
+                    ${createFrameActionButton(frame, owned, active, canBuy, hasPermission)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function createFrameActionButton(frame, owned, active, canBuy, hasPermission) {
+    if (frame.exclusive && !currentUser.isOwner) return '<button class="btn btn-disabled" disabled>غير متاح</button>';
+    if (!hasPermission) return '<button class="btn btn-disabled" disabled>رتبة غير كافية</button>';
+    if (owned) {
+        return active ? '<button class="btn btn-active" disabled>مُفعّل</button>' : `<button class="btn btn-primary" onclick="activateFrame('${frame.id}')">تفعيل</button>`;
+    } else {
+        return canBuy ? `<button class="btn btn-success" onclick="buyFrame('${frame.id}')">شراء</button>` : '<button class="btn btn-disabled" disabled>نقاط غير كافية</button>';
+    }
+}
+
+function checkFramePermission(frame) {
+    if (frame.rarity === 'owner') return currentUser.isOwner;
+    if (frame.rarity === 'admin') return currentUser.rank === 'admin' || currentUser.rank === 'owner';
+    return true;
+}
+
+function getRarityText(rarity) {
+    return {
+        owner: '👑 مالك حصري',
+        admin: '🛡️ إداري',
+        prince: '💎 برنس'
+    }[rarity] || '⭐ عادي';
+}
+
+function buyFrame(frameId) {
+    const frame = findFrameById(frameId);
+    if (!frame) return;
+    if (currentUser.coins < frame.price) return showToast('❌ نقاط غير كافية!', 'error');
+    if (!checkFramePermission(frame)) return showToast('❌ ليس لديك صلاحية لشراء هذا الإطار!', 'error');
+    
+    currentUser.coins -= frame.price;
+    currentUser.ownedFrames.push(frameId);
+    document.getElementById('userCoinsDisplay').textContent = currentUser.coins;
+    showToast(`✅ تم شراء ${frame.name} بنجاح!`, 'success');
+    loadFrameStore();
+    saveUserData();
+}
+
+function activateFrame(frameId) {
+    const frame = findFrameById(frameId);
+    if (!frame || !currentUser.ownedFrames.includes(frameId)) {
+        showToast('❌ لا تملك هذا الإطار!', 'error');
+        return;
+    }
+    currentUser.activeFrame = frameId;
+    showToast(`✅ تم تفعيل ${frame.name}!`, 'success');
+    loadFrameStore();
+    updateUserFrame();
+    saveUserData();
+}
+
+function findFrameById(id) {
+    return [...FRAME_SYSTEM.frames.owner, ...FRAME_SYSTEM.frames.admin, ...FRAME_SYSTEM.frames.prince].find(f => f.id === id);
+}
+
+function updateUserFrame() {
+    if (!currentUser.activeFrame) return;
+    const frame = findFrameById(currentUser.activeFrame);
+    if (!frame) return;
+    
+    const avatar = document.getElementById('headerUserAvatar');
+    if (avatar) {
+        const parent = avatar.parentElement;
+        parent.classList.remove('frame-owner', 'frame-admin', 'frame-prince');
+        parent.classList.add(`frame-${frame.rarity}`);
+        parent.style.cssText = FRAME_SYSTEM.animations[frame.animation] || '';
+    }
+    
+    updateMessagesFrames();
+}
+
+function updateMessagesFrames() {
+    const messages = document.querySelectorAll('.message[data-user-id="' + currentUser.id + '"]');
+    messages.forEach(msg => {
+        const img = msg.querySelector('.message-avatar img');
+        if (img && currentUser.activeFrame) {
+            const frame = findFrameById(currentUser.activeFrame);
+            if (frame) {
+                const p = img.parentElement;
+                p.classList.remove('frame-owner', 'frame-admin', 'frame-prince');
+                p.classList.add(`frame-${frame.rarity}`);
+                p.style.cssText = FRAME_SYSTEM.animations[frame.animation] || '';
+            }
+        }
+    });
+}
+
+function createDecorationsTabHTML() {
+    return `
+        <div class="decorations-container">
+            <h3>🎨 الزخارف والتأثيرات</h3>
+            <p>قريباً... المزيد من الزخارف والتأثيرات المذهلة!</p>
+            <div class="coming-soon"><i class="fas fa-hammer"></i><p>تحت التطوير</p></div>
+        </div>
+    `;
+}
+
+function createMyItemsTabHTML() {
+    if (currentUser.ownedFrames.length === 0) {
+        return `
+            <div class="my-items-empty">
+                <i class="fas fa-shopping-cart"></i>
+                <h3>لا توجد مشتريات بعد</h3>
+                <p>ابدأ بشراء بعض الإطارات الرائعة!</p>
+            </div>
+        `;
+    }
+    const frames = currentUser.ownedFrames.map(id => findFrameById(id)).filter(f => f);
+    return `
+        <div class="my-items-container">
+            <h3>🛍️ مشترياتي (${frames.length})</h3>
+            <div class="frames-grid">${frames.map(f => createOwnedFrameCard(f)).join('')}</div>
+        </div>
+    `;
+}
+
+function createOwnedFrameCard(frame) {
+    const active = currentUser.activeFrame === frame.id;
+    return `
+        <div class="frame-card owned ${frame.rarity}" data-frame-id="${frame.id}">
+            <div class="frame-preview" style="${FRAME_SYSTEM.animations[frame.animation] || ''}">
+                <div class="frame-image ${frame.rarity}-frame">
+                    <div class="sample-avatar">
+                        <img src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="معاينة">
+                    </div>
+                    <div class="frame-overlay ${frame.rarity}"></div>
+                </div>
+                ${active ? '<div class="active-indicator">مُفعّل</div>' : ''}
+            </div>
+            <div class="frame-info">
+                <h4 class="frame-name">${frame.name}</h4>
+                <div class="frame-rarity ${frame.rarity}">${getRarityText(frame.rarity)}</div>
+                <div class="frame-actions">
+                    ${active ? '<button class="btn btn-active" disabled>مُفعّل حالياً</button>' : `<button class="btn btn-primary" onclick="activateFrame('${frame.id}')">تفعيل</button>`}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function closeAppStore() {
+    const modal = document.getElementById('appStoreModal');
+    if (modal) modal.remove();
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    const container = document.getElementById('toastContainer') || document.body;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+function saveUserData() {
+    localStorage.setItem('userData', JSON.stringify(currentUser));
+}
+
+function loadUserData() {
+    const saved = localStorage.getItem('userData');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            currentUser = { ...currentUser, ...data };
+        } catch (e) {
+            console.error('خطأ في تحميل البيانات:', e);
+        }
+    }
+}
+
+function enhancedLogin() {
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    
+    if (email === 'njdj9985@gmail.com' && password === 'Zxcvbnm.8') {
+        currentUser = {
+            id: 1,
+            username: 'مالك الشات',
+            email: email,
+            rank: 'owner',
+            coins: 999999,
+            ownedFrames: FRAME_SYSTEM.frames.owner.map(f => f.id),
+            activeFrame: 'owner_1',
+            isOwner: true
+        };
+        saveUserData();
+        closeLoginModal();
+        updateUserFrame();
+        showToast('🎉 مرحباً بك يا مالك النظام! 👑', 'success');
+    } else {
+        showToast('❌ بيانات دخول خاطئة', 'error');
+    }
+}
+
+// ===== تهيئة عند تحميل الصفحة =====
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserData();
+    if (currentUser.activeFrame) updateUserFrame();
+    addFrameStyles();
+});
+
+function addFrameStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .frame-owner { border: 3px solid #ff1493; }
+        .frame-admin { border: 3px solid #ffd700; }
+        .frame-prince { border: 3px solid #9370db; }
+        
+        @keyframes golden-glow { 0% { box-shadow: 0 0 5px #ffd700; transform: scale(1); } 100% { box-shadow: 0 0 20px #ffd700, 0 0 30px #ffd700; transform: scale(1.02); } }
+        @keyframes royal-pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes dragon-fire { 0% { filter: hue-rotate(0deg) saturate(1); transform: rotate(0deg); } 25% { filter: hue-rotate(90deg) saturate(1.2); } 50% { filter: hue-rotate(180deg) saturate(1.4); transform: rotate(2deg); } 75% { filter: hue-rotate(270deg) saturate(1.2); } 100% { filter: hue-rotate(360deg) saturate(1); transform: rotate(0deg); } }
+        @keyframes silver-shine { 0% { box-shadow: 0 0 5px #c0c0c0; transform: scale(1); } 100% { box-shadow: 0 0 20px #c0c0c0, 0 0 30px #c0c0c0; transform: scale(1.02); } }
+        @keyframes power-glow { 0% { box-shadow: 0 0 5px rgba(0,123,255,0.5); } 50% { box-shadow: 0 0 20px rgba(0,123,255,0.8), 0 0 30px rgba(0,123,255,0.3); } 100% { box-shadow: 0 0 5px rgba(0,123,255,0.5); } }
+        @keyframes authority-beam { 0% { box-shadow: 0 0 5px rgba(100,100,255,0.5); transform: rotate(0); } 50% { box-shadow: 0 0 20px rgba(100,100,255,0.8), 0 0 30px rgba(100,100,255,0.3); transform: rotate(3deg); } 100% { box-shadow: 0 0 5px rgba(100,100,255,0.5); transform: rotate(0); } }
+        @keyframes star-burst { 0% { box-shadow: 0 0 5px rgba(255,255,0,0.5); transform: scale(1); } 50% { box-shadow: 0 0 20px rgba(255,255,0,0.8), 0 0 30px rgba(255,255,0,0.3); transform: scale(1.05); } 100% { box-shadow: 0 0 5px rgba(255,255,0,0.5); transform: scale(1); } }
+        @keyframes shield-glow { 0% { box-shadow: 0 0 5px rgba(0,255,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(0,255,0,0.8), 0 0 30px rgba(0,255,0,0.3); transform: scale(1.02); } }
+        @keyframes scepter-shine { 0% { box-shadow: 0 0 5px rgba(128,0,128,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(128,0,128,0.8), 0 0 30px rgba(128,0,128,0.3); transform: scale(1.02); } }
+        @keyframes throne-majesty { 0% { box-shadow: 0 0 5px rgba(255,165,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,165,0,0.8), 0 0 30px rgba(255,165,0,0.3); transform: scale(1.02); } }
+        @keyframes gem-sparkle { 0% { box-shadow: 0 0 5px rgba(255,20,147,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,20,147,0.8), 0 0 30px rgba(255,20,147,0.3); transform: scale(1.02); } }
+        @keyframes leadership-flame { 0% { box-shadow: 0 0 5px rgba(255,69,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,69,0,0.8), 0 0 30px rgba(255,69,0,0.3); transform: scale(1.02); } }
+        @keyframes justice-crown { 0% { box-shadow: 0 0 5px rgba(0,0,255,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(0,0,255,0.8), 0 0 30px rgba(0,0,255,0.3); transform: scale(1.02); } }
+        @keyframes prince-gold { 0% { box-shadow: 0 0 5px rgba(255,215,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,215,0,0.8), 0 0 30px rgba(255,215,0,0.3); transform: scale(1.02); } }
+        @keyframes nobility-badge { 0% { box-shadow: 0 0 5px rgba(138,43,226,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(138,43,226,0.8), 0 0 30px rgba(138,43,226,0.3); transform: scale(1.02); } }
+        @keyframes palace-gem { 0% { box-shadow: 0 0 5px rgba(255,105,180,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,105,180,0.8), 0 0 30px rgba(255,105,180,0.3); transform: scale(1.02); } }
+        @keyframes honor-eagle { 0% { box-shadow: 0 0 5px rgba(255,140,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,140,0,0.8), 0 0 30px rgba(255,140,0,0.3); transform: scale(1.02); } }
+        @keyframes royal-ray { 0% { box-shadow: 0 0 5px rgba(255,255,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,255,0,0.8), 0 0 30px rgba(255,255,0,0.3); transform: scale(1.02); } }
+        @keyframes noble-rose { 0% { box-shadow: 0 0 5px rgba(255,182,193,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,182,193,0.8), 0 0 30px rgba(255,182,193,0.3); transform: scale(1.02); } }
+        @keyframes prince-ring { 0% { box-shadow: 0 0 5px rgba(178,34,34,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(178,34,34,0.8), 0 0 30px rgba(178,34,34,0.3); transform: scale(1.02); } }
+        @keyframes noble-flame { 0% { box-shadow: 0 0 5px rgba(255,165,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,165,0,0.8), 0 0 30px rgba(255,165,0,0.3); transform: scale(1.02); } }
+        @keyframes prince-star { 0% { box-shadow: 0 0 5px rgba(255,255,255,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 30px rgba(255,255,255,0.3); transform: scale(1.02); } }
+        @keyframes honor-ribbon { 0% { box-shadow: 0 0 5px rgba(0,255,255,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(0,255,255,0.8), 0 0 30px rgba(0,255,255,0.3); transform: scale(1.02); } }
+        @keyframes luxury-feather { 0% { box-shadow: 0 0 5px rgba(139,69,19,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(139,69,19,0.8), 0 0 30px rgba(139,69,19,0.3); transform: scale(1.02); } }
+        @keyframes elegance-necklace { 0% { box-shadow: 0 0 5px rgba(255,20,147,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,20,147,0.8), 0 0 30px rgba(255,20,147,0.3); transform: scale(1.02); } }
+        @keyframes prince-emblem { 0% { box-shadow: 0 0 5px rgba(0,0,139,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(0,0,139,0.8), 0 0 30px rgba(0,0,139,0.3); transform: scale(1.02); } }
+        @keyframes merit-medal { 0% { box-shadow: 0 0 5px rgba(255,140,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,140,0,0.8), 0 0 30px rgba(255,140,0,0.3); transform: scale(1.02); } }
+        @keyframes style-symbol { 0% { box-shadow: 0 0 5px rgba(147,112,219,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(147,112,219,0.8), 0 0 30px rgba(147,112,219,0.3); transform: scale(1.02); } }
+        @keyframes excellence-badge { 0% { box-shadow: 0 0 5px rgba(255,105,180,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,105,180,0.8), 0 0 30px rgba(255,105,180,0.3); transform: scale(1.02); } }
+        @keyframes refinement-mark { 0% { box-shadow: 0 0 5px rgba(128,0,128,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(128,0,128,0.8), 0 0 30px rgba(128,0,128,0.3); transform: scale(1.02); } }
+        @keyframes luxury-line { 0% { box-shadow: 0 0 5px rgba(128,128,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(128,128,0,0.8), 0 0 30px rgba(128,128,0,0.3); transform: scale(1.02); } }
+        @keyframes prince-carving { 0% { box-shadow: 0 0 5px rgba(165,42,42,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(165,42,42,0.8), 0 0 30px rgba(165,42,42,0.3); transform: scale(1.02); } }
+        @keyframes royal-starter { 0% { box-shadow: 0 0 5px rgba(255,255,255,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 30px rgba(255,255,255,0.3); transform: scale(1.02); } }
+    `;
+    document.head.appendChild(style);
+}
+
+// دوال مساعدة للمودالات (لإغلاق مودال تسجيل الدخول)
+function closeLoginModal() {
+    const modal = document.getElementById('loginScreen');
+    if (modal) modal.classList.remove('active');
+    document.getElementById('mainScreen').classList.add('active');
+}
 }
 
