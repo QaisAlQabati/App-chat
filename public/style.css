@@ -3203,3 +3203,493 @@ textarea:focus {
     90% { opacity: 1; transform: translateY(0); }
     100% { opacity: 0; transform: translateY(20px); }
 }
+
+
+/* ===== متجر التطبيق ===== */
+.app-store-modal {
+    max-width: 1200px;
+    width: 95%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.store-content {
+    padding: 20px;
+}
+
+.store-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    color: white;
+}
+
+.user-coins {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.user-coins i {
+    color: #ffd700;
+    font-size: 1.4em;
+}
+
+.store-tabs {
+    display: flex;
+    gap: 10px;
+}
+
+.store-tab {
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.store-tab:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+.store-tab.active {
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+}
+
+.store-tab-content {
+    min-height: 400px;
+}
+
+/* ===== الإطارات ===== */
+.frames-container {
+    margin-top: 20px;
+}
+
+.frame-category {
+    margin-bottom: 40px;
+}
+
+.category-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 15px 20px;
+    border-radius: 12px;
+    font-size: 1.3em;
+    font-weight: bold;
+}
+
+.owner-title {
+    background: linear-gradient(135deg, #ff1493, #ff69b4);
+    color: white;
+}
+
+.admin-title {
+    background: linear-gradient(135deg, #ffd700, #ffed4e);
+    color: #333;
+}
+
+.prince-title {
+    background: linear-gradient(135deg, #9370db, #ba55d3);
+    color: white;
+}
+
+.frames-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 10px;
+}
+
+/* ===== بطاقات الإطارات ===== */
+.frame-card {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+}
+
+.frame-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.frame-card.owner {
+    border: 2px solid #ff1493;
+    background: linear-gradient(135deg, #fff 0%, #ffe4f1 100%);
+}
+
+.frame-card.admin {
+    border: 2px solid #ffd700;
+    background: linear-gradient(135deg, #fff 0%, #fffacd 100%);
+}
+
+.frame-card.prince {
+    border: 2px solid #9370db;
+    background: linear-gradient(135deg, #fff 0%, #f0e6ff 100%);
+}
+
+.frame-preview {
+    position: relative;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.frame-image {
+    position: relative;
+    display: inline-block;
+    border-radius: 50%;
+    padding: 5px;
+    background: linear-gradient(45deg, #f0f0f0, #e0e0e0);
+}
+
+.owner-frame {
+    background: linear-gradient(45deg, #ff1493, #ff69b4, #ff1493);
+}
+
+.admin-frame {
+    background: linear-gradient(45deg, #ffd700, #ffed4e, #ffd700);
+}
+
+.prince-frame {
+    background: linear-gradient(45deg, #9370db, #ba55d3, #9370db);
+}
+
+.sample-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+    z-index: 2;
+}
+
+.sample-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.frame-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.frame-overlay.owner {
+    background: radial-gradient(circle, transparent 70%, rgba(255, 20, 147, 0.3) 100%);
+}
+
+.frame-overlay.admin {
+    background: radial-gradient(circle, transparent 70%, rgba(255, 215, 0, 0.3) 100%);
+}
+
+.frame-overlay.prince {
+    background: radial-gradient(circle, transparent 70%, rgba(147, 112, 219, 0.3) 100%);
+}
+
+.frame-info {
+    text-align: center;
+}
+
+.frame-name {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin: 10px 0;
+    color: #333;
+}
+
+.frame-rarity {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.9em;
+    font-weight: bold;
+    margin: 10px 0;
+    display: inline-block;
+}
+
+.frame-rarity.owner {
+    background: linear-gradient(135deg, #ff1493, #ff69b4);
+    color: white;
+}
+
+.frame-rarity.admin {
+    background: linear-gradient(135deg, #ffd700, #ffed4e);
+    color: #333;
+}
+
+.frame-rarity.prince {
+    background: linear-gradient(135deg, #9370db, #ba55d3);
+    color: white;
+}
+
+.frame-price {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 10px 0;
+}
+
+.frame-price i {
+    color: #ffd700;
+    margin-right: 5px;
+}
+
+.exclusive-tag {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.9em;
+}
+
+.frame-actions {
+    margin-top: 15px;
+}
+
+/* ===== أزرار الإجراءات ===== */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    justify-content: center;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #229954, #27ae60);
+    transform: translateY(-2px);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #2980b9, #21618c);
+    transform: translateY(-2px);
+}
+
+.btn-active {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+}
+
+.btn-disabled {
+    background: #bdc3c7;
+    color: #7f8c8d;
+    cursor: not-allowed;
+}
+
+.btn-disabled:hover {
+    transform: none;
+}
+
+/* ===== الرسوم المتحركة للإطارات ===== */
+@keyframes owner-glow {
+    0% { box-shadow: 0 0 10px rgba(255, 20, 147, 0.5); filter: brightness(1); }
+    100% { box-shadow: 0 0 25px rgba(255, 20, 147, 0.8), 0 0 35px rgba(255, 20, 147, 0.4); filter: brightness(1.2); }
+}
+
+@keyframes admin-shine {
+    0% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.5); transform: rotate(0deg); }
+    100% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.8), 0 0 35px rgba(255, 215, 0, 0.4); transform: rotate(5deg); }
+}
+
+@keyframes prince-sparkle {
+    0% { box-shadow: 0 0 10px rgba(147, 112, 219, 0.5); filter: saturate(1); }
+    100% { box-shadow: 0 0 25px rgba(147, 112, 219, 0.8), 0 0 35px rgba(147, 112, 219, 0.4); filter: saturate(1.3); }
+}
+
+/* ===== مؤشر التفعيل ===== */
+.active-indicator {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: bold;
+    z-index: 10;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* ===== قسم المشتريات ===== */
+.my-items-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #7f8c8d;
+}
+
+.my-items-empty i {
+    font-size: 4em;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.my-items-container h3 {
+    margin-bottom: 30px;
+    color: #2c3e50;
+    text-align: center;
+}
+
+.frame-card.owned::before {
+    content: "مملوك";
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(39, 174, 96, 0.9);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 0.8em;
+    font-weight: bold;
+    z-index: 5;
+}
+
+/* ===== قسم قيد التطوير ===== */
+.coming-soon {
+    text-align: center;
+    padding: 60px 20px;
+    color: #7f8c8d;
+}
+
+.coming-soon i {
+    font-size: 3em;
+    margin-bottom: 20px;
+    color: #bdc3c7;
+}
+
+.decorations-container {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+/* ===== رسائل التنبيه ===== */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    padding: 15px 20px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    min-width: 300px;
+    animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-out 2.7s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.toast-success { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+.toast-error { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+.toast-info { background: linear-gradient(135deg, #3498db, #2980b9); }
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; transform: translateX(100%); }
+}
+
+/* ===== إطارات الرسائل في الشات ===== */
+.frame-owner img,
+.frame-owner .user-avatar-mini {
+    border: 3px solid #ff1493 !important;
+    animation: owner-glow 2s ease-in-out infinite alternate;
+}
+
+.frame-admin img,
+.frame-admin .user-avatar-mini {
+    border: 3px solid #ffd700 !important;
+    animation: admin-shine 1.5s ease-in-out infinite alternate;
+}
+
+.frame-prince img,
+.frame-prince .user-avatar-mini {
+    border: 3px solid #9370db !important;
+    animation: prince-sparkle 2s ease-in-out infinite alternate;
+}
+
+/* ===== استجابة للأجهزة المحمولة ===== */
+@media (max-width: 768px) {
+    .frames-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 15px;
+    }
+    .store-header {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+    }
+    .store-tabs {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .app-store-modal {
+        width: 98%;
+        max-height: 95vh;
+    }
+    .toast {
+        min-width: 250px;
+    }
+    .toast-container {
+        right: 10px;
+        left: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .frames-grid { grid-template-columns: 1fr; }
+    .store-tab { padding: 8px 16px; font-size: 0.9em; }
+    .frame-card { padding: 15px; }
+}
