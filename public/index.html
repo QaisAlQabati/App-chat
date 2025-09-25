@@ -92,7 +92,24 @@
             <div id="loginError" class="error-message"></div>
         </div>
     </div>
-   
+    <!-- شاشة الحظر -->
+    <div id="banScreen" class="screen">
+        <div class="ban-container">
+            <div class="ban-icon">🚫</div>
+            <h2>تم حظرك من الدخول</h2>
+            <div id="banReason" class="ban-reason">
+                <p>لم يتم تحديد سبب الحظر</p>
+            </div>
+            <div class="contact-info">
+                <p>للتواصل والاستفسار:</p>
+                <a href="mailto:njdj9985@gmail.com">njdj9985@gmail.com</a>
+            </div>
+            <button onclick="checkBanStatus()" class="btn btn-primary">
+                <i class="fas fa-sync-alt"></i>
+                التحقق من حالة الحظر
+            </button>
+        </div>
+    </div>
     <!-- الشاشة الرئيسية -->
     <div id="mainScreen" class="screen">
         <!-- الشريط العلوي -->
