@@ -4014,6 +4014,8 @@ function closeMainMenu() {
     closeModal('mainMenuModal');
 }
 
+<!-- افترض أن هذا الكود داخل ملف HTML أو JS منفصل -->
+<script>
 // فتح قسم الأخبار
 function openNewsSection() {
     openModal('newsModal');
@@ -4047,58 +4049,67 @@ function displayNews(news) {
     }
     
     news.forEach(item => {
-        const newsDiv = document.createElement('div');
-        newsDiv.className = 'news-item';
-        if (item.pinned) newsDiv.classList.add('pinned'); // إضافة كلاس للتثبيت للتصميم
-        
-        const time = new Date(item.timestamp).toLocaleString('ar-SA');
-        const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('userRole') === 'owner';
-        
-        let reactionsHTML = `
-            <div class="reactions">
-                <span class="reaction" onclick="addReaction('${item.id}', '❤️')">❤️ ${item.reactions?.heart || 0}</span>
-                <span class="reaction" onclick="addReaction('${item.id}', '👍')">👍 ${item.reactions?.thumbsUp || 0}</span>
-                <span class="reaction" onclick="addReaction('${item.id}', '👎')">👎 ${item.reactions?.thumbsDown || 0}</span>
-                <span class="reaction" onclick="addReaction('${item.id}', '😅')">😅 ${item.reactions?.laugh || 0}</span>
-            </div>
-            <div class="reaction-details" id="reactionDetails_${item.id}"></div>
-        `;
-        
-        let commentsHTML = `
-            <div class="comments-section" id="comments_${item.id}">
-                <!-- سيتم تحميل التعليقات هنا -->
-            </div>
-            <input type="text" id="commentInput_${item.id}" placeholder="أضف تعليق...">
-            <button onclick="addComment('${item.id}', document.getElementById('commentInput_${item.id}').value)">نشر التعليق</button>
-        `;
-        
-        let adminControls = '';
-        if (isAdmin) {
-            adminControls = `
-                <button onclick="pinNews('${item.id}', ${!item.pinned})">${item.pinned ? 'إزالة التثبيت' : 'تثبيت'}</button>
-            `;
-        }
-        
-        newsDiv.innerHTML = `
-            <div class="news-header-info">
-                <img class="news-author-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${item.display_name}">
-                <div class="news-author-info">
-                    <h4>${escapeHtml(item.display_name)}</h4>
-                    <span class="news-time">${time}</span>
-                    ${item.pinned ? '<span class="pinned-label">مثبت</span>' : ''}
-                </div>
-            </div>
-            <div class="news-content">${escapeHtml(item.content)}</div>
-            ${item.media ? `<div class="news-media"><img src="${item.media}" alt="صورة الخبر"></div>` : ''}
-            ${reactionsHTML}
-            ${commentsHTML}
-            ${adminControls}
-        `;
-        
+        const newsDiv = createNewsElement(item);
         container.appendChild(newsDiv);
         loadComments(item.id); // تحميل التعليقات لكل منشور
         loadReactionDetails(item.id); // تحميل تفاصيل التفاعلات
     });
+}
+
+// ✅ دالة جديدة: إنشاء عنصر خبر
+function createNewsElement(item) {
+    const newsDiv = document.createElement('div');
+    newsDiv.className = 'news-item';
+    if (item.pinned) newsDiv.classList.add('pinned');
+    newsDiv.id = `news-${item.id}`;
+
+    const time = new Date(item.timestamp).toLocaleString('ar-SA');
+    const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('userRole') === 'owner';
+    
+    let reactionsHTML = `
+        <div class="reactions">
+            <span class="reaction" onclick="addReaction('${item.id}', '❤️')">❤️ ${item.reactions?.heart || 0}</span>
+            <span class="reaction" onclick="addReaction('${item.id}', '👍')">👍 ${item.reactions?.thumbsUp || 0}</span>
+            <span class="reaction" onclick="addReaction('${item.id}', '👎')">👎 ${item.reactions?.thumbsDown || 0}</span>
+            <span class="reaction" onclick="addReaction('${item.id}', '😅')">😅 ${item.reactions?.laugh || 0}</span>
+        </div>
+        <div class="reaction-details" id="reactionDetails_${item.id}"></div>
+    `;
+    
+    let commentsHTML = `
+        <div class="comments-section" id="comments_${item.id}">
+            <!-- سيتم تحميل التعليقات هنا -->
+        </div>
+        <input type="text" id="commentInput_${item.id}" placeholder="أضف تعليق...">
+        <button onclick="addComment('${item.id}', document.getElementById('commentInput_${item.id}').value)">نشر التعليق</button>
+    `;
+    
+    let adminControls = '';
+    if (isAdmin) {
+        adminControls = `
+            <button onclick="pinNews('${item.id}', ${!item.pinned})">${item.pinned ? 'إزالة التثبيت' : 'تثبيت'}</button>
+        `;
+    }
+    
+    const avatar = localStorage.getItem('userAvatar') || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop';
+    
+    newsDiv.innerHTML = `
+        <div class="news-header-info">
+            <img class="news-author-avatar" src="${avatar}" alt="${item.display_name}">
+            <div class="news-author-info">
+                <h4>${escapeHtml(item.display_name)}</h4>
+                <span class="news-time">${time}</span>
+                ${item.pinned ? '<span class="pinned-label">مثبت</span>' : ''}
+            </div>
+        </div>
+        <div class="news-content">${escapeHtml(item.content)}</div>
+        ${item.media ? `<div class="news-media"><img src="${item.media}" alt="صورة الخبر"></div>` : ''}
+        ${reactionsHTML}
+        ${commentsHTML}
+        ${adminControls}
+    `;
+    
+    return newsDiv;
 }
 
 // إضافة تفاعل
@@ -4237,7 +4248,7 @@ async function pinNews(newsId, pin) {
     }
 }
 
-// نشر خبر
+// ✅ نشر خبر — معدل بالكامل ليظهر فورًا في الصفحة
 async function postNews() {
     const content = document.getElementById('newsContentInput').value.trim();
     const fileInput = document.getElementById('newsFileInput');
@@ -4247,13 +4258,38 @@ async function postNews() {
         return;
     }
     
-    const formData = new FormData();
-    if (content) formData.append('content', content);
-    if (fileInput.files[0]) formData.append('newsFile', fileInput.files[0]);
-    
+    // جمع بيانات المستخدم من localStorage (يجب أن تكون متوفرة بعد تسجيل الدخول)
+    const userRole = localStorage.getItem('userRole');
+    const displayName = localStorage.getItem('displayName') || 'مستخدم';
+    const userId = localStorage.getItem('userId') || '1';
+
     try {
         showLoading(true);
-        
+
+        // إنشاء خبر محلي مؤقت
+        const localNews = {
+            id: 'temp-' + Date.now(),
+            content,
+            media: fileInput.files[0] ? URL.createObjectURL(fileInput.files[0]) : null,
+            user_id: userId,
+            display_name: displayName,
+            timestamp: new Date().toISOString(),
+            reactions: {},
+            pinned: false,
+            isLocal: true
+        };
+
+        // إضافته فورًا إلى الواجهة (في الأعلى)
+        const container = document.getElementById('newsFeed');
+        const newsDiv = createNewsElement(localNews);
+        container.insertBefore(newsDiv, container.firstChild);
+
+        // إعداد formData للإرسال
+        const formData = new FormData();
+        if (content) formData.append('content', content);
+        if (fileInput.files[0]) formData.append('newsFile', fileInput.files[0]);
+
+        // إرسال للسيرفر
         const response = await fetch('/api/news', {
             method: 'POST',
             headers: {
@@ -4261,17 +4297,37 @@ async function postNews() {
             },
             body: formData
         });
-        
+
         if (response.ok) {
+            const serverNews = await response.json();
+
+            // تحديث العنصر بالبيانات الحقيقية
+            newsDiv.id = `news-${serverNews.id}`;
+            newsDiv.querySelector('.news-content').textContent = serverNews.content;
+            if (serverNews.media) {
+                const img = newsDiv.querySelector('.news-media img');
+                if (img) img.src = serverNews.media;
+            }
+            newsDiv.classList.remove('local-news');
+
+            // تنظيف الحقول
             document.getElementById('newsContentInput').value = '';
             fileInput.value = '';
-            await loadNews(); // إعادة تحميل فوري للظهور المباشر
-            showNotification('تم نشر الخبر بنجاح', 'success');
+
+            // لا نعرض "تم النشر" — فقط نضيفه للقائمة!
+
         } else {
+            // إذا فشل، نحذفه
+            container.removeChild(newsDiv);
             const data = await response.json();
             showError(data.error || 'فشل في نشر الخبر');
         }
+
     } catch (error) {
+        // في حالة خطأ (مثل انقطاع الإنترنت)
+        const container = document.getElementById('newsFeed');
+        const tempDiv = document.getElementById('news-temp-' + localNews.id.split('-')[1]);
+        if (tempDiv) container.removeChild(tempDiv);
         showError('حدث خطأ في نشر الخبر');
     } finally {
         showLoading(false);
@@ -4419,7 +4475,7 @@ async function addStory() {
         if (response.ok) {
             closeAddStoryModal();
             await loadStories(); // إعادة تحميل فوري
-            showNotification('تم إضافة القصة بنجاح', 'success');
+            // لا نعرض "تم إضافة القصة" — فقط نعيد التحميل
         } else {
             const data = await response.json();
             showError(data.error || 'فشل في إضافة القصة');
@@ -4438,12 +4494,52 @@ function closeStoriesModal() {
 
 // عرض ستوري مفصل (مع تحديث للتفاعلات والتعليقات)
 function viewStory(story) {
-    // يمكن توسيع هذا لعرض ستوري كامل مع التفاعلات والتعليقات
-    // للآن، نفترض أنه يفتح مودال أو يعرض
     console.log('عرض الستوري:', story);
     loadReactionDetails(story.id);
     loadComments(story.id);
 }
+
+// دوال مساعدة (يجب أن تكون معرفة في مكان آخر)
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '<',
+        '>': '>',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function showNotification(message, type = 'info') {
+    // يمكنك إزالتها أو تعديلها — لكننا لا نستخدمها في postNews()
+    console.log(`${type}: ${message}`);
+}
+
+function showError(message) {
+    alert('خطأ: ' + message);
+}
+
+function showLoading(show) {
+    // مثال بسيط
+    const loading = document.getElementById('loadingIndicator');
+    if (loading) loading.style.display = show ? 'block' : 'none';
+}
+
+function openModal(modalId) {
+    document.getElementById(modalId).style.display = 'block';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function closeMainMenu() {
+    // مثال
+    const menu = document.getElementById('mainMenu');
+    if (menu) menu.style.display = 'none';
+}
+</script>
 // دوال المودال الأساسية (إذا لم تكن موجودة)
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
