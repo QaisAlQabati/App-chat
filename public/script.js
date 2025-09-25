@@ -4016,552 +4016,719 @@ function closeMainMenu() {
 
 <!-- افترض أن هذا الكود داخل ملف HTML أو JS منفصل -->
 <script>
-// فتح قسم الأخبار
-function openNewsSection() {
-    openModal('newsModal');
-    loadNews();
-    closeMainMenu();
-}
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+const multer = require('multer');
+const path = require('path');
+const bodyParser = require('body-parser');
 
-// تحميل الأخبار
-async function loadNews() {
-    try {
-        const response = await fetch('/api/news');
-        if (response.ok) {
-            let news = await response.json();
-            // فرز المنشورات: المثبتة أولاً
-            news = news.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-            displayNews(news);
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل الأخبار:', error);
-    }
-}
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+    cors: { origin: '*' } // للسماح بالاتصال من أي مصدر
+});
 
-// عرض الأخبار
-function displayNews(news) {
-    const container = document.getElementById('newsFeed');
-    container.innerHTML = '';
-    
-    if (news.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد أخبار حالياً</p>';
-        return;
-    }
-    
-    news.forEach(item => {
-        const newsDiv = createNewsElement(item);
-        container.appendChild(newsDiv);
-        loadComments(item.id); // تحميل التعليقات لكل منشور
-        loadReactionDetails(item.id); // تحميل تفاصيل التفاعلات
-    });
-}
+app.use(bodyParser.json());
+app.use(express.static('Uploads')); // لخدمة الملفات (صور، صوت) من مجلد Uploads
 
-// ✅ دالة جديدة: إنشاء عنصر خبر
-function createNewsElement(item) {
-    const newsDiv = document.createElement('div');
-    newsDiv.className = 'news-item';
-    if (item.pinned) newsDiv.classList.add('pinned');
-    newsDiv.id = `news-${item.id}`;
-
-    const time = new Date(item.timestamp).toLocaleString('ar-SA');
-    const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('userRole') === 'owner';
-    
-    let reactionsHTML = `
-        <div class="reactions">
-            <span class="reaction" onclick="addReaction('${item.id}', '❤️')">❤️ ${item.reactions?.heart || 0}</span>
-            <span class="reaction" onclick="addReaction('${item.id}', '👍')">👍 ${item.reactions?.thumbsUp || 0}</span>
-            <span class="reaction" onclick="addReaction('${item.id}', '👎')">👎 ${item.reactions?.thumbsDown || 0}</span>
-            <span class="reaction" onclick="addReaction('${item.id}', '😅')">😅 ${item.reactions?.laugh || 0}</span>
-        </div>
-        <div class="reaction-details" id="reactionDetails_${item.id}"></div>
-    `;
-    
-    let commentsHTML = `
-        <div class="comments-section" id="comments_${item.id}">
-            <!-- سيتم تحميل التعليقات هنا -->
-        </div>
-        <input type="text" id="commentInput_${item.id}" placeholder="أضف تعليق...">
-        <button onclick="addComment('${item.id}', document.getElementById('commentInput_${item.id}').value)">نشر التعليق</button>
-    `;
-    
-    let adminControls = '';
-    if (isAdmin) {
-        adminControls = `
-            <button onclick="pinNews('${item.id}', ${!item.pinned})">${item.pinned ? 'إزالة التثبيت' : 'تثبيت'}</button>
-        `;
-    }
-    
-    const avatar = localStorage.getItem('userAvatar') || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop';
-    
-    newsDiv.innerHTML = `
-        <div class="news-header-info">
-            <img class="news-author-avatar" src="${avatar}" alt="${item.display_name}">
-            <div class="news-author-info">
-                <h4>${escapeHtml(item.display_name)}</h4>
-                <span class="news-time">${time}</span>
-                ${item.pinned ? '<span class="pinned-label">مثبت</span>' : ''}
-            </div>
-        </div>
-        <div class="news-content">${escapeHtml(item.content)}</div>
-        ${item.media ? `<div class="news-media"><img src="${item.media}" alt="صورة الخبر"></div>` : ''}
-        ${reactionsHTML}
-        ${commentsHTML}
-        ${adminControls}
-    `;
-    
-    return newsDiv;
-}
-
-// إضافة تفاعل
-async function addReaction(newsId, emoji) {
-    try {
-        const response = await fetch(`/api/news/${newsId}/reactions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: JSON.stringify({ emoji })
-        });
-        if (response.ok) {
-            loadNews(); // إعادة تحميل لتحديث العدد
-            loadReactionDetails(newsId); // تحديث التفاصيل
-        }
-    } catch (error) {
-        console.error('خطأ في إضافة التفاعل:', error);
-    }
-}
-
-// تحميل تفاصيل التفاعلات (من تفاعل)
-async function loadReactionDetails(newsId) {
-    try {
-        const response = await fetch(`/api/news/${newsId}/reactions`);
-        if (response.ok) {
-            const details = await response.json();
-            const container = document.getElementById(`reactionDetails_${newsId}`);
-            container.innerHTML = '';
-            Object.entries(details).forEach(([emoji, users]) => {
-                const userList = users.map(user => user.display_name).join(', ');
-                container.innerHTML += `<p>${emoji}: ${users.length} (${userList})</p>`;
-            });
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل تفاصيل التفاعلات:', error);
-    }
-}
-
-// إضافة تعليق
-async function addComment(newsId, text) {
-    if (!text.trim()) return;
-    try {
-        const response = await fetch(`/api/news/${newsId}/comments`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: JSON.stringify({ text })
-        });
-        if (response.ok) {
-            loadComments(newsId);
-        }
-    } catch (error) {
-        console.error('خطأ في إضافة التعليق:', error);
-    }
-}
-
-// تحميل التعليقات
-async function loadComments(newsId) {
-    try {
-        const response = await fetch(`/api/news/${newsId}/comments`);
-        if (response.ok) {
-            const comments = await response.json();
-            const container = document.getElementById(`comments_${newsId}`);
-            container.innerHTML = '';
-            const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('userRole') === 'owner';
-            comments.forEach(comment => {
-                const commentDiv = document.createElement('div');
-                commentDiv.className = 'comment';
-                commentDiv.innerHTML = `
-                    <p><strong>${escapeHtml(comment.display_name)}:</strong> ${escapeHtml(comment.text)}</p>
-                    ${isAdmin ? `<button onclick="deleteComment('${newsId}', '${comment.id}')">حذف</button>
-                    <button onclick="banUserFromComments('${comment.user_id}')">منع المستخدم</button>` : ''}
-                `;
-                container.appendChild(commentDiv);
-            });
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل التعليقات:', error);
-    }
-}
-
-// حذف تعليق (للإدارة)
-async function deleteComment(newsId, commentId) {
-    try {
-        const response = await fetch(`/api/news/${newsId}/comments/${commentId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            }
-        });
-        if (response.ok) {
-            loadComments(newsId);
-        }
-    } catch (error) {
-        console.error('خطأ في حذف التعليق:', error);
-    }
-}
-
-// منع مستخدم من التعليق (للإدارة)
-async function banUserFromComments(userId) {
-    try {
-        const response = await fetch(`/api/users/${userId}/ban-comments`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            }
-        });
-        if (response.ok) {
-            showNotification('تم منع المستخدم من التعليق', 'success');
-        }
-    } catch (error) {
-        console.error('خطأ في منع المستخدم:', error);
-    }
-}
-
-// تثبيت منشور (للإدارة)
-async function pinNews(newsId, pin) {
-    try {
-        const response = await fetch(`/api/news/${newsId}/pin`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: JSON.stringify({ pin })
-        });
-        if (response.ok) {
-            loadNews();
-        }
-    } catch (error) {
-        console.error('خطأ في التثبيت:', error);
-    }
-}
-
-// ✅ نشر خبر — معدل بالكامل ليظهر فورًا في الصفحة
-async function postNews() {
-    const content = document.getElementById('newsContentInput').value.trim();
-    const fileInput = document.getElementById('newsFileInput');
-    
-    if (!content && !fileInput.files[0]) {
-        showError('يرجى كتابة محتوى أو اختيار ملف');
-        return;
-    }
-    
-    // جمع بيانات المستخدم من localStorage (يجب أن تكون متوفرة بعد تسجيل الدخول)
-    const userRole = localStorage.getItem('userRole');
-    const displayName = localStorage.getItem('displayName') || 'مستخدم';
-    const userId = localStorage.getItem('userId') || '1';
-
-    try {
-        showLoading(true);
-
-        // إنشاء خبر محلي مؤقت
-        const localNews = {
-            id: 'temp-' + Date.now(),
-            content,
-            media: fileInput.files[0] ? URL.createObjectURL(fileInput.files[0]) : null,
-            user_id: userId,
-            display_name: displayName,
-            timestamp: new Date().toISOString(),
-            reactions: {},
-            pinned: false,
-            isLocal: true
-        };
-
-        // إضافته فورًا إلى الواجهة (في الأعلى)
-        const container = document.getElementById('newsFeed');
-        const newsDiv = createNewsElement(localNews);
-        container.insertBefore(newsDiv, container.firstChild);
-
-        // إعداد formData للإرسال
-        const formData = new FormData();
-        if (content) formData.append('content', content);
-        if (fileInput.files[0]) formData.append('newsFile', fileInput.files[0]);
-
-        // إرسال للسيرفر
-        const response = await fetch('/api/news', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: formData
-        });
-
-        if (response.ok) {
-            const serverNews = await response.json();
-
-            // تحديث العنصر بالبيانات الحقيقية
-            newsDiv.id = `news-${serverNews.id}`;
-            newsDiv.querySelector('.news-content').textContent = serverNews.content;
-            if (serverNews.media) {
-                const img = newsDiv.querySelector('.news-media img');
-                if (img) img.src = serverNews.media;
-            }
-            newsDiv.classList.remove('local-news');
-
-            // تنظيف الحقول
-            document.getElementById('newsContentInput').value = '';
-            fileInput.value = '';
-
-            // لا نعرض "تم النشر" — فقط نضيفه للقائمة!
-
+// إعداد Multer لتخزين الملفات مع حد للحجم
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, 'Uploads/'),
+    filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
+});
+const upload = multer({ 
+    storage,
+    limits: { fileSize: 5 * 1024 * 1000 }, // حد 5 ميغابايت
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|jpg|png|webm/;
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = filetypes.test(file.mimetype);
+        if (extname && mimetype) {
+            return cb(null, true);
         } else {
-            // إذا فشل، نحذفه
-            container.removeChild(newsDiv);
-            const data = await response.json();
-            showError(data.error || 'فشل في نشر الخبر');
+            cb(new Error('الملف يجب أن يكون صورة (jpeg/png) أو صوت (webm)'));
         }
-
-    } catch (error) {
-        // في حالة خطأ (مثل انقطاع الإنترنت)
-        const container = document.getElementById('newsFeed');
-        const tempDiv = document.getElementById('news-temp-' + localNews.id.split('-')[1]);
-        if (tempDiv) container.removeChild(tempDiv);
-        showError('حدث خطأ في نشر الخبر');
-    } finally {
-        showLoading(false);
     }
-}
+});
 
-// إغلاق مودال الأخبار
-function closeNewsModal() {
-    closeModal('newsModal');
-}
+// مصفوفات مؤقتة لتخزين البيانات
+let rooms = [
+    { id: 1, name: 'الغرفة الرئيسية', description: 'غرفة دردشة عامة', background: null }
+];
 
-// فتح قسم القصص
-function openStoriesSection() {
-    openModal('storiesModal');
-    loadStories();
-    closeMainMenu();
-}
+let users = [
+    { id: 1, display_name: 'Admin', rank: 'admin', role: 'admin', email: 'admin@example.com', password: 'admin', profile_image1: null, profile_image2: null, message_background: null, age: null, gender: null, marital_status: null, about_me: null }
+];
 
-// تحميل القصص (مع فلترة بعد 24 ساعة، لكن محفوظة دائمًا في الأرشيف)
-async function loadStories() {
-    try {
-        const response = await fetch('/api/stories');
-        if (response.ok) {
-            let stories = await response.json();
-            // فلترة الستوري النشطة (أقل من 24 ساعة)
-            const now = Date.now();
-            stories = stories.filter(story => now - new Date(story.timestamp).getTime() < 24 * 60 * 60 * 1000);
-            displayStories(stories);
-        }
-    } catch (error) {
-        console.error('خطأ في تحميل القصص:', error);
+let messages = [];
+let privateMessages = [];
+let news = [];
+let stories = [];
+let bans = [];
+let mutes = [];
+let floodProtection = new Map(); // لحماية من الفيضانات
+let competitions = [];
+let comments = [];
+
+// API لتسجيل الدخول
+app.post('/api/login', (req, res) => {
+    const { email, password } = req.body;
+    const user = users.find(u => u.email === email && u.password === password);
+    if (user) {
+        const token = 'fake-token-' + user.id;
+        res.json({ token, user });
+    } else {
+        res.status(401).json({ error: 'بيانات تسجيل الدخول غير صحيحة' });
     }
-}
+});
 
-// عرض القصص (مماثل للأخبار مع إضافة تفاعلات وتعليقات)
-function displayStories(stories) {
-    const container = document.getElementById('storiesContainer');
-    container.innerHTML = '';
-    
-    if (stories.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد قصص حالياً</p>';
-        return;
+// API لإنشاء حساب
+app.post('/api/register', (req, res) => {
+    const { email, password, display_name } = req.body;
+    if (users.find(u => u.email === email)) {
+        return res.status(400).json({ error: 'البريد الإلكتروني موجود مسبقًا' });
     }
-    
-    stories.forEach(story => {
-        const storyDiv = document.createElement('div');
-        storyDiv.className = 'story-item';
-        storyDiv.onclick = () => viewStory(story);
-        
-        const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('userRole') === 'owner';
-        
-        let mediaHTML = story.video ? `<video src="${story.video}" controls></video>` : `<img src="${story.image}" alt="قصة ${story.display_name}">`;
-        
-        let reactionsHTML = `
-            <div class="reactions">
-                <span class="reaction" onclick="addReaction('${story.id}', '❤️')">❤️ ${story.reactions?.heart || 0}</span>
-                <span class="reaction" onclick="addReaction('${story.id}', '👍')">👍 ${story.reactions?.thumbsUp || 0}</span>
-                <span class="reaction" onclick="addReaction('${story.id}', '👎')">👎 ${story.reactions?.thumbsDown || 0}</span>
-                <span class="reaction" onclick="addReaction('${story.id}', '😅')">😅 ${story.reactions?.laugh || 0}</span>
-            </div>
-            <div class="reaction-details" id="reactionDetails_${story.id}"></div>
-        `;
-        
-        let commentsHTML = `
-            <div class="comments-section" id="comments_${story.id}">
-                <!-- سيتم تحميل التعليقات هنا -->
-            </div>
-            <input type="text" id="commentInput_${story.id}" placeholder="أضف تعليق...">
-            <button onclick="addComment('${story.id}', document.getElementById('commentInput_${story.id}').value)">نشر التعليق</button>
-        `;
-        
-        let adminControls = '';
-        if (isAdmin) {
-            adminControls = `
-                <button onclick="pinStory('${story.id}', ${!story.pinned})">${story.pinned ? 'إزالة التثبيت' : 'تثبيت'}</button>
-            `;
-        }
-        
-        storyDiv.innerHTML = `
-            ${mediaHTML}
-            ${reactionsHTML}
-            ${commentsHTML}
-            ${adminControls}
-        `;
-        container.appendChild(storyDiv);
-        loadComments(story.id); // تحميل التعليقات
-        loadReactionDetails(story.id); // تحميل تفاصيل التفاعلات
-    });
-}
-
-// تثبيت ستوري (مماثل للأخبار)
-async function pinStory(storyId, pin) {
-    try {
-        const response = await fetch(`/api/stories/${storyId}/pin`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: JSON.stringify({ pin })
-        });
-        if (response.ok) {
-            loadStories();
-        }
-    } catch (error) {
-        console.error('خطأ في التثبيت:', error);
-    }
-}
-
-// فتح مودال إضافة قصة
-function openAddStoryModal() {
-    openModal('addStoryModal');
-}
-
-// إغلاق مودال إضافة قصة
-function closeAddStoryModal() {
-    closeModal('addStoryModal');
-}
-
-// إضافة قصة (مع دعم فيديو)
-async function addStory() {
-    const fileInput = document.getElementById('storyMediaInput');
-    const text = document.getElementById('storyTextInput').value.trim();
-    
-    if (!fileInput.files[0]) {
-        showError('يرجى اختيار صورة أو فيديو');
-        return;
-    }
-    
-    const formData = new FormData();
-    formData.append('storyMedia', fileInput.files[0]); // يدعم صورة أو فيديو
-    if (text) formData.append('text', text);
-    
-    try {
-        showLoading(true);
-        
-        const response = await fetch('/api/stories', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
-            },
-            body: formData
-        });
-        
-        if (response.ok) {
-            closeAddStoryModal();
-            await loadStories(); // إعادة تحميل فوري
-            // لا نعرض "تم إضافة القصة" — فقط نعيد التحميل
-        } else {
-            const data = await response.json();
-            showError(data.error || 'فشل في إضافة القصة');
-        }
-    } catch (error) {
-        showError('حدث خطأ في إضافة القصة');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// إغلاق مودال القصص
-function closeStoriesModal() {
-    closeModal('storiesModal');
-}
-
-// عرض ستوري مفصل (مع تحديث للتفاعلات والتعليقات)
-function viewStory(story) {
-    console.log('عرض الستوري:', story);
-    loadReactionDetails(story.id);
-    loadComments(story.id);
-}
-
-// دوال مساعدة (يجب أن تكون معرفة في مكان آخر)
-function escapeHtml(text) {
-    const map = {
-        '&': '&amp;',
-        '<': '<',
-        '>': '>',
-        '"': '&quot;',
-        "'": '&#039;'
+    const newUser = {
+        id: users.length + 1,
+        email,
+        password,
+        display_name,
+        rank: 'visitor',
+        role: 'user',
+        profile_image1: null,
+        profile_image2: null,
+        message_background: null,
+        age: null,
+        gender: null,
+        marital_status: null,
+        about_me: null
     };
-    return text.replace(/[&<>"']/g, m => map[m]);
-}
+    users.push(newUser);
+    const token = 'fake-token-' + newUser.id;
+    res.json({ token, user: newUser });
+});
 
-function showNotification(message, type = 'info') {
-    // يمكنك إزالتها أو تعديلها — لكننا لا نستخدمها في postNews()
-    console.log(`${type}: ${message}`);
-}
+// API للحصول على بيانات الملف الشخصي
+app.get('/api/user/profile', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const user = users.find(u => 'fake-token-' + u.id === token);
+    if (user) res.json(user);
+    else res.status(401).json({ error: 'غير مصرح له' });
+});
 
-function showError(message) {
-    alert('خطأ: ' + message);
-}
+// API لتحديث الملف الشخصي
+app.put('/api/user/profile', upload.fields([
+    { name: 'profileImage1', maxCount: 1 },
+    { name: 'profileImage2', maxCount: 1 },
+    { name: 'messageBackground', maxCount: 1 }
+]), (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const user = users.find(u => 'fake-token-' + u.id === token);
+    if (!user) return res.status(401).json({ error: 'غير مصرح له' });
 
-function showLoading(show) {
-    // مثال بسيط
-    const loading = document.getElementById('loadingIndicator');
-    if (loading) loading.style.display = show ? 'block' : 'none';
-}
+    const { display_name, age, gender, marital_status, about_me } = req.body;
+    if (display_name) user.display_name = display_name;
+    if (age) user.age = parseInt(age);
+    if (gender) user.gender = gender;
+    if (marital_status) user.marital_status = marital_status;
+    if (about_me) user.about_me = about_me;
 
-function openModal(modalId) {
-    document.getElementById(modalId).style.display = 'block';
-}
+    if (req.files['profileImage1']) user.profile_image1 = `/Uploads/${req.files['profileImage1'][0].filename}`;
+    if (req.files['profileImage2']) user.profile_image2 = `/Uploads/${req.files['profileImage2'][0].filename}`;
+    if (req.files['messageBackground']) user.message_background = `/Uploads/${req.files['messageBackground'][0].filename}`;
 
-function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-}
+    res.json(user);
+    io.emit('userUpdated', user);
+});
 
-function closeMainMenu() {
-    // مثال
-    const menu = document.getElementById('mainMenu');
-    if (menu) menu.style.display = 'none';
-}
-</script>
-// دوال المودال الأساسية (إذا لم تكن موجودة)
-function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.style.display = 'block';
-        modal.classList.add('show'); // للانيميشن
+// API للحصول على قائمة الغرف
+app.get('/api/rooms', (req, res) => res.json(rooms));
+
+// API لإنشاء غرفة جديدة
+app.post('/api/rooms', upload.single('roomBackground'), (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const user = users.find(u => 'fake-token-' + u.id === token);
+    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
+
+    const { name, description } = req.body;
+    const background = req.file ? `/Uploads/${req.file.filename}` : null;
+    const newRoom = { id: rooms.length + 1, name, description, background };
+    rooms.push(newRoom);
+    io.emit('roomCreated', newRoom);
+    res.json(newRoom);
+});
+
+// API لحذف غرفة
+app.delete('/api/rooms/:id', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const user = users.find(u => 'fake-token-' + u.id === token);
+    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
+
+    const roomId = parseInt(req.params.id);
+    rooms = rooms.filter(r => r.id !== roomId);
+    io.emit('roomDeleted', roomId);
+    res.json({ message: 'تم حذف الغرفة' });
+});
+
+// API للحصول على رسائل الغرفة
+app.get('/api/messages/:roomId', (req, res) => {
+    res.json(messages.filter(m => m.roomId === parseInt(req.params.roomId)));
+});
+
+// API للحصول على الرسائل الخاصة
+app.get('/api/private-messages/:userId', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const current = users.find(u => 'fake-token-' + u.id === token);
+    if (!current) return res.status(401).json({ error: 'غير مصرح له' });
+
+    res.json(privateMessages.filter(pm => 
+        (pm.senderId === current.id && pm.receiverId === parseInt(req.params.userId)) || 
+        (pm.senderId === parseInt(req.params.userId) && pm.receiverId === current.id)
+    ));
+});
+
+// API للحصول على الأخبار
+app.get('/api/news', (req, res) => {
+    res.json(news);
+});
+
+// API لنشر خبر جديد ←←← التعديل الوحيد هنا ←←←
+app.post('/api/news', upload.single('newsFile'), (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const user = users.find(u => 'fake-token-' + u.id === token);
+    if (!user) return res.status(401).json({ error: 'غير مصرح له' });
+
+    const { content } = req.body;
+    if (!content && !req.file) return res.status(400).json({ error: 'يجب إدخال محتوى أو ملف' });
+
+    const media = req.file ? `/Uploads/${req.file.filename}` : null;
+    const newNews = {
+        id: news.length + 1,
+        content,
+        media,
+        user_id: user.id,
+        display_name: user.display_name,
+        timestamp: new Date(),
+        likes: [],
+        pinned: false // ←←← هذا هو التعديل الوحيد في الكود كله
+    };
+    news.push(newNews);
+    io.emit('newNews', newNews);
+    res.json(newNews);
+});
+
+// API للحصول على الستوريات
+app.get('/api/stories', (req, res) => {
+    res.json(stories.filter(s => new Date() - new Date(s.timestamp) < 24 * 60 * 60 * 1000));
+});
+
+// API لنشر ستوري جديد
+app.post('/api/stories', upload.single('storyImage'), (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const user = users.find(u => 'fake-token-' + u.id === token);
+    if (!user) return res.status(401).json({ error: 'غير مصرح له' });
+
+    const image = req.file ? `/Uploads/${req.file.filename}` : null;
+    if (!image) return res.status(400).json({ error: 'يجب رفع صورة' });
+
+    const newStory = {
+        id: stories.length + 1,
+        image,
+        user_id: user.id,
+        display_name: user.display_name,
+        timestamp: new Date()
+    };
+    stories.push(newStory);
+    io.emit('newStory', newStory);
+    res.json(newStory);
+});
+
+// API للتعليقات
+app.post('/api/comments', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const user = users.find(u => 'fake-token-' + u.id === token);
+    if (!user) return res.status(401).json({ error: 'غير مصرح له' });
+
+    const { postId, content, targetUserId } = req.body;
+    const newComment = {
+        id: comments.length + 1,
+        postId: parseInt(postId),
+        content,
+        user_id: user.id,
+        display_name: user.display_name,
+        targetUserId: targetUserId ? parseInt(targetUserId) : null,
+        timestamp: new Date()
+    };
+    comments.push(newComment);
+
+    // إرسال إشعار للمستخدم المستهدف
+    if (targetUserId) {
+        io.emit('newComment', { ...newComment, targetUserId });
     }
+
+    res.json(newComment);
+});
+
+// API للحصول على التعليقات
+app.get('/api/comments/:postId', (req, res) => {
+    const postComments = comments.filter(c => c.postId === parseInt(req.params.postId));
+    res.json(postComments);
+});
+
+// API للمسابقات
+app.post('/api/competitions', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const user = users.find(u => 'fake-token-' + u.id === token);
+    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
+
+    const { title, duration } = req.body;
+    const newCompetition = {
+        id: competitions.length + 1,
+        title,
+        duration: parseInt(duration),
+        startTime: new Date(),
+        active: true
+    };
+    competitions.push(newCompetition);
+    io.emit('newCompetition', newCompetition);
+    res.json(newCompetition);
+});
+
+// API لتعيين رتبة
+app.post('/api/assign-rank', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const admin = users.find(u => 'fake-token-' + u.id === token);
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
+
+    const { userId, rank, reason } = req.body;
+    const user = users.find(u => u.id === parseInt(userId));
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    user.rank = rank;
+    res.json({ message: 'تم تعيين الرتبة' });
+    io.emit('userUpdated', user);
+});
+
+// API للحصول على قائمة المستخدمين
+app.get('/api/users', (req, res) => {
+    res.json(users.map(u => ({
+        id: u.id,
+        display_name: u.display_name,
+        rank: u.rank,
+        profile_image1: u.profile_image1,
+        age: u.age,
+        gender: u.gender,
+        marital_status: u.marital_status,
+        about_me: u.about_me
+    })));
+});
+
+// API للطرد
+app.post('/api/ban', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const admin = users.find(u => 'fake-token-' + u.id === token);
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
+
+    const { userId, reason, duration } = req.body;
+    const user = users.find(u => u.id === parseInt(userId));
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    const ban = {
+        id: bans.length + 1,
+        user_id: user.id,
+        reason,
+        duration,
+        timestamp: new Date()
+    };
+    bans.push(ban);
+    io.emit('userBanned', { userId: user.id, reason, duration });
+    res.json({ message: 'تم طرد المستخدم' });
+});
+
+// API للكتم
+app.post('/api/mute', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const admin = users.find(u => 'fake-token-' + u.id === token);
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
+
+    const { userId, reason, duration } = req.body;
+    const user = users.find(u => u.id === parseInt(userId));
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    const mute = {
+        id: mutes.length + 1,
+        user_id: user.id,
+        reason,
+        duration,
+        timestamp: new Date()
+    };
+    mutes.push(mute);
+    io.emit('userMuted', { userId: user.id, reason, duration });
+    res.json({ message: 'تم كتم المستخدم' });
+});
+
+// Socket.IO للتواصل الفوري
+io.on('connection', (socket) => {
+    console.log('مستخدم متصل: ' + socket.id);
+
+    // الانضمام إلى غرفة
+    socket.on('join', (data) => {
+        socket.join(data.roomId);
+        socket.user = data;
+        io.emit('userList', users.filter(u => u.id !== socket.user.userId));
+    });
+
+    // إرسال رسالة عامة
+    socket.on('sendMessage', (data) => {
+        // فحص الحماية من الفيضانات
+        const userId = socket.user.userId;
+        const now = Date.now();
+
+        if (!floodProtection.has(userId)) {
+            floodProtection.set(userId, []);
+        }
+
+        const userMessages = floodProtection.get(userId);
+        // إزالة الرسائل القديمة (أكثر من 10 ثواني)
+        const recentMessages = userMessages.filter(time => now - time < 10000);
+
+        // إذا أرسل أكثر من 5 رسائل في 10 ثواني
+        if (recentMessages.length >= 5) {
+            const muteEndTime = new Date(now + 5 * 60 * 1000); // 5 دقائق
+            const mute = {
+                id: mutes.length + 1,
+                user_id: userId,
+                reason: 'الفيضانات - رسائل سريعة ومتكررة',
+                duration: '5m',
+                timestamp: new Date(),
+                endTime: muteEndTime
+            };
+            mutes.push(mute);
+
+            // إرسال رسالة للشات عن الكتم
+            const muteMessage = {
+                id: messages.length + 1,
+                roomId: data.roomId,
+                content: `تم كتم ${socket.user.display_name} بسبب الفيضانات`,
+                type: 'system',
+                timestamp: new Date()
+            };
+            messages.push(muteMessage);
+            io.to(data.roomId).emit('newMessage', muteMessage);
+
+            socket.emit('error', 'تم كتمك لمدة 5 دقائق بسبب الرسائل السريعة والمتكررة');
+            return;
+        }
+
+        recentMessages.push(now);
+        floodProtection.set(userId, recentMessages);
+
+        const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
+            (m.duration === 'permanent' || (m.endTime && new Date() < new Date(m.endTime)) || 
+             new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
+        if (isMuted) return socket.emit('error', 'أنت مكتوم ولا يمكنك إرسال الرسائل');
+
+        const message = { 
+            id: messages.length + 1, 
+            roomId: data.roomId, 
+            user_id: socket.user.userId, 
+            display_name: socket.user.display_name, 
+            rank: socket.user.rank, 
+            content: data.content, 
+            type: 'text', 
+            timestamp: new Date() 
+        };
+        messages.push(message);
+        io.to(data.roomId).emit('newMessage', message);
+    });
+
+    // إرسال رسالة خاصة
+    socket.on('sendPrivateMessage', (data) => {
+        const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
+            (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
+        if (isMuted) return socket.emit('error', 'أنت مكتوم ولا يمكنك إرسال الرسائل');
+
+        const message = { 
+            id: privateMessages.length + 1, 
+            senderId: socket.user.userId, 
+            display_name: socket.user.display_name, 
+            rank: socket.user.rank, 
+            receiverId: data.receiverId, 
+            content: data.content, 
+            type: 'text', 
+            timestamp: new Date() 
+        };
+        privateMessages.push(message);
+        socket.to(data.receiverId).emit('newPrivateMessage', message);
+        socket.emit('newPrivateMessage', message);
+    });
+
+    // إرسال صورة عامة
+    socket.on('sendImage', (data, callback) => {
+        upload.single('image')(data, {}, (err) => {
+            if (err) {
+                console.error('Error uploading image:', err.message);
+                return callback({ error: 'فشل رفع الصورة: ' + err.message });
+            }
+            const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
+                (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
+            if (isMuted) return callback({ error: 'أنت مكتوم ولا يمكنك إرسال الصور' });
+
+            const imageUrl = `/Uploads/${data.file.filename}`;
+            const message = { 
+                id: messages.length + 1, 
+                image_url: imageUrl, 
+                type: 'image', 
+                roomId: data.roomId, 
+                user_id: socket.user.userId, 
+                display_name: socket.user.display_name, 
+                rank: socket.user.rank, 
+                timestamp: new Date() 
+            };
+            messages.push(message);
+            io.to(data.roomId).emit('newImage', message);
+            callback({ success: true, imageUrl });
+        });
+    });
+
+    // إرسال صورة خاصة
+    socket.on('sendPrivateImage', (data, callback) => {
+        upload.single('image')(data, {}, (err) => {
+            if (err) {
+                console.error('Error uploading private image:', err.message);
+                return callback({ error: 'فشل رفع الصورة: ' + err.message });
+            }
+            const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
+                (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
+            if (isMuted) return callback({ error: 'أنت مكتوم ولا يمكنك إرسال الصور' });
+
+            const imageUrl = `/Uploads/${data.file.filename}`;
+            const message = { 
+                id: privateMessages.length + 1, 
+                image_url: imageUrl, 
+                type: 'image', 
+                receiverId: data.receiverId, 
+                user_id: socket.user.userId, 
+                display_name: socket.user.display_name, 
+                rank: socket.user.rank, 
+                timestamp: new Date() 
+            };
+            privateMessages.push(message);
+            socket.to(data.receiverId).emit('newPrivateImage', message);
+            socket.emit('newPrivateImage', message);
+            callback({ success: true, imageUrl });
+        });
+    });
+
+    // إرسال رسالة صوتية عامة
+    socket.on('sendVoice', (data, callback) => {
+        upload.single('voice')(data, {}, (err) => {
+            if (err) {
+                console.error('Error uploading voice:', err.message);
+                return callback({ error: 'فشل رفع التسجيل الصوتي: ' + err.message });
+            }
+            const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
+                (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
+            if (isMuted) return callback({ error: 'أنت مكتوم ولا يمكنك إرسال الرسائل الصوتية' });
+
+            const voiceUrl = `/Uploads/${data.file.filename}`;
+            const message = { 
+                id: messages.length + 1, 
+                voice_url: voiceUrl, 
+                type: 'voice', 
+                roomId: data.roomId, 
+                user_id: socket.user.userId, 
+                display_name: socket.user.display_name, 
+                rank: socket.user.rank, 
+                timestamp: new Date() 
+            };
+            messages.push(message);
+            io.to(data.roomId).emit('newVoice', message);
+            callback({ success: true, voiceUrl });
+        });
+    });
+
+    // إرسال رسالة صوتية خاصة
+    socket.on('sendPrivateVoice', (data, callback) => {
+        upload.single('voice')(data, {}, (err) => {
+            if (err) {
+                console.error('Error uploading private voice:', err.message);
+                return callback({ error: 'فشل رفع التسجيل الصوتي: ' + err.message });
+            }
+            const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
+                (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
+            if (isMuted) return callback({ error: 'أنت مكتوم ولا يمكنك إرسال الرسائل الصوتية' });
+
+            const voiceUrl = `/Uploads/${data.file.filename}`;
+            const message = { 
+                id: privateMessages.length + 1, 
+                voice_url: voiceUrl, 
+                type: 'voice', 
+                receiverId: data.receiverId, 
+                user_id: socket.user.userId, 
+                display_name: socket.user.display_name, 
+                rank: socket.user.rank, 
+                timestamp: new Date() 
+            };
+            privateMessages.push(message);
+            socket.to(data.receiverId).emit('newPrivateVoice', message);
+            socket.emit('newPrivateVoice', message);
+            callback({ success: true, voiceUrl });
+        });
+    });
+
+    // حذف غرفة
+    socket.on('deleteRoom', (roomId) => {
+        const user = users.find(u => u.id === socket.user.userId);
+        if (user.role === 'admin') {
+            rooms = rooms.filter(r => r.id !== roomId);
+            io.emit('roomDeleted', roomId);
+        }
+    });
+
+    // إرسال إشعار
+    socket.on('sendNotification', (data) => {
+        io.to(data.userId).emit('newNotification', data);
+    });
+
+    // تحميل المنشورات
+    socket.on('loadNewsPosts', () => {
+        socket.emit('loadNewsPosts', news);
+    });
+
+    // نشر خبر جديد
+    socket.on('addNewsPost', (data) => {
+        const user = socket.user;
+        if (!user) return;
+        const isMuted = mutes.find(m => m.user_id === user.userId && 
+            (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
+        if (isMuted) return socket.emit('error', 'أنت مكتوم ولا يمكنك نشر الأخبار');
+
+        const newNews = {
+            id: news.length + 1,
+            content: data.content,
+            media: data.media,
+            user_id: user.userId,
+            display_name: user.display_name,
+            timestamp: new Date(),
+            likes: [],
+            pinned: false // ← حتى هنا أضفته للاتساق (لكنك لا تستخدمه حاليًا عبر Socket)
+        };
+        news.push(newNews);
+        io.emit('updateNewsPost', newNews);
+    });
+
+    // إضافة تفاعل
+    socket.on('addReaction', (data) => {
+        const user = socket.user;
+        if (!user) return;
+        const post = news.find(n => n.id === parseInt(data.postId));
+        if (post) {
+            if (!post.reactions) post.reactions = { likes: [], dislikes: [], hearts: [] };
+
+            // إزالة التفاعل السابق للمستخدم
+            Object.keys(post.reactions).forEach(reactionType => {
+                post.reactions[reactionType] = post.reactions[reactionType].filter(r => r.user_id !== user.userId);
+            });
+
+            // إضافة التفاعل الجديد
+            if (data.type === 'like') {
+                post.reactions.likes.push({ user_id: user.userId, display_name: user.display_name });
+            } else if (data.type === 'dislike') {
+                post.reactions.dislikes.push({ user_id: user.userId, display_name: user.display_name });
+            } else if (data.type === 'heart') {
+                post.reactions.hearts.push({ user_id: user.userId, display_name: user.display_name });
+            }
+
+            io.emit('updateNewsPost', post);
+        }
+    });
+
+    // إضافة تعليق
+    socket.on('addComment', (data) => {
+        const user = socket.user;
+        if (!user) return;
+
+        const newComment = {
+            id: comments.length + 1,
+            postId: parseInt(data.postId),
+            content: data.content,
+            user_id: user.userId,
+            display_name: user.display_name,
+            targetUserId: data.targetUserId ? parseInt(data.targetUserId) : null,
+            timestamp: new Date()
+        };
+        comments.push(newComment);
+
+        // إرسال التعليق للجميع
+        io.emit('newComment', newComment);
+
+        // إرسال إشعار للمستخدم المستهدف
+        if (data.targetUserId) {
+            io.to(data.targetUserId).emit('commentNotification', {
+                from: user.display_name,
+                content: data.content,
+                postId: data.postId
+            });
+        }
+    });
+
+    // إيقاف المسابقة
+    socket.on('stopCompetition', (competitionId) => {
+        const competition = competitions.find(c => c.id === parseInt(competitionId));
+        if (competition) {
+            competition.active = false;
+            io.emit('competitionStopped', competitionId);
+        }
+    });
+
+    // فصل الاتصال
+    socket.on('disconnect', () => {
+        console.log('مستخدم منفصل: ' + socket.id);
+        io.emit('userList', users.filter(u => u.id !== socket.user?.userId));
+    });
+});
+
+// دالة مساعدة لتحويل مدة الكتم/الطرد إلى ميلي ثانية
+function parseDuration(duration) {
+    const map = {
+        '5m': 5 * 60 * 1000,
+        '1h': 60 * 60 * 1000,
+        '24h': 24 * 60 * 60 * 1000,
+        '7d': 7 * 24 * 60 * 60 * 1000,
+        'permanent': Infinity
+    };
+    return map[duration] || 0;
 }
 
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.style.display = 'none';
-        modal.classList.remove('show');
+// تنظيف الحماية من الفيضانات كل دقيقة
+setInterval(() => {
+    const now = Date.now();
+    for (const [userId, messages] of floodProtection.entries()) {
+        const recentMessages = messages.filter(time => now - time < 60000);
+        if (recentMessages.length === 0) {
+            floodProtection.delete(userId);
+        } else {
+            floodProtection.set(userId, recentMessages);
+        }
     }
-}
+}, 60000);
 
-// إغلاق المودال عند الضغط على X
-function closeGamesModal() {
-    closeModal('gamesModal');
-}
-// فتح قسم الألعاب
+// تنظيف الكتم المنتهي
+setInterval(() => {
+    const now = new Date();
+    mutes = mutes.filter(mute => {
+        if (mute.endTime && now > new Date(mute.endTime)) {
+            return false;
+        }
+        return true;
+    });
+}, 30000);
+
+// تشغيل الخادم
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));// فتح قسم الألعاب
 function openGamesSection() {
     console.log('فتح قسم الألعاب'); // للتشخيص
     openModal('gamesModal');
