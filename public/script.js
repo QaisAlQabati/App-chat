@@ -3517,6 +3517,54 @@ async function handleGuestLogin(e) {
 }
 
 
+// التحقق من حالة الحظر مع عرض السبب ومنع الدخول إذا محظور
+async function checkBanStatus() {
+    const token = localStorage.getItem('chatToken');
+    if (!token) {
+        showLoginScreen();
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/user/profile', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (response.ok) {
+            const user = await response.json();
+            currentUser = user;
+
+            if (user.isBanned) {
+                // المستخدم محظور، عرض سبب الحظر ومنعه من الدخول
+                showBanScreen(user.banReason);
+                return;
+            }
+
+            // المستخدم مسموح له بالدخول
+            showMainScreen();
+            initializeSocket();
+            showNotification('تم رفع الحظر', 'success');
+
+        } else {
+            showError('تعذر التحقق من المستخدم');
+        }
+
+    } catch (error) {
+        showError('حدث خطأ في التحقق من حالة الحظر');
+    }
+}
+
+// دالة عرض شاشة الحظر مع السبب
+function showBanScreen(reason) {
+    document.body.innerHTML = `
+        <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
+            <h1 style="color:red;">أنت محظور</h1>
+            <p>السبب: ${reason}</p>
+        </div>
+    `;
+}
 
 
 // تحميل الغرف
@@ -3966,721 +4014,458 @@ function closeMainMenu() {
     closeModal('mainMenuModal');
 }
 
-<!-- افترض أن هذا الكود داخل ملف HTML أو JS منفصل -->
-<script>
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const multer = require('multer');
-const path = require('path');
-const bodyParser = require('body-parser');
-
-const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
-    cors: { origin: '*' } // للسماح بالاتصال من أي مصدر
-});
-
-app.use(bodyParser.json());
-app.use(express.static('Uploads')); // لخدمة الملفات (صور، صوت) من مجلد Uploads
-
-// إعداد Multer لتخزين الملفات مع حد للحجم
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, 'Uploads/'),
-    filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
-});
-const upload = multer({ 
-    storage,
-    limits: { fileSize: 5 * 1024 * 1000 }, // حد 5 ميغابايت
-    fileFilter: (req, file, cb) => {
-        const filetypes = /jpeg|jpg|png|webm/;
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = filetypes.test(file.mimetype);
-        if (extname && mimetype) {
-            return cb(null, true);
-        } else {
-            cb(new Error('الملف يجب أن يكون صورة (jpeg/png) أو صوت (webm)'));
-        }
-    }
-});
-
-// مصفوفات مؤقتة لتخزين البيانات
-let rooms = [
-    { id: 1, name: 'الغرفة الرئيسية', description: 'غرفة دردشة عامة', background: null }
-];
-
-let users = [
-    { id: 1, display_name: 'Admin', rank: 'admin', role: 'admin', email: 'admin@example.com', password: 'admin', profile_image1: null, profile_image2: null, message_background: null, age: null, gender: null, marital_status: null, about_me: null }
-];
-
-let messages = [];
-let privateMessages = [];
-let news = [];
-let stories = [];
-let bans = [];
-let mutes = [];
-let floodProtection = new Map(); // لحماية من الفيضانات
-let competitions = [];
-let comments = [];
-
-// API لتسجيل الدخول
-app.post('/api/login', (req, res) => {
-    const { email, password } = req.body;
-    const user = users.find(u => u.email === email && u.password === password);
-    if (user) {
-        const token = 'fake-token-' + user.id;
-        res.json({ token, user });
-    } else {
-        res.status(401).json({ error: 'بيانات تسجيل الدخول غير صحيحة' });
-    }
-});
-
-// API لإنشاء حساب
-app.post('/api/register', (req, res) => {
-    const { email, password, display_name } = req.body;
-    if (users.find(u => u.email === email)) {
-        return res.status(400).json({ error: 'البريد الإلكتروني موجود مسبقًا' });
-    }
-    const newUser = {
-        id: users.length + 1,
-        email,
-        password,
-        display_name,
-        rank: 'visitor',
-        role: 'user',
-        profile_image1: null,
-        profile_image2: null,
-        message_background: null,
-        age: null,
-        gender: null,
-        marital_status: null,
-        about_me: null
-    };
-    users.push(newUser);
-    const token = 'fake-token-' + newUser.id;
-    res.json({ token, user: newUser });
-});
-
-// API للحصول على بيانات الملف الشخصي
-app.get('/api/user/profile', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (user) res.json(user);
-    else res.status(401).json({ error: 'غير مصرح له' });
-});
-
-// API لتحديث الملف الشخصي
-app.put('/api/user/profile', upload.fields([
-    { name: 'profileImage1', maxCount: 1 },
-    { name: 'profileImage2', maxCount: 1 },
-    { name: 'messageBackground', maxCount: 1 }
-]), (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!user) return res.status(401).json({ error: 'غير مصرح له' });
-
-    const { display_name, age, gender, marital_status, about_me } = req.body;
-    if (display_name) user.display_name = display_name;
-    if (age) user.age = parseInt(age);
-    if (gender) user.gender = gender;
-    if (marital_status) user.marital_status = marital_status;
-    if (about_me) user.about_me = about_me;
-
-    if (req.files['profileImage1']) user.profile_image1 = `/Uploads/${req.files['profileImage1'][0].filename}`;
-    if (req.files['profileImage2']) user.profile_image2 = `/Uploads/${req.files['profileImage2'][0].filename}`;
-    if (req.files['messageBackground']) user.message_background = `/Uploads/${req.files['messageBackground'][0].filename}`;
-
-    res.json(user);
-    io.emit('userUpdated', user);
-});
-
-// API للحصول على قائمة الغرف
-app.get('/api/rooms', (req, res) => res.json(rooms));
-
-// API لإنشاء غرفة جديدة
-app.post('/api/rooms', upload.single('roomBackground'), (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
-
-    const { name, description } = req.body;
-    const background = req.file ? `/Uploads/${req.file.filename}` : null;
-    const newRoom = { id: rooms.length + 1, name, description, background };
-    rooms.push(newRoom);
-    io.emit('roomCreated', newRoom);
-    res.json(newRoom);
-});
-
-// API لحذف غرفة
-app.delete('/api/rooms/:id', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
-
-    const roomId = parseInt(req.params.id);
-    rooms = rooms.filter(r => r.id !== roomId);
-    io.emit('roomDeleted', roomId);
-    res.json({ message: 'تم حذف الغرفة' });
-});
-
-// API للحصول على رسائل الغرفة
-app.get('/api/messages/:roomId', (req, res) => {
-    res.json(messages.filter(m => m.roomId === parseInt(req.params.roomId)));
-});
-
-// API للحصول على الرسائل الخاصة
-app.get('/api/private-messages/:userId', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const current = users.find(u => 'fake-token-' + u.id === token);
-    if (!current) return res.status(401).json({ error: 'غير مصرح له' });
-
-    res.json(privateMessages.filter(pm => 
-        (pm.senderId === current.id && pm.receiverId === parseInt(req.params.userId)) || 
-        (pm.senderId === parseInt(req.params.userId) && pm.receiverId === current.id)
-    ));
-});
-
-// API للحصول على الأخبار
-app.get('/api/news', (req, res) => {
-    res.json(news);
-});
-
-// API لنشر خبر جديد ←←← التعديل الوحيد هنا ←←←
-app.post('/api/news', upload.single('newsFile'), (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!user) return res.status(401).json({ error: 'غير مصرح له' });
-
-    const { content } = req.body;
-    if (!content && !req.file) return res.status(400).json({ error: 'يجب إدخال محتوى أو ملف' });
-
-    const media = req.file ? `/Uploads/${req.file.filename}` : null;
-    const newNews = {
-        id: news.length + 1,
-        content,
-        media,
-        user_id: user.id,
-        display_name: user.display_name,
-        timestamp: new Date(),
-        likes: [],
-        pinned: false // ←←← هذا هو التعديل الوحيد في الكود كله
-    };
-    news.push(newNews);
-    io.emit('newNews', newNews);
-    res.json(newNews);
-});
-
-// API للحصول على الستوريات
-app.get('/api/stories', (req, res) => {
-    res.json(stories.filter(s => new Date() - new Date(s.timestamp) < 24 * 60 * 60 * 1000));
-});
-
-// API لنشر ستوري جديد
-app.post('/api/stories', upload.single('storyImage'), (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!user) return res.status(401).json({ error: 'غير مصرح له' });
-
-    const image = req.file ? `/Uploads/${req.file.filename}` : null;
-    if (!image) return res.status(400).json({ error: 'يجب رفع صورة' });
-
-    const newStory = {
-        id: stories.length + 1,
-        image,
-        user_id: user.id,
-        display_name: user.display_name,
-        timestamp: new Date()
-    };
-    stories.push(newStory);
-    io.emit('newStory', newStory);
-    res.json(newStory);
-});
-
-// API للتعليقات
-app.post('/api/comments', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!user) return res.status(401).json({ error: 'غير مصرح له' });
-
-    const { postId, content, targetUserId } = req.body;
-    const newComment = {
-        id: comments.length + 1,
-        postId: parseInt(postId),
-        content,
-        user_id: user.id,
-        display_name: user.display_name,
-        targetUserId: targetUserId ? parseInt(targetUserId) : null,
-        timestamp: new Date()
-    };
-    comments.push(newComment);
-
-    // إرسال إشعار للمستخدم المستهدف
-    if (targetUserId) {
-        io.emit('newComment', { ...newComment, targetUserId });
-    }
-
-    res.json(newComment);
-});
-
-// API للحصول على التعليقات
-app.get('/api/comments/:postId', (req, res) => {
-    const postComments = comments.filter(c => c.postId === parseInt(req.params.postId));
-    res.json(postComments);
-});
-
-// API للمسابقات
-app.post('/api/competitions', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
-
-    const { title, duration } = req.body;
-    const newCompetition = {
-        id: competitions.length + 1,
-        title,
-        duration: parseInt(duration),
-        startTime: new Date(),
-        active: true
-    };
-    competitions.push(newCompetition);
-    io.emit('newCompetition', newCompetition);
-    res.json(newCompetition);
-});
-
-// API لتعيين رتبة
-app.post('/api/assign-rank', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const admin = users.find(u => 'fake-token-' + u.id === token);
-    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
-
-    const { userId, rank, reason } = req.body;
-    const user = users.find(u => u.id === parseInt(userId));
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
-    user.rank = rank;
-    res.json({ message: 'تم تعيين الرتبة' });
-    io.emit('userUpdated', user);
-});
-
-// API للحصول على قائمة المستخدمين
-app.get('/api/users', (req, res) => {
-    res.json(users.map(u => ({
-        id: u.id,
-        display_name: u.display_name,
-        rank: u.rank,
-        profile_image1: u.profile_image1,
-        age: u.age,
-        gender: u.gender,
-        marital_status: u.marital_status,
-        about_me: u.about_me
-    })));
-});
-
-// API للطرد
-app.post('/api/ban', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const admin = users.find(u => 'fake-token-' + u.id === token);
-    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
-
-    const { userId, reason, duration } = req.body;
-    const user = users.find(u => u.id === parseInt(userId));
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
-    const ban = {
-        id: bans.length + 1,
-        user_id: user.id,
-        reason,
-        duration,
-        timestamp: new Date()
-    };
-    bans.push(ban);
-    io.emit('userBanned', { userId: user.id, reason, duration });
-    res.json({ message: 'تم طرد المستخدم' });
-});
-
-// API للكتم
-app.post('/api/mute', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const admin = users.find(u => 'fake-token-' + u.id === token);
-    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
-
-    const { userId, reason, duration } = req.body;
-    const user = users.find(u => u.id === parseInt(userId));
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
-    const mute = {
-        id: mutes.length + 1,
-        user_id: user.id,
-        reason,
-        duration,
-        timestamp: new Date()
-    };
-    mutes.push(mute);
-    io.emit('userMuted', { userId: user.id, reason, duration });
-    res.json({ message: 'تم كتم المستخدم' });
-});
-
-// Socket.IO للتواصل الفوري
-io.on('connection', (socket) => {
-    console.log('مستخدم متصل: ' + socket.id);
-
-    // الانضمام إلى غرفة
-    socket.on('join', (data) => {
-        socket.join(data.roomId);
-        socket.user = data;
-        io.emit('userList', users.filter(u => u.id !== socket.user.userId));
-    });
-
-    // إرسال رسالة عامة
-    socket.on('sendMessage', (data) => {
-        // فحص الحماية من الفيضانات
-        const userId = socket.user.userId;
-        const now = Date.now();
-
-        if (!floodProtection.has(userId)) {
-            floodProtection.set(userId, []);
-        }
-
-        const userMessages = floodProtection.get(userId);
-        // إزالة الرسائل القديمة (أكثر من 10 ثواني)
-        const recentMessages = userMessages.filter(time => now - time < 10000);
-
-        // إذا أرسل أكثر من 5 رسائل في 10 ثواني
-        if (recentMessages.length >= 5) {
-            const muteEndTime = new Date(now + 5 * 60 * 1000); // 5 دقائق
-            const mute = {
-                id: mutes.length + 1,
-                user_id: userId,
-                reason: 'الفيضانات - رسائل سريعة ومتكررة',
-                duration: '5m',
-                timestamp: new Date(),
-                endTime: muteEndTime
-            };
-            mutes.push(mute);
-
-            // إرسال رسالة للشات عن الكتم
-            const muteMessage = {
-                id: messages.length + 1,
-                roomId: data.roomId,
-                content: `تم كتم ${socket.user.display_name} بسبب الفيضانات`,
-                type: 'system',
-                timestamp: new Date()
-            };
-            messages.push(muteMessage);
-            io.to(data.roomId).emit('newMessage', muteMessage);
-
-            socket.emit('error', 'تم كتمك لمدة 5 دقائق بسبب الرسائل السريعة والمتكررة');
-            return;
-        }
-
-        recentMessages.push(now);
-        floodProtection.set(userId, recentMessages);
-
-        const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
-            (m.duration === 'permanent' || (m.endTime && new Date() < new Date(m.endTime)) || 
-             new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
-        if (isMuted) return socket.emit('error', 'أنت مكتوم ولا يمكنك إرسال الرسائل');
-
-        const message = { 
-            id: messages.length + 1, 
-            roomId: data.roomId, 
-            user_id: socket.user.userId, 
-            display_name: socket.user.display_name, 
-            rank: socket.user.rank, 
-            content: data.content, 
-            type: 'text', 
-            timestamp: new Date() 
-        };
-        messages.push(message);
-        io.to(data.roomId).emit('newMessage', message);
-    });
-
-    // إرسال رسالة خاصة
-    socket.on('sendPrivateMessage', (data) => {
-        const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
-            (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
-        if (isMuted) return socket.emit('error', 'أنت مكتوم ولا يمكنك إرسال الرسائل');
-
-        const message = { 
-            id: privateMessages.length + 1, 
-            senderId: socket.user.userId, 
-            display_name: socket.user.display_name, 
-            rank: socket.user.rank, 
-            receiverId: data.receiverId, 
-            content: data.content, 
-            type: 'text', 
-            timestamp: new Date() 
-        };
-        privateMessages.push(message);
-        socket.to(data.receiverId).emit('newPrivateMessage', message);
-        socket.emit('newPrivateMessage', message);
-    });
-
-    // إرسال صورة عامة
-    socket.on('sendImage', (data, callback) => {
-        upload.single('image')(data, {}, (err) => {
-            if (err) {
-                console.error('Error uploading image:', err.message);
-                return callback({ error: 'فشل رفع الصورة: ' + err.message });
-            }
-            const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
-                (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
-            if (isMuted) return callback({ error: 'أنت مكتوم ولا يمكنك إرسال الصور' });
-
-            const imageUrl = `/Uploads/${data.file.filename}`;
-            const message = { 
-                id: messages.length + 1, 
-                image_url: imageUrl, 
-                type: 'image', 
-                roomId: data.roomId, 
-                user_id: socket.user.userId, 
-                display_name: socket.user.display_name, 
-                rank: socket.user.rank, 
-                timestamp: new Date() 
-            };
-            messages.push(message);
-            io.to(data.roomId).emit('newImage', message);
-            callback({ success: true, imageUrl });
-        });
-    });
-
-    // إرسال صورة خاصة
-    socket.on('sendPrivateImage', (data, callback) => {
-        upload.single('image')(data, {}, (err) => {
-            if (err) {
-                console.error('Error uploading private image:', err.message);
-                return callback({ error: 'فشل رفع الصورة: ' + err.message });
-            }
-            const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
-                (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
-            if (isMuted) return callback({ error: 'أنت مكتوم ولا يمكنك إرسال الصور' });
-
-            const imageUrl = `/Uploads/${data.file.filename}`;
-            const message = { 
-                id: privateMessages.length + 1, 
-                image_url: imageUrl, 
-                type: 'image', 
-                receiverId: data.receiverId, 
-                user_id: socket.user.userId, 
-                display_name: socket.user.display_name, 
-                rank: socket.user.rank, 
-                timestamp: new Date() 
-            };
-            privateMessages.push(message);
-            socket.to(data.receiverId).emit('newPrivateImage', message);
-            socket.emit('newPrivateImage', message);
-            callback({ success: true, imageUrl });
-        });
-    });
-
-    // إرسال رسالة صوتية عامة
-    socket.on('sendVoice', (data, callback) => {
-        upload.single('voice')(data, {}, (err) => {
-            if (err) {
-                console.error('Error uploading voice:', err.message);
-                return callback({ error: 'فشل رفع التسجيل الصوتي: ' + err.message });
-            }
-            const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
-                (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
-            if (isMuted) return callback({ error: 'أنت مكتوم ولا يمكنك إرسال الرسائل الصوتية' });
-
-            const voiceUrl = `/Uploads/${data.file.filename}`;
-            const message = { 
-                id: messages.length + 1, 
-                voice_url: voiceUrl, 
-                type: 'voice', 
-                roomId: data.roomId, 
-                user_id: socket.user.userId, 
-                display_name: socket.user.display_name, 
-                rank: socket.user.rank, 
-                timestamp: new Date() 
-            };
-            messages.push(message);
-            io.to(data.roomId).emit('newVoice', message);
-            callback({ success: true, voiceUrl });
-        });
-    });
-
-    // إرسال رسالة صوتية خاصة
-    socket.on('sendPrivateVoice', (data, callback) => {
-        upload.single('voice')(data, {}, (err) => {
-            if (err) {
-                console.error('Error uploading private voice:', err.message);
-                return callback({ error: 'فشل رفع التسجيل الصوتي: ' + err.message });
-            }
-            const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
-                (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
-            if (isMuted) return callback({ error: 'أنت مكتوم ولا يمكنك إرسال الرسائل الصوتية' });
-
-            const voiceUrl = `/Uploads/${data.file.filename}`;
-            const message = { 
-                id: privateMessages.length + 1, 
-                voice_url: voiceUrl, 
-                type: 'voice', 
-                receiverId: data.receiverId, 
-                user_id: socket.user.userId, 
-                display_name: socket.user.display_name, 
-                rank: socket.user.rank, 
-                timestamp: new Date() 
-            };
-            privateMessages.push(message);
-            socket.to(data.receiverId).emit('newPrivateVoice', message);
-            socket.emit('newPrivateVoice', message);
-            callback({ success: true, voiceUrl });
-        });
-    });
-
-    // حذف غرفة
-    socket.on('deleteRoom', (roomId) => {
-        const user = users.find(u => u.id === socket.user.userId);
-        if (user.role === 'admin') {
-            rooms = rooms.filter(r => r.id !== roomId);
-            io.emit('roomDeleted', roomId);
-        }
-    });
-
-    // إرسال إشعار
-    socket.on('sendNotification', (data) => {
-        io.to(data.userId).emit('newNotification', data);
-    });
-
-    // تحميل المنشورات
-    socket.on('loadNewsPosts', () => {
-        socket.emit('loadNewsPosts', news);
-    });
-
-    // نشر خبر جديد
-    socket.on('addNewsPost', (data) => {
-        const user = socket.user;
-        if (!user) return;
-        const isMuted = mutes.find(m => m.user_id === user.userId && 
-            (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
-        if (isMuted) return socket.emit('error', 'أنت مكتوم ولا يمكنك نشر الأخبار');
-
-        const newNews = {
-            id: news.length + 1,
-            content: data.content,
-            media: data.media,
-            user_id: user.userId,
-            display_name: user.display_name,
-            timestamp: new Date(),
-            likes: [],
-            pinned: false // ← حتى هنا أضفته للاتساق (لكنك لا تستخدمه حاليًا عبر Socket)
-        };
-        news.push(newNews);
-        io.emit('updateNewsPost', newNews);
-    });
-
-    // إضافة تفاعل
-    socket.on('addReaction', (data) => {
-        const user = socket.user;
-        if (!user) return;
-        const post = news.find(n => n.id === parseInt(data.postId));
-        if (post) {
-            if (!post.reactions) post.reactions = { likes: [], dislikes: [], hearts: [] };
-
-            // إزالة التفاعل السابق للمستخدم
-            Object.keys(post.reactions).forEach(reactionType => {
-                post.reactions[reactionType] = post.reactions[reactionType].filter(r => r.user_id !== user.userId);
-            });
-
-            // إضافة التفاعل الجديد
-            if (data.type === 'like') {
-                post.reactions.likes.push({ user_id: user.userId, display_name: user.display_name });
-            } else if (data.type === 'dislike') {
-                post.reactions.dislikes.push({ user_id: user.userId, display_name: user.display_name });
-            } else if (data.type === 'heart') {
-                post.reactions.hearts.push({ user_id: user.userId, display_name: user.display_name });
-            }
-
-            io.emit('updateNewsPost', post);
-        }
-    });
-
-    // إضافة تعليق
-    socket.on('addComment', (data) => {
-        const user = socket.user;
-        if (!user) return;
-
-        const newComment = {
-            id: comments.length + 1,
-            postId: parseInt(data.postId),
-            content: data.content,
-            user_id: user.userId,
-            display_name: user.display_name,
-            targetUserId: data.targetUserId ? parseInt(data.targetUserId) : null,
-            timestamp: new Date()
-        };
-        comments.push(newComment);
-
-        // إرسال التعليق للجميع
-        io.emit('newComment', newComment);
-
-        // إرسال إشعار للمستخدم المستهدف
-        if (data.targetUserId) {
-            io.to(data.targetUserId).emit('commentNotification', {
-                from: user.display_name,
-                content: data.content,
-                postId: data.postId
-            });
-        }
-    });
-
-    // إيقاف المسابقة
-    socket.on('stopCompetition', (competitionId) => {
-        const competition = competitions.find(c => c.id === parseInt(competitionId));
-        if (competition) {
-            competition.active = false;
-            io.emit('competitionStopped', competitionId);
-        }
-    });
-
-    // فصل الاتصال
-    socket.on('disconnect', () => {
-        console.log('مستخدم منفصل: ' + socket.id);
-        io.emit('userList', users.filter(u => u.id !== socket.user?.userId));
-    });
-});
-
-// دالة مساعدة لتحويل مدة الكتم/الطرد إلى ميلي ثانية
-function parseDuration(duration) {
-    const map = {
-        '5m': 5 * 60 * 1000,
-        '1h': 60 * 60 * 1000,
-        '24h': 24 * 60 * 60 * 1000,
-        '7d': 7 * 24 * 60 * 60 * 1000,
-        'permanent': Infinity
-    };
-    return map[duration] || 0;
+// فتح قسم الأخبار
+function openNewsSection() {
+    openModal('newsModal');
+    loadNews();
+    closeMainMenu();
 }
 
-// تنظيف الحماية من الفيضانات كل دقيقة
-setInterval(() => {
-    const now = Date.now();
-    for (const [userId, messages] of floodProtection.entries()) {
-        const recentMessages = messages.filter(time => now - time < 60000);
-        if (recentMessages.length === 0) {
-            floodProtection.delete(userId);
-        } else {
-            floodProtection.set(userId, recentMessages);
+// تحميل الأخبار
+async function loadNews() {
+    try {
+        const response = await fetch('/api/news');
+        if (response.ok) {
+            let news = await response.json();
+            // فرز المنشورات: المثبتة أولاً
+            news = news.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+            displayNews(news);
         }
+    } catch (error) {
+        console.error('خطأ في تحميل الأخبار:', error);
     }
-}, 60000);
+}
 
-// تنظيف الكتم المنتهي
-setInterval(() => {
-    const now = new Date();
-    mutes = mutes.filter(mute => {
-        if (mute.endTime && now > new Date(mute.endTime)) {
-            return false;
+// عرض الأخبار
+function displayNews(news) {
+    const container = document.getElementById('newsFeed');
+    container.innerHTML = '';
+    
+    if (news.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد أخبار حالياً</p>';
+        return;
+    }
+    
+    news.forEach(item => {
+        const newsDiv = document.createElement('div');
+        newsDiv.className = 'news-item';
+        if (item.pinned) newsDiv.classList.add('pinned'); // إضافة كلاس للتثبيت للتصميم
+        
+        const time = new Date(item.timestamp).toLocaleString('ar-SA');
+        const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('userRole') === 'owner';
+        
+        let reactionsHTML = `
+            <div class="reactions">
+                <span class="reaction" onclick="addReaction('${item.id}', '❤️')">❤️ ${item.reactions?.heart || 0}</span>
+                <span class="reaction" onclick="addReaction('${item.id}', '👍')">👍 ${item.reactions?.thumbsUp || 0}</span>
+                <span class="reaction" onclick="addReaction('${item.id}', '👎')">👎 ${item.reactions?.thumbsDown || 0}</span>
+                <span class="reaction" onclick="addReaction('${item.id}', '😅')">😅 ${item.reactions?.laugh || 0}</span>
+            </div>
+            <div class="reaction-details" id="reactionDetails_${item.id}"></div>
+        `;
+        
+        let commentsHTML = `
+            <div class="comments-section" id="comments_${item.id}">
+                <!-- سيتم تحميل التعليقات هنا -->
+            </div>
+            <input type="text" id="commentInput_${item.id}" placeholder="أضف تعليق...">
+            <button onclick="addComment('${item.id}', document.getElementById('commentInput_${item.id}').value)">نشر التعليق</button>
+        `;
+        
+        let adminControls = '';
+        if (isAdmin) {
+            adminControls = `
+                <button onclick="pinNews('${item.id}', ${!item.pinned})">${item.pinned ? 'إزالة التثبيت' : 'تثبيت'}</button>
+            `;
         }
-        return true;
+        
+        newsDiv.innerHTML = `
+            <div class="news-header-info">
+                <img class="news-author-avatar" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="${item.display_name}">
+                <div class="news-author-info">
+                    <h4>${escapeHtml(item.display_name)}</h4>
+                    <span class="news-time">${time}</span>
+                    ${item.pinned ? '<span class="pinned-label">مثبت</span>' : ''}
+                </div>
+            </div>
+            <div class="news-content">${escapeHtml(item.content)}</div>
+            ${item.media ? `<div class="news-media"><img src="${item.media}" alt="صورة الخبر"></div>` : ''}
+            ${reactionsHTML}
+            ${commentsHTML}
+            ${adminControls}
+        `;
+        
+        container.appendChild(newsDiv);
+        loadComments(item.id); // تحميل التعليقات لكل منشور
+        loadReactionDetails(item.id); // تحميل تفاصيل التفاعلات
     });
-}, 30000);
+}
 
-// تشغيل الخادم
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));// فتح قسم الألعاب
+// إضافة تفاعل
+async function addReaction(newsId, emoji) {
+    try {
+        const response = await fetch(`/api/news/${newsId}/reactions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({ emoji })
+        });
+        if (response.ok) {
+            loadNews(); // إعادة تحميل لتحديث العدد
+            loadReactionDetails(newsId); // تحديث التفاصيل
+        }
+    } catch (error) {
+        console.error('خطأ في إضافة التفاعل:', error);
+    }
+}
+
+// تحميل تفاصيل التفاعلات (من تفاعل)
+async function loadReactionDetails(newsId) {
+    try {
+        const response = await fetch(`/api/news/${newsId}/reactions`);
+        if (response.ok) {
+            const details = await response.json();
+            const container = document.getElementById(`reactionDetails_${newsId}`);
+            container.innerHTML = '';
+            Object.entries(details).forEach(([emoji, users]) => {
+                const userList = users.map(user => user.display_name).join(', ');
+                container.innerHTML += `<p>${emoji}: ${users.length} (${userList})</p>`;
+            });
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل تفاصيل التفاعلات:', error);
+    }
+}
+
+// إضافة تعليق
+async function addComment(newsId, text) {
+    if (!text.trim()) return;
+    try {
+        const response = await fetch(`/api/news/${newsId}/comments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({ text })
+        });
+        if (response.ok) {
+            loadComments(newsId);
+        }
+    } catch (error) {
+        console.error('خطأ في إضافة التعليق:', error);
+    }
+}
+
+// تحميل التعليقات
+async function loadComments(newsId) {
+    try {
+        const response = await fetch(`/api/news/${newsId}/comments`);
+        if (response.ok) {
+            const comments = await response.json();
+            const container = document.getElementById(`comments_${newsId}`);
+            container.innerHTML = '';
+            const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('userRole') === 'owner';
+            comments.forEach(comment => {
+                const commentDiv = document.createElement('div');
+                commentDiv.className = 'comment';
+                commentDiv.innerHTML = `
+                    <p><strong>${escapeHtml(comment.display_name)}:</strong> ${escapeHtml(comment.text)}</p>
+                    ${isAdmin ? `<button onclick="deleteComment('${newsId}', '${comment.id}')">حذف</button>
+                    <button onclick="banUserFromComments('${comment.user_id}')">منع المستخدم</button>` : ''}
+                `;
+                container.appendChild(commentDiv);
+            });
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل التعليقات:', error);
+    }
+}
+
+// حذف تعليق (للإدارة)
+async function deleteComment(newsId, commentId) {
+    try {
+        const response = await fetch(`/api/news/${newsId}/comments/${commentId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            }
+        });
+        if (response.ok) {
+            loadComments(newsId);
+        }
+    } catch (error) {
+        console.error('خطأ في حذف التعليق:', error);
+    }
+}
+
+// منع مستخدم من التعليق (للإدارة)
+async function banUserFromComments(userId) {
+    try {
+        const response = await fetch(`/api/users/${userId}/ban-comments`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            }
+        });
+        if (response.ok) {
+            showNotification('تم منع المستخدم من التعليق', 'success');
+        }
+    } catch (error) {
+        console.error('خطأ في منع المستخدم:', error);
+    }
+}
+
+// تثبيت منشور (للإدارة)
+async function pinNews(newsId, pin) {
+    try {
+        const response = await fetch(`/api/news/${newsId}/pin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({ pin })
+        });
+        if (response.ok) {
+            loadNews();
+        }
+    } catch (error) {
+        console.error('خطأ في التثبيت:', error);
+    }
+}
+
+// نشر خبر
+async function postNews() {
+    const content = document.getElementById('newsContentInput').value.trim();
+    const fileInput = document.getElementById('newsFileInput');
+    
+    if (!content && !fileInput.files[0]) {
+        showError('يرجى كتابة محتوى أو اختيار ملف');
+        return;
+    }
+    
+    const formData = new FormData();
+    if (content) formData.append('content', content);
+    if (fileInput.files[0]) formData.append('newsFile', fileInput.files[0]);
+    
+    try {
+        showLoading(true);
+        
+        const response = await fetch('/api/news', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: formData
+        });
+        
+        if (response.ok) {
+            document.getElementById('newsContentInput').value = '';
+            fileInput.value = '';
+            await loadNews(); // إعادة تحميل فوري للظهور المباشر
+            showNotification('تم نشر الخبر بنجاح', 'success');
+        } else {
+            const data = await response.json();
+            showError(data.error || 'فشل في نشر الخبر');
+        }
+    } catch (error) {
+        showError('حدث خطأ في نشر الخبر');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// إغلاق مودال الأخبار
+function closeNewsModal() {
+    closeModal('newsModal');
+}
+
+// فتح قسم القصص
+function openStoriesSection() {
+    openModal('storiesModal');
+    loadStories();
+    closeMainMenu();
+}
+
+// تحميل القصص (مع فلترة بعد 24 ساعة، لكن محفوظة دائمًا في الأرشيف)
+async function loadStories() {
+    try {
+        const response = await fetch('/api/stories');
+        if (response.ok) {
+            let stories = await response.json();
+            // فلترة الستوري النشطة (أقل من 24 ساعة)
+            const now = Date.now();
+            stories = stories.filter(story => now - new Date(story.timestamp).getTime() < 24 * 60 * 60 * 1000);
+            displayStories(stories);
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل القصص:', error);
+    }
+}
+
+// عرض القصص (مماثل للأخبار مع إضافة تفاعلات وتعليقات)
+function displayStories(stories) {
+    const container = document.getElementById('storiesContainer');
+    container.innerHTML = '';
+    
+    if (stories.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد قصص حالياً</p>';
+        return;
+    }
+    
+    stories.forEach(story => {
+        const storyDiv = document.createElement('div');
+        storyDiv.className = 'story-item';
+        storyDiv.onclick = () => viewStory(story);
+        
+        const isAdmin = localStorage.getItem('userRole') === 'admin' || localStorage.getItem('userRole') === 'owner';
+        
+        let mediaHTML = story.video ? `<video src="${story.video}" controls></video>` : `<img src="${story.image}" alt="قصة ${story.display_name}">`;
+        
+        let reactionsHTML = `
+            <div class="reactions">
+                <span class="reaction" onclick="addReaction('${story.id}', '❤️')">❤️ ${story.reactions?.heart || 0}</span>
+                <span class="reaction" onclick="addReaction('${story.id}', '👍')">👍 ${story.reactions?.thumbsUp || 0}</span>
+                <span class="reaction" onclick="addReaction('${story.id}', '👎')">👎 ${story.reactions?.thumbsDown || 0}</span>
+                <span class="reaction" onclick="addReaction('${story.id}', '😅')">😅 ${story.reactions?.laugh || 0}</span>
+            </div>
+            <div class="reaction-details" id="reactionDetails_${story.id}"></div>
+        `;
+        
+        let commentsHTML = `
+            <div class="comments-section" id="comments_${story.id}">
+                <!-- سيتم تحميل التعليقات هنا -->
+            </div>
+            <input type="text" id="commentInput_${story.id}" placeholder="أضف تعليق...">
+            <button onclick="addComment('${story.id}', document.getElementById('commentInput_${story.id}').value)">نشر التعليق</button>
+        `;
+        
+        let adminControls = '';
+        if (isAdmin) {
+            adminControls = `
+                <button onclick="pinStory('${story.id}', ${!story.pinned})">${story.pinned ? 'إزالة التثبيت' : 'تثبيت'}</button>
+            `;
+        }
+        
+        storyDiv.innerHTML = `
+            ${mediaHTML}
+            ${reactionsHTML}
+            ${commentsHTML}
+            ${adminControls}
+        `;
+        container.appendChild(storyDiv);
+        loadComments(story.id); // تحميل التعليقات
+        loadReactionDetails(story.id); // تحميل تفاصيل التفاعلات
+    });
+}
+
+// تثبيت ستوري (مماثل للأخبار)
+async function pinStory(storyId, pin) {
+    try {
+        const response = await fetch(`/api/stories/${storyId}/pin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: JSON.stringify({ pin })
+        });
+        if (response.ok) {
+            loadStories();
+        }
+    } catch (error) {
+        console.error('خطأ في التثبيت:', error);
+    }
+}
+
+// فتح مودال إضافة قصة
+function openAddStoryModal() {
+    openModal('addStoryModal');
+}
+
+// إغلاق مودال إضافة قصة
+function closeAddStoryModal() {
+    closeModal('addStoryModal');
+}
+
+// إضافة قصة (مع دعم فيديو)
+async function addStory() {
+    const fileInput = document.getElementById('storyMediaInput');
+    const text = document.getElementById('storyTextInput').value.trim();
+    
+    if (!fileInput.files[0]) {
+        showError('يرجى اختيار صورة أو فيديو');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('storyMedia', fileInput.files[0]); // يدعم صورة أو فيديو
+    if (text) formData.append('text', text);
+    
+    try {
+        showLoading(true);
+        
+        const response = await fetch('/api/stories', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('chatToken')}`
+            },
+            body: formData
+        });
+        
+        if (response.ok) {
+            closeAddStoryModal();
+            await loadStories(); // إعادة تحميل فوري
+            showNotification('تم إضافة القصة بنجاح', 'success');
+        } else {
+            const data = await response.json();
+            showError(data.error || 'فشل في إضافة القصة');
+        }
+    } catch (error) {
+        showError('حدث خطأ في إضافة القصة');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// إغلاق مودال القصص
+function closeStoriesModal() {
+    closeModal('storiesModal');
+}
+
+// عرض ستوري مفصل (مع تحديث للتفاعلات والتعليقات)
+function viewStory(story) {
+    // يمكن توسيع هذا لعرض ستوري كامل مع التفاعلات والتعليقات
+    // للآن، نفترض أنه يفتح مودال أو يعرض
+    console.log('عرض الستوري:', story);
+    loadReactionDetails(story.id);
+    loadComments(story.id);
+}
+// دوال المودال الأساسية (إذا لم تكن موجودة)
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show'); // للانيميشن
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+    }
+}
+
+// إغلاق المودال عند الضغط على X
+function closeGamesModal() {
+    closeModal('gamesModal');
+}
+// فتح قسم الألعاب
 function openGamesSection() {
     console.log('فتح قسم الألعاب'); // للتشخيص
     openModal('gamesModal');
@@ -5514,7 +5299,6 @@ async function cleanRooms() {
     }
 }
 
-
 // فتح مشغل الراديو
 function openRadioPlayer() {
     openModal('radioPlayerModal');
@@ -5573,6 +5357,7 @@ function toggleMusicPlayer() {
         showNotification('تم إيقاف الموسيقى', 'info');
     }
 }
+
 // تسجيل الخروج
 function logout() {
     localStorage.removeItem('chatToken');
@@ -6903,481 +6688,4 @@ function addManualPlayButton(audio) {
     if (profileModal) {
         profileModal.appendChild(playButton);
     }
-
-
-    // ===== نظام الإطارات المتقدم =====
-const FRAME_SYSTEM = {
-    frames: {
-        owner: [
-            { id: 'owner_1', name: 'تاج المالك الذهبي', price: 0, exclusive: true, animation: 'golden-glow', rarity: 'owner' },
-            { id: 'owner_2', name: 'إطار الملك الأسطوري', price: 0, exclusive: true, animation: 'royal-pulse', rarity: 'owner' },
-            { id: 'owner_3', name: 'نار التنين الإمبراطوري', price: 0, exclusive: true, animation: 'dragon-fire', rarity: 'owner' }
-        ],
-        admin: [
-            { id: 'admin_1', name: 'تاج الإدارة الفضي', price: 100000, animation: 'silver-shine', rarity: 'admin' },
-            { id: 'admin_2', name: 'إطار القوة الإدارية', price: 100000, animation: 'power-glow', rarity: 'admin' },
-            { id: 'admin_3', name: 'شعاع الصلاحيات', price: 100000, animation: 'authority-beam', rarity: 'admin' },
-            { id: 'admin_4', name: 'نجمة الإشراف', price: 100000, animation: 'star-burst', rarity: 'admin' },
-            { id: 'admin_5', name: 'درع المشرف', price: 100000, animation: 'shield-glow', rarity: 'admin' },
-            { id: 'admin_6', name: 'صولجان التحكم', price: 100000, animation: 'scepter-shine', rarity: 'admin' },
-            { id: 'admin_7', name: 'عرش الإدارة', price: 100000, animation: 'throne-majesty', rarity: 'admin' },
-            { id: 'admin_8', name: 'جوهرة السلطة', price: 100000, animation: 'gem-sparkle', rarity: 'admin' },
-            { id: 'admin_9', name: 'شعلة القيادة', price: 100000, animation: 'leadership-flame', rarity: 'admin' },
-            { id: 'admin_10', name: 'تاج العدالة', price: 100000, animation: 'justice-crown', rarity: 'admin' }
-        ],
-        prince: [
-            { id: 'prince_1', name: 'تاج الأمير الذهبي', price: 50000, animation: 'prince-gold', rarity: 'prince' },
-            { id: 'prince_2', name: 'شارة النبالة', price: 45000, animation: 'nobility-badge', rarity: 'prince' },
-            { id: 'prince_3', name: 'جوهرة القصر', price: 40000, animation: 'palace-gem', rarity: 'prince' },
-            { id: 'prince_4', name: 'نسر الشرف', price: 35000, animation: 'honor-eagle', rarity: 'prince' },
-            { id: 'prince_5', name: 'شعاع الملكية', price: 30000, animation: 'royal-ray', rarity: 'prince' },
-            { id: 'prince_6', name: 'وردة الأرستقراطية', price: 25000, animation: 'noble-rose', rarity: 'prince' },
-            { id: 'prince_7', name: 'خاتم الأمير', price: 20000, animation: 'prince-ring', rarity: 'prince' },
-            { id: 'prince_8', name: 'شعلة النبل', price: 15000, animation: 'noble-flame', rarity: 'prince' },
-            { id: 'prince_9', name: 'نجمة البرنس', price: 10000, animation: 'prince-star', rarity: 'prince' },
-            { id: 'prince_10', name: 'شريط الشرف', price: 8000, animation: 'honor-ribbon', rarity: 'prince' },
-            { id: 'prince_11', name: 'ريشة الفخامة', price: 6000, animation: 'luxury-feather', rarity: 'prince' },
-            { id: 'prince_12', name: 'قلادة الأناقة', price: 5000, animation: 'elegance-necklace', rarity: 'prince' },
-            { id: 'prince_13', name: 'شعار البرنس', price: 4000, animation: 'prince-emblem', rarity: 'prince' },
-            { id: 'prince_14', name: 'وسام الجدارة', price: 3500, animation: 'merit-medal', rarity: 'prince' },
-            { id: 'prince_15', name: 'رمز الأناقة', price: 3000, animation: 'style-symbol', rarity: 'prince' },
-            { id: 'prince_16', name: 'شارة التميز', price: 2800, animation: 'excellence-badge', rarity: 'prince' },
-            { id: 'prince_17', name: 'علامة الرقي', price: 2500, animation: 'refinement-mark', rarity: 'prince' },
-            { id: 'prince_18', name: 'خط الفخامة', price: 2200, animation: 'luxury-line', rarity: 'prince' },
-            { id: 'prince_19', name: 'نقش الأمير', price: 2100, animation: 'prince-carving', rarity: 'prince' },
-            { id: 'prince_20', name: 'إطار البداية الملكية', price: 2000, animation: 'royal-starter', rarity: 'prince' }
-        ]
-    },
-    
-    animations: {
-        'golden-glow': 'animation: golden-glow 2s ease-in-out infinite alternate;',
-        'royal-pulse': 'animation: royal-pulse 1.5s ease-in-out infinite;',
-        'dragon-fire': 'animation: dragon-fire 3s linear infinite;',
-        'silver-shine': 'animation: silver-shine 2s ease-in-out infinite alternate;',
-        'power-glow': 'animation: power-glow 1.8s ease-in-out infinite;',
-        'authority-beam': 'animation: authority-beam 2.5s linear infinite;',
-        'star-burst': 'animation: star-burst 1s ease-out infinite;',
-        'shield-glow': 'animation: shield-glow 2s ease-in-out infinite alternate;',
-        'scepter-shine': 'animation: scepter-shine 1.5s ease-in-out infinite;',
-        'throne-majesty': 'animation: throne-majesty 3s ease-in-out infinite;',
-        'gem-sparkle': 'animation: gem-sparkle 0.8s ease-in-out infinite;',
-        'leadership-flame': 'animation: leadership-flame 2s linear infinite;',
-        'justice-crown': 'animation: justice-crown 2.2s ease-in-out infinite;',
-        'prince-gold': 'animation: prince-gold 2s ease-in-out infinite alternate;',
-        'nobility-badge': 'animation: nobility-badge 1.5s ease-in-out infinite;',
-        'palace-gem': 'animation: palace-gem 2s linear infinite;',
-        'honor-eagle': 'animation: honor-eagle 1.8s ease-in-out infinite;',
-        'royal-ray': 'animation: royal-ray 2.5s linear infinite;',
-        'noble-rose': 'animation: noble-rose 1s ease-out infinite;',
-        'prince-ring': 'animation: prince-ring 2s ease-in-out infinite alternate;',
-        'noble-flame': 'animation: noble-flame 1.5s ease-in-out infinite;',
-        'prince-star': 'animation: prince-star 0.8s ease-in-out infinite;',
-        'honor-ribbon': 'animation: honor-ribbon 2s linear infinite;',
-        'luxury-feather': 'animation: luxury-feather 1.5s ease-in-out infinite;',
-        'elegance-necklace': 'animation: elegance-necklace 2s ease-in-out infinite alternate;',
-        'prince-emblem': 'animation: prince-emblem 1.8s ease-in-out infinite;',
-        'merit-medal': 'animation: merit-medal 1s ease-out infinite;',
-        'style-symbol': 'animation: style-symbol 2s linear infinite;',
-        'excellence-badge': 'animation: excellence-badge 1.5s ease-in-out infinite;',
-        'refinement-mark': 'animation: refinement-mark 2s ease-in-out infinite alternate;',
-        'luxury-line': 'animation: luxury-line 1.5s ease-in-out infinite;',
-        'prince-carving': 'animation: prince-carving 2s linear infinite;',
-        'royal-starter': 'animation: royal-starter 1.8s ease-in-out infinite;'
-    },
-    
-    colors: {
-        owner: '#ff1493',
-        admin: '#ffd700',
-        prince: '#9370db'
-    }
-};
-
-// ===== نظام المستخدم =====
-let currentUser = {
-    id: null,
-    username: '',
-    email: '',
-    rank: 'visitor',
-    coins: 2000,
-    ownedFrames: [],
-    activeFrame: null,
-    isOwner: false
-};
-
-// ===== دوال المتجر =====
-function openAppStore() {
-    document.getElementById('mainMenuModal').style.display = 'none';
-    
-    const storeModal = document.createElement('div');
-    storeModal.id = 'appStoreModal';
-    storeModal.className = 'modal';
-    storeModal.innerHTML = createAppStoreHTML();
-    document.body.appendChild(storeModal);
-    storeModal.style.display = 'block';
-    
-    loadFrameStore();
 }
-
-function createAppStoreHTML() {
-    return `
-        <div class="modal-content app-store-modal">
-            <div class="modal-header">
-                <h2>🏪 متجر الإطارات والزخارف</h2>
-                <button class="close-btn" onclick="closeAppStore()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="store-content">
-                <div class="store-header">
-                    <div class="user-coins">
-                        <i class="fas fa-coins"></i>
-                        <span id="userCoinsDisplay">${currentUser.coins}</span>
-                        <span>نقطة</span>
-                    </div>
-                    <div class="store-tabs">
-                        <button class="store-tab active" onclick="showStoreTab('frames')">
-                            <i class="fas fa-picture-o"></i> الإطارات
-                        </button>
-                        <button class="store-tab" onclick="showStoreTab('decorations')">
-                            <i class="fas fa-star"></i> الزخارف
-                        </button>
-                        <button class="store-tab" onclick="showStoreTab('my-items')">
-                            <i class="fas fa-shopping-bag"></i> مشترياتي
-                        </button>
-                    </div>
-                </div>
-                <div id="storeTabContent" class="store-tab-content"></div>
-            </div>
-        </div>
-    `;
-}
-
-function loadFrameStore() {
-    showStoreTab('frames');
-}
-
-function showStoreTab(tabName) {
-    document.querySelectorAll('.store-tab').forEach(tab => tab.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    const content = document.getElementById('storeTabContent');
-    switch(tabName) {
-        case 'frames': content.innerHTML = createFramesTabHTML(); break;
-        case 'decorations': content.innerHTML = createDecorationsTabHTML(); break;
-        case 'my-items': content.innerHTML = createMyItemsTabHTML(); break;
-    }
-}
-
-function createFramesTabHTML() {
-    let html = '<div class="frames-container">';
-    
-    if (currentUser.isOwner) {
-        html += `
-            <div class="frame-category">
-                <h3 class="category-title owner-title"><i class="fas fa-crown"></i> إطارات المالك الحصرية</h3>
-                <div class="frames-grid">${FRAME_SYSTEM.frames.owner.map(f => createFrameCard(f)).join('')}</div>
-            </div>
-        `;
-    }
-    
-    if (currentUser.rank === 'admin' || currentUser.rank === 'owner') {
-        html += `
-            <div class="frame-category">
-                <h3 class="category-title admin-title"><i class="fas fa-shield-alt"></i> إطارات الإدارة</h3>
-                <div class="frames-grid">${FRAME_SYSTEM.frames.admin.map(f => createFrameCard(f)).join('')}</div>
-            </div>
-        `;
-    }
-    
-    html += `
-        <div class="frame-category">
-            <h3 class="category-title prince-title"><i class="fas fa-gem"></i> إطارات البرنس</h3>
-            <div class="frames-grid">${FRAME_SYSTEM.frames.prince.map(f => createFrameCard(f)).join('')}</div>
-        </div>
-    </div>`;
-    return html;
-}
-
-function createFrameCard(frame) {
-    const owned = currentUser.ownedFrames.includes(frame.id);
-    const active = currentUser.activeFrame === frame.id;
-    const canBuy = currentUser.coins >= frame.price;
-    const hasPermission = checkFramePermission(frame);
-    
-    return `
-        <div class="frame-card ${frame.rarity}" data-frame-id="${frame.id}">
-            <div class="frame-preview" style="${FRAME_SYSTEM.animations[frame.animation] || ''}">
-                <div class="frame-image ${frame.rarity}-frame">
-                    <div class="sample-avatar">
-                        <img src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="معاينة">
-                    </div>
-                    <div class="frame-overlay ${frame.rarity}"></div>
-                </div>
-            </div>
-            <div class="frame-info">
-                <h4 class="frame-name">${frame.name}</h4>
-                <div class="frame-rarity ${frame.rarity}">${getRarityText(frame.rarity)}</div>
-                <div class="frame-price">
-                    ${frame.exclusive ? '<span class="exclusive-tag">حصري</span>' : `<i class="fas fa-coins"></i> ${frame.price.toLocaleString()}`}
-                </div>
-                <div class="frame-actions">
-                    ${createFrameActionButton(frame, owned, active, canBuy, hasPermission)}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-function createFrameActionButton(frame, owned, active, canBuy, hasPermission) {
-    if (frame.exclusive && !currentUser.isOwner) return '<button class="btn btn-disabled" disabled>غير متاح</button>';
-    if (!hasPermission) return '<button class="btn btn-disabled" disabled>رتبة غير كافية</button>';
-    if (owned) {
-        return active ? '<button class="btn btn-active" disabled>مُفعّل</button>' : `<button class="btn btn-primary" onclick="activateFrame('${frame.id}')">تفعيل</button>`;
-    } else {
-        return canBuy ? `<button class="btn btn-success" onclick="buyFrame('${frame.id}')">شراء</button>` : '<button class="btn btn-disabled" disabled>نقاط غير كافية</button>';
-    }
-}
-
-function checkFramePermission(frame) {
-    if (frame.rarity === 'owner') return currentUser.isOwner;
-    if (frame.rarity === 'admin') return currentUser.rank === 'admin' || currentUser.rank === 'owner';
-    return true;
-}
-
-function getRarityText(rarity) {
-    return {
-        owner: '👑 مالك حصري',
-        admin: '🛡️ إداري',
-        prince: '💎 برنس'
-    }[rarity] || '⭐ عادي';
-}
-
-function buyFrame(frameId) {
-    const frame = findFrameById(frameId);
-    if (!frame) return;
-    if (currentUser.coins < frame.price) return showToast('❌ نقاط غير كافية!', 'error');
-    if (!checkFramePermission(frame)) return showToast('❌ ليس لديك صلاحية لشراء هذا الإطار!', 'error');
-    
-    currentUser.coins -= frame.price;
-    currentUser.ownedFrames.push(frameId);
-    document.getElementById('userCoinsDisplay').textContent = currentUser.coins;
-    showToast(`✅ تم شراء ${frame.name} بنجاح!`, 'success');
-    loadFrameStore();
-    saveUserData();
-}
-
-function activateFrame(frameId) {
-    const frame = findFrameById(frameId);
-    if (!frame || !currentUser.ownedFrames.includes(frameId)) {
-        showToast('❌ لا تملك هذا الإطار!', 'error');
-        return;
-    }
-    currentUser.activeFrame = frameId;
-    showToast(`✅ تم تفعيل ${frame.name}!`, 'success');
-    loadFrameStore();
-    updateUserFrame();
-    saveUserData();
-}
-
-function findFrameById(id) {
-    return [...FRAME_SYSTEM.frames.owner, ...FRAME_SYSTEM.frames.admin, ...FRAME_SYSTEM.frames.prince].find(f => f.id === id);
-}
-
-function updateUserFrame() {
-    if (!currentUser.activeFrame) return;
-    const frame = findFrameById(currentUser.activeFrame);
-    if (!frame) return;
-    
-    const avatar = document.getElementById('headerUserAvatar');
-    if (avatar) {
-        const parent = avatar.parentElement;
-        parent.classList.remove('frame-owner', 'frame-admin', 'frame-prince');
-        parent.classList.add(`frame-${frame.rarity}`);
-        parent.style.cssText = FRAME_SYSTEM.animations[frame.animation] || '';
-    }
-    
-    updateMessagesFrames();
-}
-
-function updateMessagesFrames() {
-    const messages = document.querySelectorAll('.message[data-user-id="' + currentUser.id + '"]');
-    messages.forEach(msg => {
-        const img = msg.querySelector('.message-avatar img');
-        if (img && currentUser.activeFrame) {
-            const frame = findFrameById(currentUser.activeFrame);
-            if (frame) {
-                const p = img.parentElement;
-                p.classList.remove('frame-owner', 'frame-admin', 'frame-prince');
-                p.classList.add(`frame-${frame.rarity}`);
-                p.style.cssText = FRAME_SYSTEM.animations[frame.animation] || '';
-            }
-        }
-    });
-}
-
-function createDecorationsTabHTML() {
-    return `
-        <div class="decorations-container">
-            <h3>🎨 الزخارف والتأثيرات</h3>
-            <p>قريباً... المزيد من الزخارف والتأثيرات المذهلة!</p>
-            <div class="coming-soon"><i class="fas fa-hammer"></i><p>تحت التطوير</p></div>
-        </div>
-    `;
-}
-
-function createMyItemsTabHTML() {
-    if (currentUser.ownedFrames.length === 0) {
-        return `
-            <div class="my-items-empty">
-                <i class="fas fa-shopping-cart"></i>
-                <h3>لا توجد مشتريات بعد</h3>
-                <p>ابدأ بشراء بعض الإطارات الرائعة!</p>
-            </div>
-        `;
-    }
-    const frames = currentUser.ownedFrames.map(id => findFrameById(id)).filter(f => f);
-    return `
-        <div class="my-items-container">
-            <h3>🛍️ مشترياتي (${frames.length})</h3>
-            <div class="frames-grid">${frames.map(f => createOwnedFrameCard(f)).join('')}</div>
-        </div>
-    `;
-}
-
-function createOwnedFrameCard(frame) {
-    const active = currentUser.activeFrame === frame.id;
-    return `
-        <div class="frame-card owned ${frame.rarity}" data-frame-id="${frame.id}">
-            <div class="frame-preview" style="${FRAME_SYSTEM.animations[frame.animation] || ''}">
-                <div class="frame-image ${frame.rarity}-frame">
-                    <div class="sample-avatar">
-                        <img src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="معاينة">
-                    </div>
-                    <div class="frame-overlay ${frame.rarity}"></div>
-                </div>
-                ${active ? '<div class="active-indicator">مُفعّل</div>' : ''}
-            </div>
-            <div class="frame-info">
-                <h4 class="frame-name">${frame.name}</h4>
-                <div class="frame-rarity ${frame.rarity}">${getRarityText(frame.rarity)}</div>
-                <div class="frame-actions">
-                    ${active ? '<button class="btn btn-active" disabled>مُفعّل حالياً</button>' : `<button class="btn btn-primary" onclick="activateFrame('${frame.id}')">تفعيل</button>`}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-function closeAppStore() {
-    const modal = document.getElementById('appStoreModal');
-    if (modal) modal.remove();
-}
-
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    const container = document.getElementById('toastContainer') || document.body;
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-}
-
-function saveUserData() {
-    localStorage.setItem('userData', JSON.stringify(currentUser));
-}
-
-function loadUserData() {
-    const saved = localStorage.getItem('userData');
-    if (saved) {
-        try {
-            const data = JSON.parse(saved);
-            currentUser = { ...currentUser, ...data };
-        } catch (e) {
-            console.error('خطأ في تحميل البيانات:', e);
-        }
-    }
-}
-
-function enhancedLogin() {
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
-    
-    if (email === 'njdj9985@gmail.com' && password === 'Zxcvbnm.8') {
-        currentUser = {
-            id: 1,
-            username: 'مالك الشات',
-            email: email,
-            rank: 'owner',
-            coins: 999999,
-            ownedFrames: FRAME_SYSTEM.frames.owner.map(f => f.id),
-            activeFrame: 'owner_1',
-            isOwner: true
-        };
-        saveUserData();
-        closeLoginModal();
-        updateUserFrame();
-        showToast('🎉 مرحباً بك يا مالك النظام! 👑', 'success');
-    } else {
-        showToast('❌ بيانات دخول خاطئة', 'error');
-    }
-}
-
-// ===== تهيئة عند تحميل الصفحة =====
-document.addEventListener('DOMContentLoaded', function() {
-    loadUserData();
-    if (currentUser.activeFrame) updateUserFrame();
-    addFrameStyles();
-});
-
-function addFrameStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        .frame-owner { border: 3px solid #ff1493; }
-        .frame-admin { border: 3px solid #ffd700; }
-        .frame-prince { border: 3px solid #9370db; }
-        
-        @keyframes golden-glow { 0% { box-shadow: 0 0 5px #ffd700; transform: scale(1); } 100% { box-shadow: 0 0 20px #ffd700, 0 0 30px #ffd700; transform: scale(1.02); } }
-        @keyframes royal-pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes dragon-fire { 0% { filter: hue-rotate(0deg) saturate(1); transform: rotate(0deg); } 25% { filter: hue-rotate(90deg) saturate(1.2); } 50% { filter: hue-rotate(180deg) saturate(1.4); transform: rotate(2deg); } 75% { filter: hue-rotate(270deg) saturate(1.2); } 100% { filter: hue-rotate(360deg) saturate(1); transform: rotate(0deg); } }
-        @keyframes silver-shine { 0% { box-shadow: 0 0 5px #c0c0c0; transform: scale(1); } 100% { box-shadow: 0 0 20px #c0c0c0, 0 0 30px #c0c0c0; transform: scale(1.02); } }
-        @keyframes power-glow { 0% { box-shadow: 0 0 5px rgba(0,123,255,0.5); } 50% { box-shadow: 0 0 20px rgba(0,123,255,0.8), 0 0 30px rgba(0,123,255,0.3); } 100% { box-shadow: 0 0 5px rgba(0,123,255,0.5); } }
-        @keyframes authority-beam { 0% { box-shadow: 0 0 5px rgba(100,100,255,0.5); transform: rotate(0); } 50% { box-shadow: 0 0 20px rgba(100,100,255,0.8), 0 0 30px rgba(100,100,255,0.3); transform: rotate(3deg); } 100% { box-shadow: 0 0 5px rgba(100,100,255,0.5); transform: rotate(0); } }
-        @keyframes star-burst { 0% { box-shadow: 0 0 5px rgba(255,255,0,0.5); transform: scale(1); } 50% { box-shadow: 0 0 20px rgba(255,255,0,0.8), 0 0 30px rgba(255,255,0,0.3); transform: scale(1.05); } 100% { box-shadow: 0 0 5px rgba(255,255,0,0.5); transform: scale(1); } }
-        @keyframes shield-glow { 0% { box-shadow: 0 0 5px rgba(0,255,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(0,255,0,0.8), 0 0 30px rgba(0,255,0,0.3); transform: scale(1.02); } }
-        @keyframes scepter-shine { 0% { box-shadow: 0 0 5px rgba(128,0,128,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(128,0,128,0.8), 0 0 30px rgba(128,0,128,0.3); transform: scale(1.02); } }
-        @keyframes throne-majesty { 0% { box-shadow: 0 0 5px rgba(255,165,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,165,0,0.8), 0 0 30px rgba(255,165,0,0.3); transform: scale(1.02); } }
-        @keyframes gem-sparkle { 0% { box-shadow: 0 0 5px rgba(255,20,147,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,20,147,0.8), 0 0 30px rgba(255,20,147,0.3); transform: scale(1.02); } }
-        @keyframes leadership-flame { 0% { box-shadow: 0 0 5px rgba(255,69,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,69,0,0.8), 0 0 30px rgba(255,69,0,0.3); transform: scale(1.02); } }
-        @keyframes justice-crown { 0% { box-shadow: 0 0 5px rgba(0,0,255,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(0,0,255,0.8), 0 0 30px rgba(0,0,255,0.3); transform: scale(1.02); } }
-        @keyframes prince-gold { 0% { box-shadow: 0 0 5px rgba(255,215,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,215,0,0.8), 0 0 30px rgba(255,215,0,0.3); transform: scale(1.02); } }
-        @keyframes nobility-badge { 0% { box-shadow: 0 0 5px rgba(138,43,226,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(138,43,226,0.8), 0 0 30px rgba(138,43,226,0.3); transform: scale(1.02); } }
-        @keyframes palace-gem { 0% { box-shadow: 0 0 5px rgba(255,105,180,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,105,180,0.8), 0 0 30px rgba(255,105,180,0.3); transform: scale(1.02); } }
-        @keyframes honor-eagle { 0% { box-shadow: 0 0 5px rgba(255,140,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,140,0,0.8), 0 0 30px rgba(255,140,0,0.3); transform: scale(1.02); } }
-        @keyframes royal-ray { 0% { box-shadow: 0 0 5px rgba(255,255,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,255,0,0.8), 0 0 30px rgba(255,255,0,0.3); transform: scale(1.02); } }
-        @keyframes noble-rose { 0% { box-shadow: 0 0 5px rgba(255,182,193,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,182,193,0.8), 0 0 30px rgba(255,182,193,0.3); transform: scale(1.02); } }
-        @keyframes prince-ring { 0% { box-shadow: 0 0 5px rgba(178,34,34,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(178,34,34,0.8), 0 0 30px rgba(178,34,34,0.3); transform: scale(1.02); } }
-        @keyframes noble-flame { 0% { box-shadow: 0 0 5px rgba(255,165,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,165,0,0.8), 0 0 30px rgba(255,165,0,0.3); transform: scale(1.02); } }
-        @keyframes prince-star { 0% { box-shadow: 0 0 5px rgba(255,255,255,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 30px rgba(255,255,255,0.3); transform: scale(1.02); } }
-        @keyframes honor-ribbon { 0% { box-shadow: 0 0 5px rgba(0,255,255,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(0,255,255,0.8), 0 0 30px rgba(0,255,255,0.3); transform: scale(1.02); } }
-        @keyframes luxury-feather { 0% { box-shadow: 0 0 5px rgba(139,69,19,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(139,69,19,0.8), 0 0 30px rgba(139,69,19,0.3); transform: scale(1.02); } }
-        @keyframes elegance-necklace { 0% { box-shadow: 0 0 5px rgba(255,20,147,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,20,147,0.8), 0 0 30px rgba(255,20,147,0.3); transform: scale(1.02); } }
-        @keyframes prince-emblem { 0% { box-shadow: 0 0 5px rgba(0,0,139,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(0,0,139,0.8), 0 0 30px rgba(0,0,139,0.3); transform: scale(1.02); } }
-        @keyframes merit-medal { 0% { box-shadow: 0 0 5px rgba(255,140,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,140,0,0.8), 0 0 30px rgba(255,140,0,0.3); transform: scale(1.02); } }
-        @keyframes style-symbol { 0% { box-shadow: 0 0 5px rgba(147,112,219,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(147,112,219,0.8), 0 0 30px rgba(147,112,219,0.3); transform: scale(1.02); } }
-        @keyframes excellence-badge { 0% { box-shadow: 0 0 5px rgba(255,105,180,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,105,180,0.8), 0 0 30px rgba(255,105,180,0.3); transform: scale(1.02); } }
-        @keyframes refinement-mark { 0% { box-shadow: 0 0 5px rgba(128,0,128,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(128,0,128,0.8), 0 0 30px rgba(128,0,128,0.3); transform: scale(1.02); } }
-        @keyframes luxury-line { 0% { box-shadow: 0 0 5px rgba(128,128,0,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(128,128,0,0.8), 0 0 30px rgba(128,128,0,0.3); transform: scale(1.02); } }
-        @keyframes prince-carving { 0% { box-shadow: 0 0 5px rgba(165,42,42,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(165,42,42,0.8), 0 0 30px rgba(165,42,42,0.3); transform: scale(1.02); } }
-        @keyframes royal-starter { 0% { box-shadow: 0 0 5px rgba(255,255,255,0.5); transform: scale(1); } 100% { box-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 30px rgba(255,255,255,0.3); transform: scale(1.02); } }
-    `;
-    document.head.appendChild(style);
-}
-
-// دوال مساعدة للمودالات (لإغلاق مودال تسجيل الدخول)
-function closeLoginModal() {
-    const modal = document.getElementById('loginScreen');
-    if (modal) modal.classList.remove('active');
-    document.getElementById('mainScreen').classList.add('active');
-}
-}
-
