@@ -3517,54 +3517,6 @@ async function handleGuestLogin(e) {
 }
 
 
-// التحقق من حالة الحظر مع عرض السبب ومنع الدخول إذا محظور
-async function checkBanStatus() {
-    const token = localStorage.getItem('chatToken');
-    if (!token) {
-        showLoginScreen();
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/user/profile', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (response.ok) {
-            const user = await response.json();
-            currentUser = user;
-
-            if (user.isBanned) {
-                // المستخدم محظور، عرض سبب الحظر ومنعه من الدخول
-                showBanScreen(user.banReason);
-                return;
-            }
-
-            // المستخدم مسموح له بالدخول
-            showMainScreen();
-            initializeSocket();
-            showNotification('تم رفع الحظر', 'success');
-
-        } else {
-            showError('تعذر التحقق من المستخدم');
-        }
-
-    } catch (error) {
-        showError('حدث خطأ في التحقق من حالة الحظر');
-    }
-}
-
-// دالة عرض شاشة الحظر مع السبب
-function showBanScreen(reason) {
-    document.body.innerHTML = `
-        <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
-            <h1 style="color:red;">أنت محظور</h1>
-            <p>السبب: ${reason}</p>
-        </div>
-    `;
-}
 
 
 // تحميل الغرف
@@ -5562,12 +5514,10 @@ async function cleanRooms() {
     }
 }
 
-// ===== مشغل الراديو المعدّل =====
 
-// تحميل الأغاني المخصصة عند فتح المودال
+// فتح مشغل الراديو
 function openRadioPlayer() {
     openModal('radioPlayerModal');
-    loadCustomMusicList(); // عرض الأغاني الخاصة بك
 }
 
 // إغلاق مشغل الراديو
@@ -5575,21 +5525,17 @@ function closeRadioPlayer() {
     closeModal('radioPlayerModal');
 }
 
-// تشغيل محطة راديو (المحطات العامة)
+// تشغيل محطة راديو
 function playRadioStation(station) {
-    let stationName = '';
-    if (station === 'arabic') stationName = 'المحطة العربية';
-    else if (station === 'english') stationName = 'المحطة الإنجليزية';
-    else if (station === 'classical') stationName = 'الموسيقى الكلاسيكية';
-    
-    showNotification(`تم تشغيل ${stationName}`, 'success');
-    // يمكنك لاحقًا ربطها بملفات صوتية حقيقية
+    showNotification(`تم تشغيل ${station}`, 'success');
+    // هنا يمكن إضافة كود تشغيل الراديو الفعلي
 }
 
-// تبديل الراديو (تشغيل/إيقاف)
+// تبديل الراديو
 function toggleRadio() {
     const btn = document.getElementById('radioPlayBtn');
     const icon = btn.querySelector('i');
+    
     if (icon.classList.contains('fa-play')) {
         icon.classList.remove('fa-play');
         icon.classList.add('fa-pause');
@@ -5604,137 +5550,27 @@ function toggleRadio() {
 // رفع موسيقى مخصصة
 function uploadCustomMusic() {
     const fileInput = document.getElementById('customMusicInput');
-    const categorySelect = document.getElementById('musicCategory');
-    
     if (fileInput.files.length === 0) {
         showError('يرجى اختيار ملفات صوتية');
         return;
     }
-
-    const category = categorySelect.value;
-    const categoryName = categorySelect.options[categorySelect.selectedIndex].text;
-
-    // جلب الأغاني الحالية
-    let customMusic = JSON.parse(localStorage.getItem('customMusic') || '[]');
-    const userId = localStorage.getItem('userId') || '1';
-
-    // إضافة كل ملف
-    for (let file of fileInput.files) {
-        if (!file.type.startsWith('audio/')) continue;
-
-        const song = {
-            id: Date.now() + Math.random(),
-            name: file.name,
-            url: URL.createObjectURL(file),
-            category: category,
-            categoryName: categoryName,
-            userId: userId,
-            uploadedAt: new Date().toLocaleString('ar-SA')
-        };
-        customMusic.push(song);
-    }
-
-    // حفظ في localStorage
-    localStorage.setItem('customMusic', JSON.stringify(customMusic));
     
-    // تحديث القائمة
-    loadCustomMusicList();
-    
-    // تنظيف الحقول
+    showNotification('تم رفع الأغاني بنجاح', 'success');
     fileInput.value = '';
-    showNotification(`تم رفع ${fileInput.files.length} أغاني في قسم "${categoryName}"`, 'success');
 }
 
-// تحميل وعرض الأغاني المخصصة
-function loadCustomMusicList() {
-    const listContainer = document.getElementById('customMusicList');
-    const userId = localStorage.getItem('userId') || '1';
-    const customMusic = JSON.parse(localStorage.getItem('customMusic') || '[]');
-    
-    const myMusic = customMusic.filter(song => song.userId === userId);
-    
-    if (myMusic.length === 0) {
-        listContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لم ترفع أي أغاني بعد</p>';
-        return;
-    }
-
-    // تجميع الأغاني حسب الفئة
-    const categories = {
-        arabic: { name: 'عربي', songs: [] },
-        english: { name: 'إنجليزي', songs: [] },
-        khaleeji: { name: 'خليجي', songs: [] }
-    };
-
-    myMusic.forEach(song => {
-        if (categories[song.category]) {
-            categories[song.category].songs.push(song);
-        }
-    });
-
-    let html = '';
-    for (let catKey in categories) {
-        const cat = categories[catKey];
-        if (cat.songs.length > 0) {
-            html += `<h5 style="margin: 15px 0; color: #007bff;">${cat.name}</h5>`;
-            cat.songs.forEach(song => {
-                html += `
-                    <div class="custom-song-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee;">
-                        <div>
-                            <strong>${song.name}</strong>
-                            <br><small>رفع في: ${song.uploadedAt}</small>
-                        </div>
-                        <div>
-                            <button onclick="playCustomSong('${song.id}')" class="btn btn-sm" title="تشغيل">
-                                <i class="fas fa-play"></i>
-                            </button>
-                            <button onclick="deleteCustomSong('${song.id}')" class="btn btn-sm btn-danger" title="حذف" style="margin-left: 5px;">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-    }
-
-    listContainer.innerHTML = html;
-}
-
-// تشغيل أغنية مخصصة
-function playCustomSong(songId) {
-    const customMusic = JSON.parse(localStorage.getItem('customMusic') || '[]');
-    const song = customMusic.find(s => s.id == songId);
-    
-    if (song) {
-        // تشغيل عبر مشغل خفي
-        let audio = new Audio(song.url);
-        audio.play().catch(e => showError('فشل تشغيل الأغنية'));
-        showNotification(`جارٍ تشغيل: ${song.name}`, 'success');
-    }
-}
-
-// حذف أغنية مخصصة
-function deleteCustomSong(songId) {
-    if (!confirm('هل أنت متأكد من حذف هذه الأغنية؟')) return;
-    
-    let customMusic = JSON.parse(localStorage.getItem('customMusic') || '[]');
-    customMusic = customMusic.filter(song => song.id != songId);
-    localStorage.setItem('customMusic', JSON.stringify(customMusic));
-    
-    loadCustomMusicList();
-    showNotification('تم حذف الأغنية', 'info');
-}
-
-// تبديل مشغل الموسيقى (الخلفية)
+// تبديل مشغل الموسيقى
 function toggleMusicPlayer() {
+    const btn = document.getElementById('musicToggle');
     const nowPlaying = document.getElementById('nowPlaying');
+    
     if (nowPlaying.style.display === 'none') {
         nowPlaying.style.display = 'block';
-        nowPlaying.querySelector('.song-title').textContent = 'لا توجد موسيقى خلفية';
-        showNotification('تم تشغيل مشغل الموسيقى', 'success');
+        nowPlaying.querySelector('.song-title').textContent = 'تشغيل الموسيقى...';
+        showNotification('تم تشغيل الموسيقى', 'success');
     } else {
         nowPlaying.style.display = 'none';
-        showNotification('تم إيقاف مشغل الموسيقى', 'info');
+        showNotification('تم إيقاف الموسيقى', 'info');
     }
 }
 // تسجيل الخروج
