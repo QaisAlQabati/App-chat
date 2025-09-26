@@ -5646,166 +5646,127 @@ function updateUserCoins(amount) {
         document.getElementById('profileCoins').textContent = currentUser.coins;
     }
 }// فتح منتقي الرموز التعبيرية المحسن
-// ===== دالة إرسال الرسالة في الشات العام =====
-function sendMessage() {
-    const messageInput = document.getElementById('messageInput');
-    const messageText = messageInput.value.trim();
+function openEmojiPicker() {
+   const emojis = [
+    // Smileys & Emotion
+    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😭', '😉', 
+    '😗', '😙', '😚', '😘', '🥰', '😍', '🤩', '🥳', '🫠', '🙃', 
+    '🙂', '🥲', '🥹', '😊', '☺️', '😌', '🙂‍↕️', '🙂‍↔️', '😏', '🤤', 
+    '😋', '😛', '😝', '😜', '🤪', '🥴', '😔', '🥺', '😬', '😑', 
+    '😐', '😶', '😶‍🌫️', '🫥', '🤐', '🫡', '🤔', '🤫', '🫢', '🤭', 
+    '🥱', '🤗', '🫣', '😱', '🤨', '🧐', '😒', '🙄', '😮‍💨', '😤', 
+    '😠', '😡', '🤬', '😞', '😓', '😟', '😥', '😢', '☹️', '🙁', 
+    '🫤', '😕', '😰', '😨', '😧', '😦', '😮', '😯', '😲', '😳', 
+    '🤯', '😖', '😣', '😩', '😫', '😵', '😵‍💫', '🫨', '🥶', '🥵', 
+    '🤢', '🤮', '🫩', '😴', '😪', '🤧', '🤒', '🤒', '🤕', '😷', 
+    '🤥', '😇', '🤠', '🤑', '🤓', '😎', '🤡', '🥸', '💩', '😈', 
+    '👿', '👻', '💀', '☠️', '👹', '👺', '☃️', '⛄', '🎃', '🤖', 
+    '👽', '👾', '🌚', '🌝', '🌞', '🌛', '🌜',
 
-    if (!messageText) {
-        showToast('الرجاء كتابة رسالة أولاً', 'warning');
-        return;
-    }
+    // Cat faces
+    '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾',
 
-    // إذا كان المستخدم غير مسجل، نطلب منه تسجيل الدخول
-    if (!currentUser) {
-        showToast('يرجى تسجيل الدخول أولاً لإرسال رسالة', 'error');
-        openLoginModal(); // أو يمكنك استخدام showLoginModal()
-        return;
-    }
+    // Monkeys
+    '🙈', '🙉', '🙊',
 
-    // إنشاء رسالة جديدة
-    const message = {
-        id: Date.now(),
-        sender: currentUser.username || 'مستخدم',
-        avatar: currentUser.avatar || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-        text: messageText,
-        timestamp: new Date().toLocaleTimeString(),
-        frame: currentUser.ownedFrames ? currentUser.ownedFrames.find(id => framesData.owner.some(f => f.id === id)) ? 'owner' : 
-                currentUser.ownedFrames.find(id => framesData.admin.some(f => f.id === id)) ? 'admin' :
-                currentUser.ownedFrames.find(id => framesData.prince.some(f => f.id === id)) ? 'prince' : null : null
-    };
+    // Hearts & symbols
+    '💫', '⭐', '🌟', '✨', '⚡', '💥', '💢', '💨', '💦', '💤', 
+    '🕳️', '🔥', '💯', '🎉', '🎊',
 
-    // إظهار الرسالة في الشات
-    displayMessage(message);
+    // Hearts
+    '❤️', '🧡', '💛', '💚', '🩵', '💙', '💜', '🤎', '🖤', '🩶', 
+    '🤍', '🩷', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💌', 
+    '💟', '♥️', '❣️', '❤️‍🩹', '💔', '❤️‍🔥',
 
-    // مسح حقل الإدخال
-    messageInput.value = '';
+    // Body parts & gestures
+    '💋', '🫂', '👥', '👤', '🗣️', '🧠', '🫀', '👅', '🫦', '👄', 
+    '👁️', '👀', '🦶', '🦵', '🦾', '💪', '👏', '👍', '👎', '🫶', 
+    '🙌', '👐', '🤲', '🤜', '🤛', '✊', '👊', '🫳', '🫴', '🫱', 
+    '🫲', '🫸', '🫷', '👋', '🤚', '🖐️', '✋', '🖖', '🤟', '🤘', 
+    '✌️', '🤞', '🫰', '🤙', '🤌', '🤏', '👌', '🫵', '👉', '👈', 
+    '☝️', '👆', '👇', '🖕', '✍️', '🤳', '🙏', '💅', '🤝',
 
-    // تحريك الشات لأسفل
-    const messagesContainer = document.getElementById('messagesContainer');
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    // People activities
+    '🙇', '🙋', '💁', '🙆', '🙅', '🤷', '🤦', '🙍', '🙎', '🧏', 
+    '💆', '💇', '🧖', '🛀', '🛌', '🧍', '💪', '🤳', '💅', '🤳', 
+    '🧏‍♀️', '🧏‍♂️', '🧏', '🏃‍♀️', '🏃‍♂️', '🏃', '💃', '🕺', '🕴️', 
+    '🧍‍♀️', '🧍‍♂️', '🧍', '🧎‍♀️', '🧎‍♂️', '🧎', '🚶‍♀️', '🚶‍♂️', '🚶',
 
-    // إرسال الرسالة عبر socket.io (إذا كنت تستخدمه)
-    if (typeof io !== 'undefined' && socket) {
-        socket.emit('sendMessage', message);
-    }
-}
+    // Sports & activities
+    '🏌️‍♀️', '🏌️‍♂️', '🏌️', '🏄‍♀️', '🏄‍♂️', '🏄', '🏊‍♀️', '🏊‍♂️', '🏊', 
+    '🚣‍♀️', '🚣‍♂️', '🚣', '🚴‍♀️', '🚴‍♂️', '🚴', '🚵‍♀️', '🚵‍♂️', '🚵', 
+    '🏇', '🧗‍♀️', '🧗‍♂️', '🧗', '🏋️‍♀️', '🏋️‍♂️', '🏋️', '🤼‍♀️', '🤼‍♂️', 
+    '🤸‍♀️', '🤸‍♂️', '🤹‍♀️', '🤹‍♂️', '🧘‍♀️', '🧘‍♂️', '🛌', '🏄‍♀️', 
+    '🛹', '🏂', '⛷️', '🎿', '🥌', '🎯', '🎳', '🏏', '🏑', '🏒', 
+    '🏉', '🏈', '⚽', '⚾', '🥎', '🎾', '🏐', '🏓', '🏸', '🥊', 
+    '🥋', '⛳', '🏹', '🎣', '🤿', '🛶', '🪂',
 
-// ===== دالة عرض الرسالة في الشات =====
-function displayMessage(message) {
-    const messagesContainer = document.getElementById('messagesContainer');
+    // Places & nature
+    '🏔️', '⛰️', '🌋', '🗻', '🏕️', '🏖️', '🏜️', '🏝️', '🏞️', '🏟️', 
+    '🏛️', '🏗️', '🏘️', '🏚️', '🏠', '🏡', '🏢', '🏣', '🏤', '🏥', 
+    '🏦', '🏨', '🏩', '🏪', '🏫', '🏬', '🏭', '🏯', '🏰', '💒', 
+    '🗼', '🗽', '⛪', '🕌', '🕍', '⛩️', '🕋', '🛕', '🏛️', '🏗️',
 
-    // إزالة رسالة الترحيب إذا كانت موجودة
-    const welcomeMsg = messagesContainer.querySelector('.welcome-message');
-    if (welcomeMsg) {
-        welcomeMsg.remove();
-    }
+    // Objects & items
+    '🚏', '🛤️', '🛣️', '🛢️', '⛽', '🛎️', '🧳', '🛋️', '🛏️', '🛌', 
+    '🪑', '🚪', '🪞', '🪟', '🛁', '🚿', '🪠', '🪤', '🪒', '🧴', 
+    '🧹', '🧺', '🧻', '🪣', '🪤', '🪀', '🪁', '🪂',
 
-    const messageElement = document.createElement('div');
-    messageElement.className = `message ${message.frame ? 'frame-' + message.frame : ''}`;
+    // Nature & weather
+    '🪐', '🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘', '🌙', 
+    '🌚', '🌛', '🌜', '🌡️', '☀️', '🌝', '🌞', '⭐', '🌟', '💫', 
+    '✨', '⚡', '☄️', '🌪️', '🌈', '🌤️', '⛅', '🌥️', '🌦️', '🌧️', 
+    '🌨️', '🌩️', '⛈️', '🌫️', '🌬️', '🌀', '🌊', '💧', '💦', '🌊',
 
-    messageElement.innerHTML = `
-        <div class="message-avatar">
-            <img src="${message.avatar}" alt="avatar" class="user-avatar-mini ${message.frame ? 'frame-' + message.frame : ''}">
-        </div>
-        <div class="message-content">
-            <div class="message-header">
-                <span class="message-sender">${message.sender}</span>
-                <span class="message-time">${message.timestamp}</span>
-            </div>
-            <div class="message-text">${message.text}</div>
-        </div>
-    `;
+    // Flowers & nature
+    '🥀', '🌹', '🌻', '🌼', '⚡', '💧', '🌟', '⭐', '🌙', '🌛', 
+    '🌜', '🌚', '🌝', '🌞', '☀️', '✨', '☄️',
 
-    messagesContainer.appendChild(messageElement);
+    // Animals
+    '🐈', '🐈‍⬛', '🐎', '🫏', '🦂',
 
-    // تحريك الشات لأسفل
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
+    // Books & objects
+    '📔', '📙',
 
-// ===== دالة إرسال رسالة خاصة =====
-function sendPrivateChatMessage() {
-    const privateChatInput = document.getElementById('privateChatInput');
-    const messageText = privateChatInput.value.trim();
+    // Symbols
+    '🔔', '🔊', '🩷', '🩵', '🩶', '♥️', '❌', '⭕', '🔞', '⛔', 
+    '🔕', '🔇',
 
-    if (!messageText) {
-        showToast('الرجاء كتابة رسالة أولاً', 'warning');
-        return;
-    }
-
-    if (!currentUser) {
-        showToast('يرجى تسجيل الدخول أولاً لإرسال رسالة', 'error');
-        openLoginModal();
-        return;
-    }
-
-    const selectedUser = document.getElementById('privateChatUserSelect').value;
-    if (!selectedUser) {
-        showToast('الرجاء اختيار مستخدم أولاً', 'warning');
-        return;
-    }
-
-    const message = {
-        id: Date.now(),
-        sender: currentUser.username || 'مستخدم',
-        receiver: selectedUser,
-        text: messageText,
-        timestamp: new Date().toLocaleTimeString()
-    };
-
-    // عرض الرسالة في الدردشة الخاصة
-    const privateChatMessages = document.getElementById('privateChatMessages');
-    const messageElement = document.createElement('div');
-    messageElement.className = 'private-chat-message';
-    messageElement.innerHTML = `
-        <div class="message-sender">${message.sender}</div>
-        <div class="message-text">${message.text}</div>
-        <div class="message-time">${message.timestamp}</div>
-    `;
-    privateChatMessages.appendChild(messageElement);
-
-    // مسح الحقل
-    privateChatInput.value = '';
-
-    // تحريك الشات لأسفل
-    privateChatMessages.scrollTop = privateChatMessages.scrollHeight;
-}
-
-// ===== دالة تحديث شريط التنقل مع الإطار =====
-function updateNavbar() {
-    const navbar = document.querySelector('.main-header');
-    if (navbar && currentUser) {
-        const userInfo = navbar.querySelector('.user-profile-mini');
-        if (userInfo) {
-            const avatar = userInfo.querySelector('.user-avatar-mini');
-            const userName = userInfo.querySelector('.user-name');
-            const userRank = userInfo.querySelector('.user-rank');
-
-            // تحديث اسم المستخدم والرتبة
-            if (userName) userName.textContent = currentUser.displayName || currentUser.username || 'المستخدم';
-            if (userRank) userRank.textContent = currentUser.rankInfo?.name || 'زائر';
-
-            // إضافة إطار المستخدم إذا كان مملوكاً
-            if (avatar) {
-                avatar.className = 'user-avatar-mini';
-                if (currentUser.ownedFrames) {
-                    const hasOwnerFrame = currentUser.ownedFrames.some(id => framesData.owner.find(f => f.id === id));
-                    const hasAdminFrame = currentUser.ownedFrames.some(id => framesData.admin.find(f => f.id === id));
-                    const hasPrinceFrame = currentUser.ownedFrames.some(id => framesData.prince.find(f => f.id === id));
-
-                    if (hasOwnerFrame) {
-                        avatar.classList.add('frame-owner');
-                    } else if (hasAdminFrame) {
-                        avatar.classList.add('frame-admin');
-                    } else if (hasPrinceFrame) {
-                        avatar.classList.add('frame-prince');
-                    }
-                }
-            }
-        }
-    }
-}
-
+    // Flag samples (just a few examples from your list)
+    '🇦🇪', '🇧🇭', '🇨🇦', '🇪🇬', '🇪🇭', '🇩🇿', '🇸🇾', '🇾🇪', '🇺🇲', 
+    '🇹🇷', '🇸🇩', '🇸🇦', '🇵🇸', '🇴🇲', '🇱🇾', '🇱🇧', '🇮🇶', '🇯🇴'
+];
+    
+  // خريطة الأكواد للصور المتحركة (GIFs)
+  const emojiMap = {
+    ":177:": "emojis/177.gif",
+    ":169:": "emojis/169.gif",
+    ":167:": "emojis/167.gif",
+    ":14554:": "emojis/14554.gif",
+    ":13658:": "emojis/13658.gif",
+    ":133:": "emojis/133.gif",
+    ":127:": "emojis/127.gif",
+    ":0085:": "emojis/85.gif",
+    ":0048:": "emojis/48.gif",
+    ":0045:": "emojis/45.gif",
+    ":0036:": "emojis/36.gif",
+    ":228:": "emojis/228.gif",
+    ":225:": "emojis/225.gif",
+    ":224:": "emojis/224.gif",
+    ":222:": "emojis/222.gif",
+    ":213:": "emojis/213.gif",
+    ":202:": "emojis/202.gif",
+    ":201:": "emojis/201.gif",
+    ":19:": "emojis/19.gif",
+    ":1886:": "emojis/1886.gif",
+    ":178:": "emojis/178.gif",
+    ":46:": "emojis/46.gif",
+    ":42:": "emojis/42.gif",
+    ":377:": "emojis/377.gif",
+    ":36:": "emojis/36.gif",
+    ":34:": "emojis/34.gif",
+    ":325:": "emojis/325.gif"
+  };
     const input = document.getElementById('messageInput');
     if (!input) {
         console.error('❌ لم يتم العثور على حقل الإدخال');
