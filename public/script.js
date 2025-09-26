@@ -5658,10 +5658,10 @@ function openEmojiPicker() {
     '😠', '😡', '🤬', '😞', '😓', '😟', '😥', '😢', '☹️', '🙁', 
     '🫤', '😕', '😰', '😨', '😧', '😦', '😮', '😯', '😲', '😳', 
     '🤯', '😖', '😣', '😩', '😫', '😵', '😵‍💫', '🫨', '🥶', '🥵', 
-    '🤢', '🤮', '🫩', '😴', '😪', '🤧', '🤒', '🤕', '😷', '🤥', 
-    '😇', '🤠', '🤑', '🤓', '😎', '🤡', '🥸', '💩', '😈', '👿', 
-    '👻', '💀', '☠️', '👹', '👺', '☃️', '⛄', '🎃', '🤖', '👽', 
-    '👾', '🌚', '🌝', '🌞', '🌛', '🌜',
+    '🤢', '🤮', '🫩', '😴', '😪', '🤧', '🤒', '🤒', '🤕', '😷', 
+    '🤥', '😇', '🤠', '🤑', '🤓', '😎', '🤡', '🥸', '💩', '😈', 
+    '👿', '👻', '💀', '☠️', '👹', '👺', '☃️', '⛄', '🎃', '🤖', 
+    '👽', '👾', '🌚', '🌝', '🌞', '🌛', '🌜',
 
     // Cat faces
     '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾',
@@ -5688,46 +5688,85 @@ function openEmojiPicker() {
 
     // People activities
     '🙇', '🙋', '💁', '🙆', '🙅', '🤷', '🤦', '🙍', '🙎', '🧏', 
-    '💆', '💇', '🧖', '🛀', '🛌', '🧍', '🏃‍♀️', '🏃‍♂️', '💃', '🕺', 
+    '💆', '💇', '🧖', '🛀', '🛌', '🧍', '💪', '🤳', '💅', '🤳', 
+    '🧏‍♀️', '🧏‍♂️', '🧏', '🏃‍♀️', '🏃‍♂️', '🏃', '💃', '🕺', '🕴️', 
+    '🧍‍♀️', '🧍‍♂️', '🧍', '🧎‍♀️', '🧎‍♂️', '🧎', '🚶‍♀️', '🚶‍♂️', '🚶',
 
     // Sports & activities
-    '🏇', '🏋️', '🤼', '🤸', '🤹', '🧘', '🛹', '🏂', '⛷️', '🎿', 
-    '🥌', '🎯', '🎳', '⚽', '⚾', '🎾', '🏐', '🏓', '🏸', '🥊',
+    '🏌️‍♀️', '🏌️‍♂️', '🏌️', '🏄‍♀️', '🏄‍♂️', '🏄', '🏊‍♀️', '🏊‍♂️', '🏊', 
+    '🚣‍♀️', '🚣‍♂️', '🚣', '🚴‍♀️', '🚴‍♂️', '🚴', '🚵‍♀️', '🚵‍♂️', '🚵', 
+    '🏇', '🧗‍♀️', '🧗‍♂️', '🧗', '🏋️‍♀️', '🏋️‍♂️', '🏋️', '🤼‍♀️', '🤼‍♂️', 
+    '🤸‍♀️', '🤸‍♂️', '🤹‍♀️', '🤹‍♂️', '🧘‍♀️', '🧘‍♂️', '🛌', '🏄‍♀️', 
+    '🛹', '🏂', '⛷️', '🎿', '🥌', '🎯', '🎳', '🏏', '🏑', '🏒', 
+    '🏉', '🏈', '⚽', '⚾', '🥎', '🎾', '🏐', '🏓', '🏸', '🥊', 
+    '🥋', '⛳', '🏹', '🎣', '🤿', '🛶', '🪂',
 
     // Places & nature
     '🏔️', '⛰️', '🌋', '🗻', '🏕️', '🏖️', '🏜️', '🏝️', '🏞️', '🏟️', 
     '🏛️', '🏗️', '🏘️', '🏚️', '🏠', '🏡', '🏢', '🏣', '🏤', '🏥', 
+    '🏦', '🏨', '🏩', '🏪', '🏫', '🏬', '🏭', '🏯', '🏰', '💒', 
+    '🗼', '🗽', '⛪', '🕌', '🕍', '⛩️', '🕋', '🛕', '🏛️', '🏗️',
 
     // Objects & items
-    '🚪', '🪞', '🪟', '🛁', '🚿', '🧹', '🧺', '🧻', '🪣', '🪀', 
-    '🪁', '🪂',
+    '🚏', '🛤️', '🛣️', '🛢️', '⛽', '🛎️', '🧳', '🛋️', '🛏️', '🛌', 
+    '🪑', '🚪', '🪞', '🪟', '🛁', '🚿', '🪠', '🪤', '🪒', '🧴', 
+    '🧹', '🧺', '🧻', '🪣', '🪤', '🪀', '🪁', '🪂',
 
     // Nature & weather
     '🪐', '🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘', '🌙', 
-    '☀️', '🌞', '⭐', '✨', '⚡', '☄️', '🌪️', '🌈', '🌤️', '🌧️', 
+    '🌚', '🌛', '🌜', '🌡️', '☀️', '🌝', '🌞', '⭐', '🌟', '💫', 
+    '✨', '⚡', '☄️', '🌪️', '🌈', '🌤️', '⛅', '🌥️', '🌦️', '🌧️', 
+    '🌨️', '🌩️', '⛈️', '🌫️', '🌬️', '🌀', '🌊', '💧', '💦', '🌊',
 
-    // Flowers & animals
-    '🥀', '🌹', '🌻', '🌼', '🐈', '🐈‍⬛', '🐎', '🫏', '🦂',
+    // Flowers & nature
+    '🥀', '🌹', '🌻', '🌼', '⚡', '💧', '🌟', '⭐', '🌙', '🌛', 
+    '🌜', '🌚', '🌝', '🌞', '☀️', '✨', '☄️',
 
-    // Books & symbols
-    '📔', '📙', '🔔', '🔊', '🩷', '🩵', '🩶', '♥️', '❌', '⭕', 
-    '🔞', '⛔', '🔕', '🔇',
+    // Animals
+    '🐈', '🐈‍⬛', '🐎', '🫏', '🦂',
 
-    // Flags
+    // Books & objects
+    '📔', '📙',
+
+    // Symbols
+    '🔔', '🔊', '🩷', '🩵', '🩶', '♥️', '❌', '⭕', '🔞', '⛔', 
+    '🔕', '🔇',
+
+    // Flag samples (just a few examples from your list)
     '🇦🇪', '🇧🇭', '🇨🇦', '🇪🇬', '🇪🇭', '🇩🇿', '🇸🇾', '🇾🇪', '🇺🇲', 
-    '🇹🇷', '🇸🇩', '🇸🇦', '🇵🇸', '🇴🇲', '🇱🇾', '🇱🇧', '🇮🇶', '🇯🇴',
-
-    // --- الإيموجيات اللي طلبت إضافتها ---
-    ':177:', ':169:', ':167:', ':14554:', ':13658:',
-    ':133:', ':127:', ':0085:', ':0048:', ':0045:',
-    ':0036:', ':228:', ':225:', ':224:', ':222:',
-    ':213:', ':202:', ':201:', ':19:', ':1886:',
-    ':178:', ':46:', ':42:', ':377:', ':36:',
-    ':34:', ':325:'
-   ];
-
-   return emojis;
-}
+    '🇹🇷', '🇸🇩', '🇸🇦', '🇵🇸', '🇴🇲', '🇱🇾', '🇱🇧', '🇮🇶', '🇯🇴'
+];
+    
+  // خريطة الأكواد للصور المتحركة (GIFs)
+  const emojiMap = {
+    ":177:": "emojis/177.gif",
+    ":169:": "emojis/169.gif",
+    ":167:": "emojis/167.gif",
+    ":14554:": "emojis/14554.gif",
+    ":13658:": "emojis/13658.gif",
+    ":133:": "emojis/133.gif",
+    ":127:": "emojis/127.gif",
+    ":0085:": "emojis/85.gif",
+    ":0048:": "emojis/48.gif",
+    ":0045:": "emojis/45.gif",
+    ":0036:": "emojis/36.gif",
+    ":228:": "emojis/228.gif",
+    ":225:": "emojis/225.gif",
+    ":224:": "emojis/224.gif",
+    ":222:": "emojis/222.gif",
+    ":213:": "emojis/213.gif",
+    ":202:": "emojis/202.gif",
+    ":201:": "emojis/201.gif",
+    ":19:": "emojis/19.gif",
+    ":1886:": "emojis/1886.gif",
+    ":178:": "emojis/178.gif",
+    ":46:": "emojis/46.gif",
+    ":42:": "emojis/42.gif",
+    ":377:": "emojis/377.gif",
+    ":36:": "emojis/36.gif",
+    ":34:": "emojis/34.gif",
+    ":325:": "emojis/325.gif"
+  };
 
     const input = document.getElementById('messageInput');
     if (!input) {
@@ -6913,6 +6952,168 @@ function addManualPlayButton(audio) {
         profileModal.appendChild(playButton);
     }
 }
-
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>متجر الإطارات</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+        }
+        .close-btn {
+            float: left;
+            background: none;
+            border: none;
+            font-size: 1.2em;
+            cursor: pointer;
+        }
+        .store-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .store-tab {
+            padding: 10px;
+            cursor: pointer;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .store-tab.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .frames-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .frame-card {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .frame-image {
+            width: 100%;
+            height: 150px;
+            background-size: cover;
+            position: relative;
+            border-radius: 4px;
+        }
+        .sample-avatar {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+        }
+        .btn-buy {
+            padding: 8px;
+            width: 100%;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-buy.enabled {
+            background: #28a745;
+            color: white;
+        }
+        .btn-buy.disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 4px;
+            color: white;
+        }
+        .toast-success { background: #28a745; }
+        .toast-error { background: #dc3545; }
+        .toast-info { background: #17a2b8; }
+        .main-header {
+            background: #f8f9fa;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-profile-mini {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .user-avatar-mini {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #ddd;
+        }
+        .frame-owner { border: 2px solid gold; }
+        .frame-admin { border: 2px solid silver; }
+        .frame-prince { border: 2px solid purple; }
+    </style>
+</head>
+<body>
+    <div class="main-header">
+        <div class="user-profile-mini">
+            <div class="user-avatar-mini"></div>
+            <div>
+                <div class="user-name">المستخدم</div>
+                <div class="user-rank">زائر</div>
+            </div>
+        </div>
+        <button onclick="openAppStore()">افتح المتجر</button>
+        <button onclick="showLoginModal()">تسجيل الدخول</button>
+    </div>
+    <div id="toastContainer"></div>
+    <div id="loginModal" style="display: none;" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>تسجيل الدخول</h2>
+                <button class="close-btn" onclick="closeLoginModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="email" id="loginEmail" placeholder="البريد الإلكتروني">
+                <input type="password" id="loginPassword" placeholder="كلمة المرور">
+                <button onclick="login()">تسجيل الدخول</button>
+            </div>
+        </div>
+    </div>
+    <script src="your-script.js"></script>
+    <script>
+        function showLoginModal() {
+            document.getElementById('loginModal').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
 
 
