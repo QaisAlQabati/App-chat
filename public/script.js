@@ -4013,8 +4013,8 @@ function openMainMenu() {
 function closeMainMenu() {
     closeModal('mainMenuModal');
 }
-<!-- افترض أن هذا الكود داخل ملف HTML أو JS منفصل -->
-<script>const express = require('express');
+
+const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const multer = require('multer');
