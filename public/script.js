@@ -5646,87 +5646,164 @@ function updateUserCoins(amount) {
         document.getElementById('profileCoins').textContent = currentUser.coins;
     }
 }// فتح منتقي الرموز التعبيرية المحسن
-function openEmojiPicker() {
-   const emojis = [
-    // Smileys & Emotion
-    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😭', '😉', 
-    '😗', '😙', '😚', '😘', '🥰', '😍', '🤩', '🥳', '🫠', '🙃', 
-    '🙂', '🥲', '🥹', '😊', '☺️', '😌', '🙂‍↕️', '🙂‍↔️', '😏', '🤤', 
-    '😋', '😛', '😝', '😜', '🤪', '🥴', '😔', '🥺', '😬', '😑', 
-    '😐', '😶', '😶‍🌫️', '🫥', '🤐', '🫡', '🤔', '🤫', '🫢', '🤭', 
-    '🥱', '🤗', '🫣', '😱', '🤨', '🧐', '😒', '🙄', '😮‍💨', '😤', 
-    '😠', '😡', '🤬', '😞', '😓', '😟', '😥', '😢', '☹️', '🙁', 
-    '🫤', '😕', '😰', '😨', '😧', '😦', '😮', '😯', '😲', '😳', 
-    '🤯', '😖', '😣', '😩', '😫', '😵', '😵‍💫', '🫨', '🥶', '🥵', 
-    '🤢', '🤮', '🫩', '😴', '😪', '🤧', '🤒', '🤕', '😷', '🤥', 
-    '😇', '🤠', '🤑', '🤓', '😎', '🤡', '🥸', '💩', '😈', '👿', 
-    '👻', '💀', '☠️', '👹', '👺', '☃️', '⛄', '🎃', '🤖', '👽', 
-    '👾', '🌚', '🌝', '🌞', '🌛', '🌜',
+// ===== دالة إرسال الرسالة في الشات العام =====
+function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const messageText = messageInput.value.trim();
 
-    // Cat faces
-    '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾',
+    if (!messageText) {
+        showToast('الرجاء كتابة رسالة أولاً', 'warning');
+        return;
+    }
 
-    // Monkeys
-    '🙈', '🙉', '🙊',
+    // إذا كان المستخدم غير مسجل، نطلب منه تسجيل الدخول
+    if (!currentUser) {
+        showToast('يرجى تسجيل الدخول أولاً لإرسال رسالة', 'error');
+        openLoginModal(); // أو يمكنك استخدام showLoginModal()
+        return;
+    }
 
-    // Hearts & symbols
-    '💫', '⭐', '🌟', '✨', '⚡', '💥', '💢', '💨', '💦', '💤', 
-    '🕳️', '🔥', '💯', '🎉', '🎊',
+    // إنشاء رسالة جديدة
+    const message = {
+        id: Date.now(),
+        sender: currentUser.username || 'مستخدم',
+        avatar: currentUser.avatar || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+        text: messageText,
+        timestamp: new Date().toLocaleTimeString(),
+        frame: currentUser.ownedFrames ? currentUser.ownedFrames.find(id => framesData.owner.some(f => f.id === id)) ? 'owner' : 
+                currentUser.ownedFrames.find(id => framesData.admin.some(f => f.id === id)) ? 'admin' :
+                currentUser.ownedFrames.find(id => framesData.prince.some(f => f.id === id)) ? 'prince' : null : null
+    };
 
-    // Hearts
-    '❤️', '🧡', '💛', '💚', '🩵', '💙', '💜', '🤎', '🖤', '🩶', 
-    '🤍', '🩷', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💌', 
-    '💟', '♥️', '❣️', '❤️‍🩹', '💔', '❤️‍🔥',
+    // إظهار الرسالة في الشات
+    displayMessage(message);
 
-    // Body parts & gestures
-    '💋', '🫂', '👥', '👤', '🗣️', '🧠', '🫀', '👅', '🫦', '👄', 
-    '👁️', '👀', '🦶', '🦵', '🦾', '💪', '👏', '👍', '👎', '🫶', 
-    '🙌', '👐', '🤲', '🤜', '🤛', '✊', '👊', '🫳', '🫴', '🫱', 
-    '🫲', '🫸', '🫷', '👋', '🤚', '🖐️', '✋', '🖖', '🤟', '🤘', 
-    '✌️', '🤞', '🫰', '🤙', '🤌', '🤏', '👌', '🫵', '👉', '👈', 
-    '☝️', '👆', '👇', '🖕', '✍️', '🤳', '🙏', '💅', '🤝',
+    // مسح حقل الإدخال
+    messageInput.value = '';
 
-    // People activities
-    '🙇', '🙋', '💁', '🙆', '🙅', '🤷', '🤦', '🙍', '🙎', '🧏', 
-    '💆', '💇', '🧖', '🛀', '🛌', '🧍', '🏃‍♀️', '🏃‍♂️', '💃', '🕺', 
+    // تحريك الشات لأسفل
+    const messagesContainer = document.getElementById('messagesContainer');
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-    // Sports & activities
-    '🏇', '🏋️', '🤼', '🤸', '🤹', '🧘', '🛹', '🏂', '⛷️', '🎿', 
-    '🥌', '🎯', '🎳', '⚽', '⚾', '🎾', '🏐', '🏓', '🏸', '🥊',
+    // إرسال الرسالة عبر socket.io (إذا كنت تستخدمه)
+    if (typeof io !== 'undefined' && socket) {
+        socket.emit('sendMessage', message);
+    }
+}
 
-    // Places & nature
-    '🏔️', '⛰️', '🌋', '🗻', '🏕️', '🏖️', '🏜️', '🏝️', '🏞️', '🏟️', 
-    '🏛️', '🏗️', '🏘️', '🏚️', '🏠', '🏡', '🏢', '🏣', '🏤', '🏥', 
+// ===== دالة عرض الرسالة في الشات =====
+function displayMessage(message) {
+    const messagesContainer = document.getElementById('messagesContainer');
 
-    // Objects & items
-    '🚪', '🪞', '🪟', '🛁', '🚿', '🧹', '🧺', '🧻', '🪣', '🪀', 
-    '🪁', '🪂',
+    // إزالة رسالة الترحيب إذا كانت موجودة
+    const welcomeMsg = messagesContainer.querySelector('.welcome-message');
+    if (welcomeMsg) {
+        welcomeMsg.remove();
+    }
 
-    // Nature & weather
-    '🪐', '🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘', '🌙', 
-    '☀️', '🌞', '⭐', '✨', '⚡', '☄️', '🌪️', '🌈', '🌤️', '🌧️', 
+    const messageElement = document.createElement('div');
+    messageElement.className = `message ${message.frame ? 'frame-' + message.frame : ''}`;
 
-    // Flowers & animals
-    '🥀', '🌹', '🌻', '🌼', '🐈', '🐈‍⬛', '🐎', '🫏', '🦂',
+    messageElement.innerHTML = `
+        <div class="message-avatar">
+            <img src="${message.avatar}" alt="avatar" class="user-avatar-mini ${message.frame ? 'frame-' + message.frame : ''}">
+        </div>
+        <div class="message-content">
+            <div class="message-header">
+                <span class="message-sender">${message.sender}</span>
+                <span class="message-time">${message.timestamp}</span>
+            </div>
+            <div class="message-text">${message.text}</div>
+        </div>
+    `;
 
-    // Books & symbols
-    '📔', '📙', '🔔', '🔊', '🩷', '🩵', '🩶', '♥️', '❌', '⭕', 
-    '🔞', '⛔', '🔕', '🔇',
+    messagesContainer.appendChild(messageElement);
 
-    // Flags
-    '🇦🇪', '🇧🇭', '🇨🇦', '🇪🇬', '🇪🇭', '🇩🇿', '🇸🇾', '🇾🇪', '🇺🇲', 
-    '🇹🇷', '🇸🇩', '🇸🇦', '🇵🇸', '🇴🇲', '🇱🇾', '🇱🇧', '🇮🇶', '🇯🇴',
+    // تحريك الشات لأسفل
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
 
-    // --- الإيموجيات اللي طلبت إضافتها ---
-    ':177:', ':169:', ':167:', ':14554:', ':13658:',
-    ':133:', ':127:', ':0085:', ':0048:', ':0045:',
-    ':0036:', ':228:', ':225:', ':224:', ':222:',
-    ':213:', ':202:', ':201:', ':19:', ':1886:',
-    ':178:', ':46:', ':42:', ':377:', ':36:',
-    ':34:', ':325:'
-   ];
+// ===== دالة إرسال رسالة خاصة =====
+function sendPrivateChatMessage() {
+    const privateChatInput = document.getElementById('privateChatInput');
+    const messageText = privateChatInput.value.trim();
 
-   return emojis;
+    if (!messageText) {
+        showToast('الرجاء كتابة رسالة أولاً', 'warning');
+        return;
+    }
+
+    if (!currentUser) {
+        showToast('يرجى تسجيل الدخول أولاً لإرسال رسالة', 'error');
+        openLoginModal();
+        return;
+    }
+
+    const selectedUser = document.getElementById('privateChatUserSelect').value;
+    if (!selectedUser) {
+        showToast('الرجاء اختيار مستخدم أولاً', 'warning');
+        return;
+    }
+
+    const message = {
+        id: Date.now(),
+        sender: currentUser.username || 'مستخدم',
+        receiver: selectedUser,
+        text: messageText,
+        timestamp: new Date().toLocaleTimeString()
+    };
+
+    // عرض الرسالة في الدردشة الخاصة
+    const privateChatMessages = document.getElementById('privateChatMessages');
+    const messageElement = document.createElement('div');
+    messageElement.className = 'private-chat-message';
+    messageElement.innerHTML = `
+        <div class="message-sender">${message.sender}</div>
+        <div class="message-text">${message.text}</div>
+        <div class="message-time">${message.timestamp}</div>
+    `;
+    privateChatMessages.appendChild(messageElement);
+
+    // مسح الحقل
+    privateChatInput.value = '';
+
+    // تحريك الشات لأسفل
+    privateChatMessages.scrollTop = privateChatMessages.scrollHeight;
+}
+
+// ===== دالة تحديث شريط التنقل مع الإطار =====
+function updateNavbar() {
+    const navbar = document.querySelector('.main-header');
+    if (navbar && currentUser) {
+        const userInfo = navbar.querySelector('.user-profile-mini');
+        if (userInfo) {
+            const avatar = userInfo.querySelector('.user-avatar-mini');
+            const userName = userInfo.querySelector('.user-name');
+            const userRank = userInfo.querySelector('.user-rank');
+
+            // تحديث اسم المستخدم والرتبة
+            if (userName) userName.textContent = currentUser.displayName || currentUser.username || 'المستخدم';
+            if (userRank) userRank.textContent = currentUser.rankInfo?.name || 'زائر';
+
+            // إضافة إطار المستخدم إذا كان مملوكاً
+            if (avatar) {
+                avatar.className = 'user-avatar-mini';
+                if (currentUser.ownedFrames) {
+                    const hasOwnerFrame = currentUser.ownedFrames.some(id => framesData.owner.find(f => f.id === id));
+                    const hasAdminFrame = currentUser.ownedFrames.some(id => framesData.admin.find(f => f.id === id));
+                    const hasPrinceFrame = currentUser.ownedFrames.some(id => framesData.prince.find(f => f.id === id));
+
+                    if (hasOwnerFrame) {
+                        avatar.classList.add('frame-owner');
+                    } else if (hasAdminFrame) {
+                        avatar.classList.add('frame-admin');
+                    } else if (hasPrinceFrame) {
+                        avatar.classList.add('frame-prince');
+                    }
+                }
+            }
+        }
+    }
 }
 
     const input = document.getElementById('messageInput');
