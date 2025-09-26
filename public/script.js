@@ -6924,8 +6924,8 @@ const framesData = {
             name: 'إطار الملك',
             rarity: 'owner',
             price: 0, // غير قابل للشراء
-            image: 'https://i.imgur.com/8JZvGQp.png', // صورة الإطار
-            exclusive: true, // حصري للمالك
+            image: 'https://i.imgur.com/8JZvGQp.png',
+            exclusive: true,
             animation: 'dragon-fire'
         },
         {
@@ -7291,13 +7291,16 @@ function closeAppStoreModal() {
 function showFrameCategory(category) {
     const tabs = document.querySelectorAll('.store-tab');
     tabs.forEach(tab => tab.classList.remove('active'));
-    const currentTab = Array.from(tabs).find(tab => tab.onclick.toString().includes(`'${category}'`));
+    const currentTab = Array.from(tabs).find(tab => tab.getAttribute('onclick').includes(`'${category}'`));
     if (currentTab) {
         currentTab.classList.add('active');
     }
 
     const storeContent = document.getElementById('storeContent');
-    if (!storeContent) return;
+    if (!storeContent) {
+        showToast('خطأ في تحميل محتوى المتجر', 'error');
+        return;
+    }
 
     let categoryTitle = '';
     let categoryClass = '';
@@ -7314,6 +7317,10 @@ function showFrameCategory(category) {
         case 'prince':
             categoryTitle = '👑 إطارات البرنس';
             categoryClass = 'prince-title';
+            break;
+        default:
+            categoryTitle = 'فئة غير معروفة';
+            categoryClass = '';
             break;
     }
 
@@ -7362,7 +7369,7 @@ function renderFrames(category) {
         `;
     });
 
-    return html;
+    return html || '<p>لا توجد إطارات متاحة في هذه الفئة.</p>';
 }
 
 // ===== شراء إطار =====
@@ -7391,13 +7398,11 @@ function buyFrame(frameId, price) {
         return;
     }
 
-    // تحقق مما إذا كان الإطار مملوكاً بالفعل
     if (currentUser.ownedFrames && currentUser.ownedFrames.includes(frameId)) {
         showToast('لديك هذا الإطار بالفعل', 'info');
         return;
     }
 
-    // خصم النقاط (إذا كانت هناك)
     if (price > 0) {
         currentUser.coins -= price;
         showToast(`تم شراء الإطار بنجاح! تم خصم ${price} نقطة`, 'success');
@@ -7405,26 +7410,20 @@ function buyFrame(frameId, price) {
         showToast('تم تفعيل الإطار الحصري!', 'success');
     }
 
-    // إضافة الإطار إلى قائمة الإطارات المملوكة
     if (!currentUser.ownedFrames) {
         currentUser.ownedFrames = [];
     }
     currentUser.ownedFrames.push(frameId);
 
-    // تحديث واجهة المتجر
     showFrameCategory(getCurrentCategory());
-
-    // حفظ البيانات في localStorage
     localStorage.setItem('userData', JSON.stringify(currentUser));
-
-    // تحديث شريط التنقل
     updateNavbar();
 }
 
 // ===== البحث عن إطار بواسطة ID =====
 function findFrameById(id) {
-    for (const category in framesData) {
-        const frame = framesData[category].find(f => f.id === id);
+    for (const category of Object.values(framesData)) {
+        const frame = category.find(f => f.id === id);
         if (frame) return frame;
     }
     return null;
@@ -7439,38 +7438,40 @@ function getCurrentCategory() {
         if (onclick.includes("'admin'")) return 'admin';
         if (onclick.includes("'prince'")) return 'prince';
     }
-    return 'owner'; // افتراضي
+    return 'owner';
 }
 
 // ===== تحديث شريط التنقل =====
 function updateNavbar() {
     const navbar = document.querySelector('.main-header');
-    if (navbar && currentUser) {
-        const userInfo = navbar.querySelector('.user-profile-mini');
-        if (userInfo) {
-            const avatar = userInfo.querySelector('.user-avatar-mini');
-            const userName = userInfo.querySelector('.user-name');
-            const userRank = userInfo.querySelector('.user-rank');
+    if (!navbar) return;
 
-            // تحديث اسم المستخدم والرتبة
-            if (userName) userName.textContent = currentUser.displayName || currentUser.username || 'المستخدم';
-            if (userRank) userRank.textContent = currentUser.rankInfo?.name || 'زائر';
+    const userInfo = navbar.querySelector('.user-profile-mini');
+    if (userInfo && currentUser) {
+        const avatar = userInfo.querySelector('.user-avatar-mini');
+        const userName = userInfo.querySelector('.user-name');
+        const userRank = userInfo.querySelector('.user-rank');
 
-            // إضافة إطار المستخدم إذا كان مملوكاً
-            if (avatar) {
-                const ownedFrames = currentUser.ownedFrames || [];
-                const hasOwnerFrame = ownedFrames.some(id => framesData.owner.find(f => f.id === id));
-                const hasAdminFrame = ownedFrames.some(id => framesData.admin.find(f => f.id === id));
-                const hasPrinceFrame = ownedFrames.some(id => framesData.prince.find(f => f.id === id));
+        if (userName) {
+            userName.textContent = currentUser.displayName || currentUser.username || 'المستخدم';
+        }
+        if (userRank) {
+            userRank.textContent = currentUser.rankInfo?.name || 'زائر';
+        }
 
-                avatar.className = 'user-avatar-mini';
-                if (hasOwnerFrame) {
-                    avatar.classList.add('frame-owner');
-                } else if (hasAdminFrame) {
-                    avatar.classList.add('frame-admin');
-                } else if (hasPrinceFrame) {
-                    avatar.classList.add('frame-prince');
-                }
+        if (avatar) {
+            const ownedFrames = currentUser.ownedFrames || [];
+            const hasOwnerFrame = ownedFrames.some(id => framesData.owner.find(f => f.id === id));
+            const hasAdminFrame = ownedFrames.some(id => framesData.admin.find(f => f.id === id));
+            const hasPrinceFrame = ownedFrames.some(id => framesData.prince.find(f => f.id === id));
+
+            avatar.className = 'user-avatar-mini';
+            if (hasOwnerFrame) {
+                avatar.classList.add('frame-owner');
+            } else if (hasAdminFrame) {
+                avatar.classList.add('frame-admin');
+            } else if (hasPrinceFrame) {
+                avatar.classList.add('frame-prince');
             }
         }
     }
@@ -7479,52 +7480,105 @@ function updateNavbar() {
 // ===== عرض رسالة تنبيه =====
 function showToast(message, type = 'info') {
     const toastContainer = document.getElementById('toastContainer');
-    if (!toastContainer) return;
+    if (!toastContainer) {
+        console.warn('Toast container not found');
+        return;
+    }
 
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = message;
     toastContainer.appendChild(toast);
 
-    // إزالة الرسالة بعد 3 ثوانٍ
     setTimeout(() => {
         toast.remove();
     }, 3000);
 }
 
+// ===== إغلاق نافذة تسجيل الدخول =====
+function closeLoginModal() {
+    const loginModal = document.getElementById('loginModal');
+    if (loginModal) {
+        loginModal.remove();
+    }
+}
+
+// ===== عرض نافذة المالك =====
+function showOwnerModal() {
+    const modal = document.createElement('div');
+    modal.id = 'ownerModal';
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content owner-modal">
+            <div class="modal-header">
+                <h2>🏆 مرحبًا بك، يا مالك!</h2>
+                <button class="close-btn" onclick="closeOwnerModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>🎉 لقد تم تسجيل دخولك كمالك النظام. يمكنك الآن الوصول إلى الإطارات الحصرية!</p>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// ===== إغلاق نافذة المالك =====
+function closeOwnerModal() {
+    const modal = document.getElementById('ownerModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
 // ===== تحميل بيانات المستخدم عند بدء التشغيل =====
 document.addEventListener('DOMContentLoaded', function() {
-    if (localStorage.getItem('userData')) {
+    const userData = localStorage.getItem('userData');
+    if (userData) {
         try {
-            currentUser = JSON.parse(localStorage.getItem('userData'));
+            currentUser = JSON.parse(userData);
             if (currentUser) {
                 updateNavbar();
             }
         } catch (e) {
-            console.log('جلسة منتهية');
+            console.error('خطأ في تحليل بيانات المستخدم:', e);
+            showToast('جلسة منتهية، يرجى تسجيل الدخول مجددًا', 'error');
         }
     }
 });
 
 // ===== تسجيل الدخول =====
-async function login() {
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
+function login() {
+    const emailInput = document.getElementById('loginEmail');
+    const passwordInput = document.getElementById('loginPassword');
+
+    if (!emailInput || !passwordInput) {
+        showToast('خطأ في واجهة تسجيل الدخول', 'error');
+        return;
+    }
+
+    const email = emailInput.value.trim();
+    const password = passwordInput.value.trim();
+
+    if (!email || !password) {
+        showToast('يرجى إدخال البريد الإلكتروني وكلمة المرور', 'error');
+        return;
+    }
 
     if (email === 'njdj9985@gmail.com' && password === 'ZXcvbnm.8') {
-        // أنت المالك!
         currentUser = {
             id: 1,
             username: 'مالك الشات',
             email: email,
             rank: 'owner',
             isOwner: true,
-            coins: 1000000, // نقاط كبيرة للمالك
-            ownedFrames: [], // الإطارات المملوكة
+            coins: 1000000,
+            ownedFrames: [],
             rankInfo: { name: '🏆 مالك النظام', emoji: '🏆', color: '#ff1493' }
         };
 
-        // إضافة الإطارات الحصرية للمالك تلقائيًا
         framesData.owner.forEach(frame => {
             if (!currentUser.ownedFrames.includes(frame.id)) {
                 currentUser.ownedFrames.push(frame.id);
@@ -7541,26 +7595,27 @@ async function login() {
     }
 }
 
-// ===== إضافة الإطارات إلى ملف المستخدم عند التسجيل =====
+// ===== تسجيل مستخدم جديد =====
 function registerUser(displayName, email, password) {
-    // ... (كود التسجيل الحالي)
-    // بعد إنشاء المستخدم، نضيف له بيانات الإطارات
+    if (!displayName || !email || !password) {
+        showToast('يرجى إدخال جميع الحقول', 'error');
+        return;
+    }
+
     const newUser = {
         id: Date.now(),
         displayName: displayName,
         email: email,
-        password: password,
+        password: password, // ملاحظة: يجب تشفير كلمة المرور في تطبيق حقيقي
         rank: 'visitor',
-        coins: 2000, // نقاط بداية
-        ownedFrames: [], // لا يملك أي إطار في البداية
+        coins: 2000,
+        ownedFrames: [],
         rankInfo: { name: 'زائر', emoji: '👋', color: '#6c757d' }
     };
 
-    // حفظ المستخدم في localStorage
     localStorage.setItem('userData', JSON.stringify(newUser));
     currentUser = newUser;
 
-    // تحديث واجهة المستخدم
     updateNavbar();
     showToast('✅ تم إنشاء الحساب بنجاح!', 'success');
 }
