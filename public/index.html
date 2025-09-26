@@ -307,7 +307,7 @@
             </div>
         </div>
     </div>
-    <!-- مودال الملف الشخصي -->
+      <!-- مودال الملف الشخصي -->
     <div id="profileModal" class="modal">
         <div class="modal-content profile-modal">
             <div class="modal-header">
@@ -467,6 +467,60 @@
                                 <button onclick="updateNameDecoration()" class="btn">تطبيق الزخرفة</button>
                                 <p class="feature-note">بعض الزخارف متاحة للرتب العالية فقط</p>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- مودال عرض ملف شخصي آخر -->
+    <div id="viewProfileModal" class="modal">
+        <div class="modal-content profile-modal">
+            <div class="modal-header">
+                <h2 id="viewProfileName">الملف الشخصي</h2>
+                <button class="close-btn" onclick="closeViewProfileModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="profile-content">
+                <div class="profile-cover">
+                    <img id="viewProfileCover" src="" alt="خلفية البروفايل">
+                </div>
+                <div class="profile-info">
+                    <div class="profile-avatar-section">
+                        <div class="profile-avatars">
+                            <div class="avatar-slot">
+                                <img id="viewProfileImg1" src="" alt="صورة 1">
+                            </div>
+                            <div class="avatar-slot">
+                                <img id="viewProfileImg2" src="" alt="صورة 2">
+                            </div>
+                        </div>
+                        <div class="profile-stats">
+                            <div class="stat-item">
+                                <span class="stat-number" id="viewProfileLikes">0</span>
+                                <span class="stat-label">إعجاب</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number" id="viewProfileCoins">0</span>
+                                <span class="stat-label">نقطة</span>
+                            </div>
+                        </div>
+                        <div class="profile-actions">
+                            <button onclick="likeProfile()" class="btn like-btn">
+                                <i class="fas fa-heart"></i> إعجاب
+                            </button>
+                            <button onclick="startPrivateChat()" class="btn message-btn">
+                                <i class="fas fa-envelope"></i> رسالة
+                            </button>
+                        </div>
+                    </div>
+                    <div class="profile-details">
+                        <div id="viewProfileInfo" class="profile-info-display">
+                            <!-- سيتم ملؤها بالجافاسكريبت -->
+                        </div>
+                        <div id="viewProfileMusic" class="profile-music-display">
+                            <!-- موسيقى البروفايل -->
                         </div>
                     </div>
                 </div>
