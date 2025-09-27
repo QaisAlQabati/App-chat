@@ -6951,3 +6951,246 @@ function addManualPlayButton(audio) {
         profileModal.appendChild(playButton);
     }
 }
+// ===== إدارة طلبات الصداقة =====
+function sendFriendRequest(targetUserId) {
+    if (!currentUser) {
+        showToast('يرجى تسجيل الدخول أولاً', 'error');
+        return;
+    }
+    if (!targetUserId) {
+        showToast('لم يتم تحديد مستخدم', 'error');
+        return;
+    }
+    if (currentUser.id === targetUserId) {
+        showToast('لا يمكنك إرسال طلب صداقة لنفسك', 'error');
+        return;
+    }
+
+    const friendRequests = JSON.parse(localStorage.getItem('friendRequests') || '{}');
+    if (!friendRequests[targetUserId]) {
+        friendRequests[targetUserId] = { from: currentUser.id, username: currentUser.username, status: 'pending' };
+        localStorage.setItem('friendRequests', JSON.stringify(friendRequests));
+        showToast(`تم إرسال طلب صداقة إلى ${currentUser.username}`, 'success');
+        updateFriendRequests();
+    } else if (friendRequests[targetUserId].status === 'pending') {
+        showToast('تم إرسال طلب صداقة مسبقاً', 'info');
+    }
+}
+
+function updateFriendRequests() {
+    const friendRequests = JSON.parse(localStorage.getItem('friendRequests') || '{}');
+    const requestsList = document.getElementById('friendRequestsList');
+    if (!requestsList) return;
+
+    const userRequests = Object.values(friendRequests).filter(req => req.to === currentUser.id && req.status === 'pending');
+    if (userRequests.length === 0) {
+        requestsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">لا توجد طلبات صداقة حالياً</p>';
+        return;
+    }
+
+    requestsList.innerHTML = userRequests.map(req => `
+        <div class="friend-request-item">
+            <span>${req.username} يريد أن يصبح صديقك</span>
+            <div class="request-actions">
+                <button onclick="acceptFriendRequest('${req.from}')" class="btn btn-success">
+                    <i class="fas fa-check"></i> قبول
+                </button>
+                <button onclick="rejectFriendRequest('${req.from}')" class="btn btn-danger">
+                    <i class="fas fa-times"></i> رفض
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function acceptFriendRequest(userId) {
+    const friendRequests = JSON.parse(localStorage.getItem('friendRequests') || '{}');
+    if (friendRequests[userId]) {
+        friendRequests[userId].status = 'accepted';
+        localStorage.setItem('friendRequests', JSON.stringify(friendRequests));
+        if (!currentUser.friends) currentUser.friends = [];
+        currentUser.friends.push(userId);
+        localStorage.setItem('userData', JSON.stringify(currentUser));
+        showToast('تم قبول طلب الصداقة!', 'success');
+        updateFriendRequests();
+    }
+}
+
+function rejectFriendRequest(userId) {
+    const friendRequests = JSON.parse(localStorage.getItem('friendRequests') || '{}');
+    if (friendRequests[userId]) {
+        delete friendRequests[userId];
+        localStorage.setItem('friendRequests', JSON.stringify(friendRequests));
+        showToast('تم رفض طلب الصداقة!', 'info');
+        updateFriendRequests();
+    }
+}
+
+function openFriendRequestsModal() {
+    document.getElementById('friendRequestsModal').style.display = 'block';
+    updateFriendRequests();
+}
+
+function closeFriendRequestsModal() {
+    document.getElementById('friendRequestsModal').style.display = 'none';
+}
+
+// تعديل دالة updateNavbar لإضافة أيقونة طلبات الصداقة
+function updateNavbar() {
+    const navbar = document.querySelector('.main-header');
+    if (navbar && currentUser) {
+        const userInfo = navbar.querySelector('.user-profile-mini');
+        if (userInfo) {
+            userInfo.innerHTML = `
+                <img id="headerUserAvatar" class="user-avatar-mini" src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop" alt="">
+                <div class="user-info-mini">
+                    <span style="color: ${currentUser.rankInfo.color}; font-weight: bold;">
+                        ${currentUser.rankInfo.emoji} ${currentUser.username}
+                    </span>
+                    <span id="headerUserRank" class="user-rank">${currentUser.rankInfo.name}</span>
+                </div>
+            `;
+        }
+        const notificationsBtn = navbar.querySelector('.header-btn[onclick="openNotifications()"]');
+        if (notificationsBtn) {
+            notificationsBtn.outerHTML = `
+                <button class="header-btn" onclick="openNotifications()" title="الإشعارات">
+                    <i class="fas fa-bell"></i>
+                    <span id="notificationCount" class="notification-badge">0</span>
+                </button>
+                <button class="header-btn" onclick="openFriendRequestsModal()" title="طلبات الصداقة">
+                    <i class="fas fa-users"></i>
+                    <span id="friendRequestCount" class="notification-badge">0</span>
+                </button>
+            `;
+        }
+        updateFriendRequestCount();
+    }
+}
+
+// تحديث عدد طلبات الصداقة
+function updateFriendRequestCount() {
+    const friendRequests = JSON.parse(localStorage.getItem('friendRequests') || '{}');
+    const count = Object.values(friendRequests).filter(req => req.to === currentUser.id && req.status === 'pending').length;
+    document.getElementById('friendRequestCount').textContent = count;
+}
+
+// تعديل دالة login لإضافة حقل friends
+async function login() {
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    if (email === 'njdj9985@gmail.com' && password === 'ZXcvbnm.8') {
+        currentUser = {
+            id: 1,
+            username: 'مالك الشات',
+            email: email,
+            rank: 'owner',
+            isOwner: true,
+            rankInfo: { name: '🏆 مالك النظام', emoji: '🏆', color: '#ff1493' },
+            friends: []
+        };
+        localStorage.setItem('userData', JSON.stringify(currentUser));
+        closeLoginModal();
+        showOwnerModal();
+        updateNavbar();
+        alert('🎉 مرحباً يا مالك! 🏆');
+    } else {
+        alert('❌ بيانات خاطئة');
+    }
+}
+
+// تعديل دالة registerUser لإضافة حقل friends
+function registerUser(displayName, email, password) {
+    if (!displayName || !email || !password) {
+        showToast('يرجى إدخال جميع الحقول', 'error');
+        return;
+    }
+    const newUser = {
+        id: Date.now(),
+        displayName: displayName,
+        email: email,
+        password: password,
+        rank: 'visitor',
+        coins: 2000,
+        ownedFrames: [],
+        rankInfo: { name: 'زائر', emoji: '👋', color: '#6c757d' },
+        friends: []
+    };
+    localStorage.setItem('userData', JSON.stringify(newUser));
+    currentUser = newUser;
+    updateNavbar();
+    showToast('✅ تم إنشاء الحساب بنجاح!', 'success');
+}
+
+// تعديل دالة updateOnlineUsers لإضافة زر طلب صداقة
+function updateOnlineUsers(users) {
+    const usersList = document.getElementById('onlineUsersList');
+    if (usersList) {
+        usersList.innerHTML = users.map(user => `
+            <div class="user-item" data-user-id="${user.id}">
+                <img src="https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=50&h=50&fit=crop" alt="${user.username}" class="user-avatar">
+                <span class="user-name">${user.username}</span>
+                <span class="user-rank" style="color: ${user.rankInfo.color}">${user.rankInfo.emoji} ${user.rankInfo.name}</span>
+                <button onclick="sendFriendRequest(${user.id})" class="btn btn-primary" style="padding: 5px 10px; margin-left: 10px;">
+                    <i class="fas fa-user-plus"></i> طلب صداقة
+                </button>
+            </div>
+        `).join('');
+        document.getElementById('onlineCount').textContent = users.length;
+    }
+}
+
+// تعديل دالة viewUserProfile لإضافة زر طلب صداقة
+function viewUserProfile(userId) {
+    const user = getUserById(userId);
+    if (user) {
+        document.getElementById('viewProfileName').textContent = user.username;
+        document.getElementById('viewProfileCover').src = user.cover || 'https://images.pexels.com/photos/1323550/pexels-photo-1323550.jpeg?auto=compress&cs=tinysrgb&w=800&h=300&fit=crop';
+        document.getElementById('viewProfileImg1').src = user.avatar1 || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop';
+        document.getElementById('viewProfileImg2').src = user.avatar2 || 'https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop';
+        document.getElementById('viewProfileLikes').textContent = user.likes || 0;
+        document.getElementById('viewProfileCoins').textContent = user.coins || 0;
+        document.getElementById('viewProfileInfo').innerHTML = `
+            <p><strong>الاسم:</strong> ${user.username}</p>
+            <p><strong>الرتبة:</strong> ${user.rankInfo.name}</p>
+            <p><strong>البريد:</strong> ${user.email}</p>
+            <button onclick="sendFriendRequest(${user.id})" class="btn btn-primary" style="margin-top: 10px;">
+                <i class="fas fa-user-plus"></i> طلب صداقة
+            </button>
+        `;
+        document.getElementById('viewProfileModal').style.display = 'block';
+    }
+}
+
+// دالة مساعدة للحصول على بيانات المستخدم
+function getUserById(userId) {
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    return users.find(u => u.id === userId) || { username: 'مستخدم مجهول', id: userId };
+}
+
+// تحديث دالة document.addEventListener لتشمل طلبات الصداقة
+document.addEventListener('DOMContentLoaded', function() {
+    const menu = document.querySelector('.main-menu, nav, .navbar');
+    if (menu && !menu.querySelector('#loginBtn')) {
+        const loginBtn = document.createElement('button');
+        loginBtn.id = 'loginBtn';
+        loginBtn.innerHTML = '🔐 دخول';
+        loginBtn.style.cssText = 'padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 10px; cursor: pointer;';
+        loginBtn.onclick = showLoginModal;
+        const firstBtn = menu.querySelector('button');
+        if (firstBtn) {
+            firstBtn.parentNode.insertBefore(loginBtn, firstBtn);
+        } else {
+            menu.appendChild(loginBtn);
+        }
+    }
+    if (localStorage.getItem('userData')) {
+        try {
+            currentUser = JSON.parse(localStorage.getItem('userData'));
+            updateNavbar();
+            updateFriendRequests();
+        } catch (e) {
+            console.log('جلسة منتهية');
+        }
+    }
+});
