@@ -416,7 +416,7 @@ io.on('connection', (socket) => {
             user_id: socket.user.userId, 
             display_name: socket.user.display_name, 
             rank: socket.user.rank, 
-            content: data.content, 
+            message: data.message,
             type: 'text', 
             timestamp: new Date() 
         };
