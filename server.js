@@ -21,7 +21,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ 
     storage,
-    limits: { fileSize: 5 * 1024 * 1000 }, // حد 5 ميغابايت
+    limits: { fileSize: 5 * 1024 * 1024 }, // حد 5 ميغابايت
     fileFilter: (req, file, cb) => {
         const filetypes = /jpeg|jpg|png|webm/;
         const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
@@ -175,7 +175,7 @@ app.get('/api/news', (req, res) => {
     res.json(news);
 });
 
-// API لنشر خبر جديد ←←← التعديل الوحيد هنا ←←←
+// API لنشر خبر جديد
 app.post('/api/news', upload.single('newsFile'), (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const user = users.find(u => 'fake-token-' + u.id === token);
@@ -192,8 +192,7 @@ app.post('/api/news', upload.single('newsFile'), (req, res) => {
         user_id: user.id,
         display_name: user.display_name,
         timestamp: new Date(),
-        likes: [],
-        pinned: false // ←←← هذا هو التعديل الوحيد في الكود كله
+        likes: []
     };
     news.push(newNews);
     io.emit('newNews', newNews);
@@ -594,8 +593,7 @@ io.on('connection', (socket) => {
             user_id: user.userId,
             display_name: user.display_name,
             timestamp: new Date(),
-            likes: [],
-            pinned: false // ← حتى هنا أضفته للاتساق (لكنك لا تستخدمه حاليًا عبر Socket)
+            likes: []
         };
         news.push(newNews);
         io.emit('updateNewsPost', newNews);
@@ -711,3 +709,4 @@ setInterval(() => {
 // تشغيل الخادم
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+```
