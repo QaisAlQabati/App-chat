@@ -4351,7 +4351,8 @@ app.use((req, res, next) => {
     next();
 });
 
-// API للطرد (الحظر)
+
+// API للطرد
 app.post('/api/ban', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const admin = users.find(u => 'fake-token-' + u.id === token);
@@ -4361,37 +4362,16 @@ app.post('/api/ban', (req, res) => {
     const user = users.find(u => u.id === parseInt(userId));
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    const existingMute = mutes.find(m => m.user_id === user.id);
-    if (existingMute) mutes = mutes.filter(m => m.user_id !== user.id);
-
     const ban = {
         id: bans.length + 1,
         user_id: user.id,
-        reason: reason || 'لا يوجد سبب',
-        duration: duration || null,
+        reason,
+        duration,
         timestamp: new Date()
     };
     bans.push(ban);
-    io.emit('userBanned', { userId: user.id, reason: ban.reason, duration: ban.duration });
+    io.emit('userBanned', { userId: user.id, reason, duration });
     res.json({ message: 'تم طرد المستخدم' });
-});
-
-// API لإزالة الحظر
-app.post('/api/unban', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const admin = users.find(u => 'fake-token-' + u.id === token);
-    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
-
-    const { userId } = req.body;
-    const user = users.find(u => u.id === parseInt(userId));
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
-    const banIndex = bans.findIndex(b => b.user_id === user.id);
-    if (banIndex === -1) return res.status(404).json({ error: 'لا يوجد حظر للمستخدم' });
-
-    bans.splice(banIndex, 1);
-    io.emit('userUnbanned', { userId: user.id });
-    res.json({ message: 'تم إزالة الحظر' });
 });
 
 // API للكتم
@@ -4404,51 +4384,18 @@ app.post('/api/mute', (req, res) => {
     const user = users.find(u => u.id === parseInt(userId));
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    const existingBan = bans.find(b => b.user_id === user.id);
-    if (existingBan) bans = bans.filter(b => b.user_id !== user.id);
-
     const mute = {
         id: mutes.length + 1,
         user_id: user.id,
-        reason: reason || 'لا يوجد سبب',
-        duration: duration || null,
+        reason,
+        duration,
         timestamp: new Date()
     };
     mutes.push(mute);
-    io.emit('userMuted', { userId: user.id, reason: mute.reason, duration: mute.duration });
+    io.emit('userMuted', { userId: user.id, reason, duration });
     res.json({ message: 'تم كتم المستخدم' });
 });
 
-// API لإزالة الكتم
-app.post('/api/unmute', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const admin = users.find(u => 'fake-token-' + u.id === token);
-    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
-
-    const { userId } = req.body;
-    const user = users.find(u => u.id === parseInt(userId));
-    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
-    const muteIndex = mutes.findIndex(m => m.user_id === user.id);
-    if (muteIndex === -1) return res.status(404).json({ error: 'لا يوجد كتم للمستخدم' });
-
-    mutes.splice(muteIndex, 1);
-    io.emit('userUnmuted', { userId: user.id });
-    res.json({ message: 'تم إزالة الكتم' });
-});
-
-// Middleware للتحقق من الكتم قبل السماح بالكتابة
-app.use('/api/sendMessage', (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (user) {
-        const mute = mutes.find(m => m.user_id === user.id && (!m.duration || new Date(m.timestamp.getTime() + m.duration * 1000) > new Date()));
-        if (mute) {
-            return res.status(403).json({ error: `ممنوع الكتابة بسبب: ${mute.reason}. المدة المتبقية: ${mute.duration ? Math.ceil((new Date(mute.timestamp.getTime() + m.duration * 1000) - new Date()) / 1000) : 'دائم'} ثانية` });
-        }
-    }
-    next();
-});
 // Socket.IO للتواصل الفوري
 io.on('connection', (socket) => {
     console.log('مستخدم متصل: ' + socket.id);
