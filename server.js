@@ -416,7 +416,7 @@ io.on('connection', (socket) => {
             user_id: socket.user.userId, 
             display_name: socket.user.display_name, 
             rank: socket.user.rank, 
-            message: data.message,
+            message: data.message,  // ←←← هذا هو السطر الوحيد الذي تم تعديله
             type: 'text', 
             timestamp: new Date() 
         };
@@ -709,4 +709,3 @@ setInterval(() => {
 // تشغيل الخادم
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-```
