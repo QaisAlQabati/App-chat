@@ -746,13 +746,45 @@
                     <div class="rooms-management">
                         <button onclick="openCreateRoomModal()" class="btn btn-primary">
                             <i class="fas fa-plus"></i>
-                            إنشاء غرفة جديدة
-                        </button>
-                        <div id="adminRoomsList" class="admin-rooms-list">
-                            <!-- سيتم ملؤها بالجافاسكريبت -->
-                        </div>
-                    </div>
-                </div>
+                           <!-- مودال إنشاء غرفة -->
+<div id="createRoomModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>إنشاء غرفة جديدة</h2>
+            <button class="close-btn" onclick="closeCreateRoomModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="room-form">
+            <div class="form-group">
+                <label>اسم الغرفة:</label>
+                <input type="text" id="roomName" placeholder="اسم الغرفة" required>
+            </div>
+            <div class="form-group">
+                <label>وصف الغرفة:</label>
+                <textarea id="roomDescription" placeholder="وصف الغرفة (اختياري)"></textarea>
+            </div>
+            <div class="form-group">
+                <label>خلفية الغرفة:</label>
+                <input type="file" id="roomBackgroundInput" accept="image/*" required>
+            </div>
+            <div class="form-group">
+                <label>جعل الغرفة خاصة:</label>
+                <input type="checkbox" id="isPrivateRoom" onchange="togglePasswordField()">
+                <span id="passwordField" style="display: none; margin-top: 10px;">
+                    <label>كلمة المرور:</label>
+                    <input type="password" id="roomPassword" placeholder="كلمة المرور للغرفة">
+                </span>
+            </div>
+            <button onclick="createRoom()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> إنشاء الغرفة
+            </button>
+            <button onclick="deleteRoom()" class="btn btn-danger" style="margin-top: 10px;" id="deleteRoomBtn" disabled>
+                <i class="fas fa-trash"></i> حذف الغرفة
+            </button>
+        </div>
+    </div>
+</div>
                 <div id="adminBansTab" class="admin-tab">
                     <div class="bans-management">
                         <h3>المستخدمون المحظورون</h3>
