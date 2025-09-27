@@ -204,6 +204,20 @@
                     <input type="file" id="voiceInput" accept="audio/*" style="display: none;">
                 </div>
             </div>
+            <!-- مودال طلبات الصداقة -->
+<div id="friendRequestsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>📩 طلبات الصداقة</h2>
+            <button class="close-btn" onclick="closeFriendRequestsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="friendRequestsList" class="friend-requests-list">
+            <p style="text-align: center; color: var(--text-secondary);">لا توجد طلبات صداقة حالياً</p>
+        </div>
+    </div>
+</div>
             <!-- الشريط الجانبي للمستخدمين -->
             <aside class="users-sidebar">
                 <div class="sidebar-header">
