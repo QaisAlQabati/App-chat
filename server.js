@@ -14,54 +14,6 @@ const io = socketIo(server, {
 app.use(bodyParser.json());
 app.use(express.static('Uploads')); // لخدمة الملفات (صور، صوت) من مجلد Uploads
 
-// دوال مساعدة للتحقق من الصلاحيات
-const isOwner = (user) => user && user.email === OWNER_EMAIL;
-const isAdmin = (user) => user && (user.role === 'admin' || isOwner(user));
-const canModerateUsers = (user) => user && (user.rank === 'admin' || isOwner(user));
-const canManageRooms = (user) => user && (user.rank === 'admin' || isOwner(user));
-
-// ميدلوير للتحقق من صلاحيات المالك
-const requireOwner = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!isOwner(user)) {
-        return res.status(403).json({ error: 'هذه الصلاحية للمالك فقط' });
-    }
-    req.user = user;
-    next();
-};
-
-// ميدلوير للتحقق من صلاحيات الإدارة
-const requireAdmin = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!isAdmin(user)) {
-        return res.status(403).json({ error: 'هذه الصلاحية للإدارة فقط' });
-    }
-    req.user = user;
-    next();
-};
-
-// دالة لتسجيل الإجراءات في سجل التدقيق
-const logAuditAction = (user, action, details) => {
-    auditLog.push({
-        id: auditLog.length + 1,
-        userId: user.id,
-        userEmail: user.email,
-        action,
-        details,
-        timestamp: new Date()
-    });
-};
-
-// دالة للتحقق من مستوى المستخدم
-const getUserLevel = (user) => {
-    if (isOwner(user)) return 5;
-    if (user.rank === 'admin') return 4;
-    if (user.rank === 'prince') return 3;
-    return parseInt(user.rank.replace('level', '')) || 1;
-};
-
 // إعداد Multer لتخزين الملفات مع حد للحجم
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, 'Uploads/'),
@@ -83,66 +35,12 @@ const upload = multer({
 });
 
 // مصفوفات مؤقتة لتخزين البيانات
-const OWNER_EMAIL = 'njdj9985@gmail.com';
-const DEFAULT_FRAMES = {
-    owner: [
-        { id: 'o1', name: 'إطار المالك 1', type: 'animated', glow: true, colors: ['gold', 'purple'], purchasable: false },
-        { id: 'o2', name: 'إطار المالك 2', type: 'animated', glow: true, colors: ['red', 'blue'], purchasable: false },
-        { id: 'o3', name: 'إطار المالك 3', type: 'animated', glow: true, colors: ['green', 'cyan'], purchasable: false }
-    ],
-    admin: Array.from({ length: 10 }, (_, i) => ({
-        id: `a${i+1}`,
-        name: `إطار الإدارة ${i+1}`,
-        type: 'animated',
-        glow: true,
-        colors: ['red', 'blue', 'green'],
-        price: 100000,
-        purchasable: true,
-        minRank: 'admin'
-    })),
-    prince: Array.from({ length: 20 }, (_, i) => ({
-        id: `p${i+1}`,
-        name: `إطار البرنس ${i+1}`,
-        type: 'animated',
-        glow: true,
-        colors: ['purple', 'gold'],
-        price: 2000,
-        purchasable: true,
-        minRank: 'prince'
-    }))
-};
-
 let rooms = [
-    { id: 1, name: 'الغرفة الرئيسية', description: 'غرفة دردشة عامة', background: null, status: 'open' }
+    { id: 1, name: 'الغرفة الرئيسية', description: 'غرفة دردشة عامة', background: null }
 ];
 
 let users = [
-    { 
-        id: 1, 
-        display_name: 'المالك', 
-        rank: 'owner', 
-        role: 'owner', 
-        email: OWNER_EMAIL,
-        password: 'admin123', // يجب تغييرها من قبل المالك
-        profile_image1: null,
-        profile_image2: null,
-        message_background: null,
-        age: null,
-        gender: null,
-        marital_status: null,
-        about_me: null,
-        coins: 1000000,
-        frames: DEFAULT_FRAMES.owner,
-        activeFrame: 'o1',
-        privacySettings: {
-            profile: 'all',
-            privateMessages: 'all',
-            notifications: true
-        },
-        purchasedItems: [],
-        lastSeen: new Date(),
-        joinDate: new Date()
-    }
+    { id: 1, display_name: 'Admin', rank: 'admin', role: 'admin', email: 'admin@example.com', password: 'admin', profile_image1: null, profile_image2: null, message_background: null, age: null, gender: null, marital_status: null, about_me: null }
 ];
 
 let messages = [];
@@ -151,17 +49,6 @@ let news = [];
 let stories = [];
 let bans = [];
 let mutes = [];
-let frames = [...DEFAULT_FRAMES.owner, ...DEFAULT_FRAMES.admin, ...DEFAULT_FRAMES.prince];
-let shop = {
-    frames: frames.filter(f => f.purchasable),
-    backgrounds: [],
-    emojis: [],
-    crowns: [],
-    effects: []
-};
-let auditLog = [];
-let music = [];
-let quizzes = [];
 let floodProtection = new Map(); // لحماية من الفيضانات
 let competitions = [];
 let comments = [];
@@ -389,47 +276,17 @@ app.post('/api/competitions', (req, res) => {
     res.json(newCompetition);
 });
 
-// API endpoints للمالك
+// API لتعيين رتبة
+app.post('/api/assign-rank', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const admin = users.find(u => 'fake-token-' + u.id === token);
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
 
-// تغيير كلمة مرور أو بريد أي مستخدم
-app.post('/api/owner/update-user-credentials', requireOwner, (req, res) => {
-    const { userId, newEmail, newPassword } = req.body;
-    const targetUser = users.find(u => u.id === parseInt(userId));
-    if (!targetUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
-    if (newEmail) targetUser.email = newEmail;
-    if (newPassword) targetUser.password = newPassword;
-
-    logAuditAction(req.user, 'update_user_credentials', {
-        targetUserId: userId,
-        emailChanged: !!newEmail,
-        passwordChanged: !!newPassword
-    });
-
-    res.json({ message: 'تم تحديث بيانات المستخدم' });
-});
-
-// تعيين رتبة للمستخدم
-app.post('/api/assign-rank', requireAdmin, (req, res) => {
     const { userId, rank, reason } = req.body;
     const user = users.find(u => u.id === parseInt(userId));
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    // فقط المالك يمكنه تعيين رتبة الإدارة
-    if (rank === 'admin' && !isOwner(req.user)) {
-        return res.status(403).json({ error: 'فقط المالك يمكنه تعيين رتبة الإدارة' });
-    }
-
-    const oldRank = user.rank;
     user.rank = rank;
-
-    logAuditAction(req.user, 'assign_rank', {
-        targetUserId: userId,
-        oldRank,
-        newRank: rank,
-        reason
-    });
-
     res.json({ message: 'تم تعيين الرتبة' });
     io.emit('userUpdated', user);
 });
@@ -448,262 +305,48 @@ app.get('/api/users', (req, res) => {
     })));
 });
 
-// API للتحكم في الغرف
-app.post('/api/rooms/manage', requireAdmin, (req, res) => {
-    const { action, roomId, name, description, background } = req.body;
-    
-    switch (action) {
-        case 'create':
-            const newRoom = {
-                id: rooms.length + 1,
-                name,
-                description,
-                background,
-                status: 'open',
-                createdBy: req.user.id,
-                createdAt: new Date()
-            };
-            rooms.push(newRoom);
-            io.emit('roomCreated', newRoom);
-            logAuditAction(req.user, 'create_room', { roomId: newRoom.id });
-            res.json(newRoom);
-            break;
+// API للطرد
+app.post('/api/ban', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const admin = users.find(u => 'fake-token-' + u.id === token);
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
 
-        case 'update':
-            const room = rooms.find(r => r.id === parseInt(roomId));
-            if (!room) return res.status(404).json({ error: 'الغرفة غير موجودة' });
-            
-            if (name) room.name = name;
-            if (description) room.description = description;
-            if (background) room.background = background;
-            
-            io.emit('roomUpdated', room);
-            logAuditAction(req.user, 'update_room', { roomId });
-            res.json(room);
-            break;
-
-        case 'delete':
-            rooms = rooms.filter(r => r.id !== parseInt(roomId));
-            io.emit('roomDeleted', roomId);
-            logAuditAction(req.user, 'delete_room', { roomId });
-            res.json({ message: 'تم حذف الغرفة' });
-            break;
-
-        case 'close':
-        case 'open':
-            const targetRoom = rooms.find(r => r.id === parseInt(roomId));
-            if (!targetRoom) return res.status(404).json({ error: 'الغرفة غير موجودة' });
-            
-            targetRoom.status = action === 'close' ? 'closed' : 'open';
-            io.emit('roomStatusChanged', { roomId, status: targetRoom.status });
-            logAuditAction(req.user, `${action}_room`, { roomId });
-            res.json(targetRoom);
-            break;
-    }
-});
-
-// API للحظر
-app.post('/api/ban', requireAdmin, (req, res) => {
     const { userId, reason, duration } = req.body;
     const user = users.find(u => u.id === parseInt(userId));
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
-    // لا يمكن حظر المالك أو الإدارة
-    if (isAdmin(user)) {
-        return res.status(403).json({ error: 'لا يمكن حظر المالك أو الإدارة' });
-    }
 
     const ban = {
         id: bans.length + 1,
         user_id: user.id,
-        admin_id: req.user.id,
         reason,
         duration,
-        timestamp: new Date(),
-        endTime: duration === 'permanent' ? null : new Date(Date.now() + parseDuration(duration))
+        timestamp: new Date()
     };
     bans.push(ban);
-    
-    logAuditAction(req.user, 'ban_user', {
-        targetUserId: userId,
-        reason,
-        duration
-    });
-
     io.emit('userBanned', { userId: user.id, reason, duration });
-    res.json({ message: 'تم حظر المستخدم' });
+    res.json({ message: 'تم طرد المستخدم' });
 });
 
 // API للكتم
-app.post('/api/mute', requireAdmin, (req, res) => {
+app.post('/api/mute', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    const admin = users.find(u => 'fake-token-' + u.id === token);
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'غير مسموح' });
+
     const { userId, reason, duration } = req.body;
     const user = users.find(u => u.id === parseInt(userId));
     if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
-    // لا يمكن كتم المالك أو الإدارة
-    if (isAdmin(user)) {
-        return res.status(403).json({ error: 'لا يمكن كتم المالك أو الإدارة' });
-    }
-
     const mute = {
         id: mutes.length + 1,
         user_id: user.id,
-        admin_id: req.user.id,
         reason,
         duration,
-        timestamp: new Date(),
-        endTime: duration === 'permanent' ? null : new Date(Date.now() + parseDuration(duration))
+        timestamp: new Date()
     };
     mutes.push(mute);
-
-    logAuditAction(req.user, 'mute_user', {
-        targetUserId: userId,
-        reason,
-        duration
-    });
-
     io.emit('userMuted', { userId: user.id, reason, duration });
     res.json({ message: 'تم كتم المستخدم' });
-
-    // إرسال رسالة للشات إذا كان الكتم في غرفة عامة
-    if (req.body.roomId) {
-        const muteMessage = {
-            id: messages.length + 1,
-            roomId: req.body.roomId,
-            content: `تم كتم ${user.display_name} - السبب: ${reason}`,
-            type: 'system',
-            timestamp: new Date()
-        };
-        messages.push(muteMessage);
-        io.to(req.body.roomId).emit('newMessage', muteMessage);
-    }
-});
-
-// API للمتجر والإطارات
-app.get('/api/shop', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    
-    // تصفية العناصر حسب رتبة المستخدم
-    const filteredShop = {
-        frames: shop.frames.filter(f => !f.minRank || getUserLevel(user) >= getUserLevel({ rank: f.minRank })),
-        backgrounds: shop.backgrounds,
-        emojis: shop.emojis,
-        crowns: shop.crowns,
-        effects: shop.effects
-    };
-    
-    res.json(filteredShop);
-});
-
-app.post('/api/shop/purchase', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const user = users.find(u => 'fake-token-' + u.id === token);
-    if (!user) return res.status(401).json({ error: 'غير مصرح له' });
-
-    const { itemId, itemType } = req.body;
-    const item = shop[itemType]?.find(i => i.id === itemId);
-    if (!item) return res.status(404).json({ error: 'العنصر غير موجود' });
-    
-    // التحقق من الرتبة المطلوبة
-    if (item.minRank && getUserLevel(user) < getUserLevel({ rank: item.minRank })) {
-        return res.status(403).json({ error: 'رتبتك غير كافية لشراء هذا العنصر' });
-    }
-
-    // التحقق من السعر
-    if (user.coins < item.price) {
-        return res.status(400).json({ error: 'رصيدك غير كافٍ' });
-    }
-
-    // إتمام عملية الشراء
-    user.coins -= item.price;
-    user.purchasedItems.push({
-        id: itemId,
-        type: itemType,
-        purchaseDate: new Date(),
-        price: item.price
-    });
-
-    if (itemType === 'frames') {
-        user.frames.push(item);
-    }
-
-    logAuditAction(user, 'purchase_item', {
-        itemId,
-        itemType,
-        price: item.price
-    });
-
-    res.json({
-        message: 'تم الشراء بنجاح',
-        newBalance: user.coins,
-        item
-    });
-});
-
-// API لإدارة المتجر (للمالك فقط)
-app.post('/api/shop/manage', requireOwner, (req, res) => {
-    const { action, itemType, item } = req.body;
-
-    switch (action) {
-        case 'add':
-            if (!shop[itemType]) shop[itemType] = [];
-            const newItem = { ...item, id: Date.now().toString() };
-            shop[itemType].push(newItem);
-            logAuditAction(req.user, 'add_shop_item', { itemType, itemId: newItem.id });
-            res.json(newItem);
-            break;
-
-        case 'update':
-            const index = shop[itemType]?.findIndex(i => i.id === item.id);
-            if (index === -1) return res.status(404).json({ error: 'العنصر غير موجود' });
-            shop[itemType][index] = { ...shop[itemType][index], ...item };
-            logAuditAction(req.user, 'update_shop_item', { itemType, itemId: item.id });
-            res.json(shop[itemType][index]);
-            break;
-
-        case 'delete':
-            if (!shop[itemType]) return res.status(404).json({ error: 'نوع العنصر غير موجود' });
-            shop[itemType] = shop[itemType].filter(i => i.id !== item.id);
-            logAuditAction(req.user, 'delete_shop_item', { itemType, itemId: item.id });
-            res.json({ message: 'تم حذف العنصر' });
-            break;
-
-        default:
-            res.status(400).json({ error: 'إجراء غير صالح' });
-    }
-});
-
-// API لإدارة الإطارات الخاصة (للمالك فقط)
-app.post('/api/frames/manage', requireOwner, (req, res) => {
-    const { action, frameId, userId, frame } = req.body;
-
-    switch (action) {
-        case 'assign':
-            const targetUser = users.find(u => u.id === parseInt(userId));
-            if (!targetUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
-            
-            const frameToAssign = frames.find(f => f.id === frameId);
-            if (!frameToAssign) return res.status(404).json({ error: 'الإطار غير موجود' });
-
-            targetUser.frames.push(frameToAssign);
-            logAuditAction(req.user, 'assign_frame', { frameId, userId });
-            res.json({ message: 'تم إضافة الإطار للمستخدم' });
-            break;
-
-        case 'create':
-            const newFrame = { ...frame, id: Date.now().toString() };
-            frames.push(newFrame);
-            if (frame.purchasable) {
-                shop.frames.push(newFrame);
-            }
-            logAuditAction(req.user, 'create_frame', { frameId: newFrame.id });
-            res.json(newFrame);
-            break;
-
-        default:
-            res.status(400).json({ error: 'إجراء غير صالح' });
-    }
 });
 
 // Socket.IO للتواصل الفوري
@@ -719,15 +362,6 @@ io.on('connection', (socket) => {
 
     // إرسال رسالة عامة
     socket.on('sendMessage', (data) => {
-        if (!socket.user) return socket.emit('error', 'يجب تسجيل الدخول أولاً');
-        
-        // فحص حالة الغرفة
-        const room = rooms.find(r => r.id === parseInt(data.roomId));
-        if (!room) return socket.emit('error', 'الغرفة غير موجودة');
-        if (room.status === 'closed' && !isAdmin(socket.user)) {
-            return socket.emit('error', 'الغرفة مغلقة');
-        }
-
         // فحص الحماية من الفيضانات
         const userId = socket.user.userId;
         const now = Date.now();
@@ -737,10 +371,11 @@ io.on('connection', (socket) => {
         }
 
         const userMessages = floodProtection.get(userId);
+        // إزالة الرسائل القديمة (أكثر من 10 ثواني)
         const recentMessages = userMessages.filter(time => now - time < 10000);
 
         // إذا أرسل أكثر من 5 رسائل في 10 ثواني
-        if (recentMessages.length >= 5 && !isAdmin(socket.user)) {
+        if (recentMessages.length >= 5) {
             const muteEndTime = new Date(now + 5 * 60 * 1000); // 5 دقائق
             const mute = {
                 id: mutes.length + 1,
@@ -752,6 +387,7 @@ io.on('connection', (socket) => {
             };
             mutes.push(mute);
 
+            // إرسال رسالة للشات عن الكتم
             const muteMessage = {
                 id: messages.length + 1,
                 roomId: data.roomId,
@@ -772,139 +408,20 @@ io.on('connection', (socket) => {
         const isMuted = mutes.find(m => m.user_id === socket.user.userId && 
             (m.duration === 'permanent' || (m.endTime && new Date() < new Date(m.endTime)) || 
              new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
-        if (isMuted && !isAdmin(socket.user)) {
-            return socket.emit('error', 'أنت مكتوم ولا يمكنك إرسال الرسائل');
-        }
-
-        // تحقق من مستوى المستخدم
-        const userLevel = getUserLevel(socket.user);
-        if (userLevel < 1) {
-            return socket.emit('error', 'مستواك غير كافٍ لإرسال الرسائل');
-        }
+        if (isMuted) return socket.emit('error', 'أنت مكتوم ولا يمكنك إرسال الرسائل');
 
         const message = { 
             id: messages.length + 1, 
             roomId: data.roomId, 
             user_id: socket.user.userId, 
             display_name: socket.user.display_name, 
-            rank: socket.user.rank,
-            frame: socket.user.activeFrame,
-            message: data.message,
-            type: 'text',
-            reactions: [],
-            isPinned: false,
-            timestamp: new Date(),
-            mentions: data.mentions || []
+            rank: socket.user.rank, 
+            content: data.content, 
+            type: 'text', 
+            timestamp: new Date() 
         };
-
-        // إضافة تأثيرات خاصة للرسالة حسب رتبة المستخدم
-        if (isOwner(socket.user)) {
-            message.effects = ['owner'];
-        } else if (socket.user.rank === 'admin') {
-            message.effects = ['admin'];
-        } else if (socket.user.rank === 'prince') {
-            message.effects = ['prince'];
-        }
-
         messages.push(message);
         io.to(data.roomId).emit('newMessage', message);
-
-        // إرسال إشعارات للمذكورين
-        if (message.mentions.length > 0) {
-            message.mentions.forEach(userId => {
-                io.to(userId).emit('mentioned', {
-                    messageId: message.id,
-                    roomId: message.roomId,
-                    from: message.display_name
-                });
-            });
-        }
-    });
-
-    // معالجة التفاعلات على الرسائل
-    socket.on('messageReaction', (data) => {
-        const { messageId, reaction } = data;
-        const message = messages.find(m => m.id === messageId);
-        if (!message) return;
-
-        // التحقق من صلاحية التفاعل
-        if (!['❤️', '👎', '😅', '👍'].includes(reaction)) {
-            return socket.emit('error', 'تفاعل غير صالح');
-        }
-
-        // إضافة أو إزالة التفاعل
-        const existingReaction = message.reactions.find(r => 
-            r.userId === socket.user.userId && r.type === reaction);
-
-        if (existingReaction) {
-            message.reactions = message.reactions.filter(r => 
-                !(r.userId === socket.user.userId && r.type === reaction));
-        } else {
-            message.reactions.push({
-                userId: socket.user.userId,
-                userName: socket.user.display_name,
-                type: reaction,
-                timestamp: new Date()
-            });
-        }
-
-        io.to(message.roomId).emit('messageReactionUpdated', {
-            messageId: message.id,
-            reactions: message.reactions
-        });
-    });
-
-    // تثبيت الرسائل
-    socket.on('pinMessage', (data) => {
-        const { messageId } = data;
-        const message = messages.find(m => m.id === messageId);
-        if (!message) return;
-
-        // التحقق من الصلاحيات
-        if (!isAdmin(socket.user)) {
-            return socket.emit('error', 'لا تملك صلاحية تثبيت الرسائل');
-        }
-
-        message.isPinned = !message.isPinned;
-        io.to(message.roomId).emit('messagePinned', {
-            messageId: message.id,
-            isPinned: message.isPinned,
-            pinnedBy: socket.user.display_name
-        });
-
-        logAuditAction(socket.user, message.isPinned ? 'pin_message' : 'unpin_message', {
-            messageId: message.id,
-            roomId: message.roomId
-        });
-    });
-
-    // معالجة الاقتباسات
-    socket.on('quoteMessage', (data) => {
-        const { messageId, comment } = data;
-        const originalMessage = messages.find(m => m.id === messageId);
-        if (!originalMessage) return;
-
-        const quotedMessage = { 
-            id: messages.length + 1, 
-            roomId: originalMessage.roomId, 
-            user_id: socket.user.userId, 
-            display_name: socket.user.display_name, 
-            rank: socket.user.rank,
-            frame: socket.user.activeFrame,
-            type: 'quote',
-            originalMessage: {
-                id: originalMessage.id,
-                content: originalMessage.message,
-                author: originalMessage.display_name,
-                timestamp: originalMessage.timestamp
-            },
-            message: comment,
-            timestamp: new Date(),
-            reactions: []
-        };
-
-        messages.push(quotedMessage);
-        io.to(quotedMessage.roomId).emit('newMessage', quotedMessage);
     });
 
     // إرسال رسالة خاصة
@@ -913,44 +430,18 @@ io.on('connection', (socket) => {
             (m.duration === 'permanent' || new Date() - new Date(m.timestamp) < parseDuration(m.duration)));
         if (isMuted) return socket.emit('error', 'أنت مكتوم ولا يمكنك إرسال الرسائل');
 
-        // التحقق من إعدادات الرسائل الخاصة للمستلم
-        const receiver = users.find(u => u.id === data.receiverId);
-        if (!receiver) return socket.emit('error', 'المستخدم غير موجود');
-
-        const senderLevel = getUserLevel(socket.user);
-        const canSendPM = receiver.privacySettings?.privateMessages === 'all' ||
-            (receiver.privacySettings?.privateMessages === 'level3' && senderLevel >= 3) ||
-            isAdmin(socket.user);
-
-        if (!canSendPM) {
-            return socket.emit('error', 'لا يمكنك إرسال رسائل خاصة لهذا المستخدم');
-        }
-
         const message = { 
             id: privateMessages.length + 1, 
             senderId: socket.user.userId, 
             display_name: socket.user.display_name, 
-            rank: socket.user.rank,
-            frame: socket.user.activeFrame,
+            rank: socket.user.rank, 
             receiverId: data.receiverId, 
             content: data.content, 
             type: 'text', 
-            timestamp: new Date(),
-            reactions: []
+            timestamp: new Date() 
         };
-        
         privateMessages.push(message);
-        
-        // إرسال الرسالة والإشعار للمستلم
         socket.to(data.receiverId).emit('newPrivateMessage', message);
-        if (receiver.privacySettings?.notifications !== false) {
-            socket.to(data.receiverId).emit('notification', {
-                type: 'private_message',
-                from: socket.user.display_name,
-                preview: data.content.substring(0, 50)
-            });
-        }
-        
         socket.emit('newPrivateMessage', message);
     });
 
@@ -1080,148 +571,6 @@ io.on('connection', (socket) => {
     // إرسال إشعار
     socket.on('sendNotification', (data) => {
         io.to(data.userId).emit('newNotification', data);
-    });
-
-    // إدارة المسابقات
-    socket.on('startQuiz', (data) => {
-        if (!isAdmin(socket.user)) {
-            return socket.emit('error', 'لا تملك صلاحية بدء المسابقات');
-        }
-
-        const { questions, roomId } = data;
-        const quiz = {
-            id: quizzes.length + 1,
-            questions,
-            currentQuestion: 0,
-            startTime: new Date(),
-            timePerQuestion: 20000, // 20 ثانية
-            participants: {},
-            roomId,
-            isActive: true
-        };
-        quizzes.push(quiz);
-
-        // بدء المسابقة
-        io.to(roomId).emit('quizStarted', {
-            quizId: quiz.id,
-            totalQuestions: questions.length,
-            timePerQuestion: quiz.timePerQuestion
-        });
-
-        // إرسال السؤال الأول
-        sendQuizQuestion(quiz);
-    });
-
-    // معالجة إجابات المسابقة
-    socket.on('submitQuizAnswer', (data) => {
-        const { quizId, answer } = data;
-        const quiz = quizzes.find(q => q.id === quizId && q.isActive);
-        if (!quiz) return;
-
-        const userId = socket.user.userId;
-        if (!quiz.participants[userId]) {
-            quiz.participants[userId] = {
-                userId,
-                displayName: socket.user.display_name,
-                score: 0,
-                answers: []
-            };
-        }
-
-        const currentQuestion = quiz.questions[quiz.currentQuestion];
-        const isCorrect = answer === currentQuestion.correct;
-        
-        quiz.participants[userId].answers.push({
-            questionIndex: quiz.currentQuestion,
-            answer,
-            isCorrect,
-            timeStamp: new Date()
-        });
-
-        if (isCorrect) {
-            quiz.participants[userId].score += 1;
-        }
-    });
-
-    function sendQuizQuestion(quiz) {
-        if (!quiz.isActive || quiz.currentQuestion >= quiz.questions.length) {
-            endQuiz(quiz);
-            return;
-        }
-
-        const question = quiz.questions[quiz.currentQuestion];
-        io.to(quiz.roomId).emit('newQuizQuestion', {
-            quizId: quiz.id,
-            questionNumber: quiz.currentQuestion + 1,
-            totalQuestions: quiz.questions.length,
-            question: question.text,
-            options: question.options,
-            timeLeft: quiz.timePerQuestion
-        });
-
-        // التقدم للسؤال التالي بعد 20 ثانية
-        setTimeout(() => {
-            quiz.currentQuestion++;
-            sendQuizQuestion(quiz);
-        }, quiz.timePerQuestion);
-    }
-
-    function endQuiz(quiz) {
-        quiz.isActive = false;
-        const results = Object.values(quiz.participants)
-            .sort((a, b) => b.score - a.score)
-            .map((p, index) => ({
-                rank: index + 1,
-                displayName: p.displayName,
-                score: p.score
-            }));
-
-        io.to(quiz.roomId).emit('quizEnded', {
-            quizId: quiz.id,
-            results
-        });
-    }
-
-    // إدارة الراديو/الموسيقى
-    socket.on('musicAction', (data) => {
-        if (!isAdmin(socket.user)) {
-            return socket.emit('error', 'لا تملك صلاحية التحكم بالموسيقى');
-        }
-
-        const { action, song } = data;
-        switch (action) {
-            case 'add':
-                if (song.url && song.title) {
-                    const newSong = {
-                        id: music.length + 1,
-                        ...song,
-                        addedBy: socket.user.display_name,
-                        addedAt: new Date()
-                    };
-                    music.push(newSong);
-                    io.emit('musicUpdated', { action: 'add', song: newSong });
-                }
-                break;
-
-            case 'remove':
-                const index = music.findIndex(s => s.id === song.id);
-                if (index !== -1) {
-                    music.splice(index, 1);
-                    io.emit('musicUpdated', { action: 'remove', songId: song.id });
-                }
-                break;
-
-            case 'play':
-                const songToPlay = music.find(s => s.id === song.id);
-                if (songToPlay) {
-                    io.emit('musicUpdated', { 
-                        action: 'play', 
-                        song: songToPlay,
-                        timestamp: new Date()
-                    });
-                }
-                break;
-        }
     });
 
     // تحميل المنشورات
@@ -1360,3 +709,4 @@ setInterval(() => {
 // تشغيل الخادم
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+```
